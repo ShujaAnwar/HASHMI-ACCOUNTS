@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account } from '../types';
 import { getAccounts, getConfig } from '../services/db';
@@ -14,8 +13,9 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
   const accounts = useMemo(() => getAccounts(), []);
   const config = useMemo(() => getConfig(), []);
   
-  // Filter for Expense accounts and Cash/Bank accounts
+  // Accounts for selection
   const expenseAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.EXPENSE), [accounts]);
+  const vendorAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.VENDOR), [accounts]);
   const cashBankAccounts = useMemo(() => config.banks, [config]);
 
   const [formData, setFormData] = useState({
@@ -37,7 +37,7 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.amount <= 0) return alert("Amount must be greater than 0");
-    if (!formData.expenseId) return alert("Please select an Expense Category");
+    if (!formData.expenseId) return alert("Please select a Debit Account (Expense or Vendor)");
     if (formData.currency === Currency.SAR && formData.roe <= 0) return alert("Invalid ROE");
 
     onSave({
@@ -58,12 +58,12 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
       <div className="flex justify-between items-start mb-10">
         <div>
           <span className="px-3 py-1 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-[10px] font-bold uppercase tracking-widest">
-            IAS 1 Financial Classification
+            Financial Disbursal Authorisation
           </span>
           <h3 className="text-3xl font-orbitron font-bold text-slate-900 dark:text-white mt-2">
-            {isClone ? 'Clone' : (initialData ? 'Edit' : 'Authorize')} Payment Voucher
+            {isClone ? 'Clone' : (initialData ? 'Edit' : 'Create')} Payment Voucher
           </h3>
-          <p className="text-slate-400 text-sm">Petty Cash & Operating Expense Disbursal</p>
+          <p className="text-slate-400 text-sm">Settlement of Payables or Operating Expenses</p>
         </div>
         <button onClick={onCancel} className="text-2xl hover:rotate-90 transition-transform">✕</button>
       </div>
@@ -125,28 +125,24 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Expense Head (Debit)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Debit Account (Expense or Vendor)</label>
               <select 
                 required
                 className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm appearance-none cursor-pointer shadow-inner"
                 value={formData.expenseId}
                 onChange={e => setFormData({...formData, expenseId: e.target.value})}
               >
-                <option value="">Select Category...</option>
-                {expenseAccounts.length > 0 ? (
-                  expenseAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)
-                ) : (
-                  <>
-                    <option value="exp-1">Office Supplies & Stationery</option>
-                    <option value="exp-2">Petty Cash - General</option>
-                    <option value="exp-3">Utility Bills (Electricity/Water)</option>
-                    <option value="exp-4">Staff Entertainment / Tea</option>
-                  </>
-                )}
+                <option value="">Select Account...</option>
+                <optgroup label="Operating Expenses">
+                  {expenseAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </optgroup>
+                <optgroup label="Vendor Settlements">
+                  {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.name} (Bal: {a.balance.toLocaleString()})</option>)}
+                </optgroup>
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Payment Source (Credit)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Source of Funds (Credit)</label>
               <select 
                 required
                 className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm appearance-none cursor-pointer shadow-inner"
@@ -162,10 +158,10 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Reference / Invoice #</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Reference / Bill #</label>
               <input 
                 className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-medium text-sm shadow-inner"
-                placeholder="Bill # or Payment Ref"
+                placeholder="Bill # or Transfer ID"
                 value={formData.reference}
                 onChange={e => setFormData({...formData, reference: e.target.value})}
               />
@@ -174,7 +170,7 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Transaction Narrative</label>
               <textarea 
                 className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-medium text-sm shadow-inner h-[110px]"
-                placeholder="Detailed reason for this payment..."
+                placeholder="Explanation of payment..."
                 value={formData.description}
                 onChange={e => setFormData({...formData, description: e.target.value})}
               />
@@ -188,13 +184,13 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
             onClick={onCancel}
             className="flex-1 px-8 py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-3xl hover:bg-slate-200 transition-all uppercase text-xs tracking-[0.2em]"
           >
-            Cancel Authorisation
+            Cancel
           </button>
           <button 
             type="submit" 
             className="flex-[2] px-8 py-5 bg-slate-900 dark:bg-white dark:text-slate-900 text-white font-bold rounded-3xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all uppercase text-xs tracking-[0.2em] border border-white/10"
           >
-            Commit to Ledger (Debit Expense)
+            Post Disbursal
           </button>
         </div>
       </form>

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Account, Voucher, VoucherStatus } from '../types';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
@@ -282,34 +281,40 @@ const Vouchers: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredVouchers.map((v) => (
-                <tr key={v.id} className="hover:bg-blue-50/20 dark:hover:bg-blue-900/10 transition-colors group">
-                  <td className="px-6 py-5">
-                    <p className="text-sm font-medium">{new Date(v.date).toLocaleDateString()}</p>
-                    <p className="font-bold text-blue-600 dark:text-blue-400 text-xs">{v.voucherNum}</p>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                        {v.customerId ? accounts.find(a => a.id === v.customerId)?.name : (v.type === VoucherType.PAYMENT ? accounts.find(a => a.id === v.details?.expenseId)?.name || 'Operating Expense' : 'N/A')}
-                      </p>
-                      <p className="text-xs text-slate-500 truncate max-w-xs">{v.description}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <p className="font-orbitron font-bold text-lg">{v.totalAmountPKR.toLocaleString()}</p>
-                    <p className="text-[10px] text-slate-400">{v.currency} { (v.totalAmountPKR / v.roe).toLocaleString() } @ {v.roe}</p>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex justify-center items-center space-x-2">
-                       <button onClick={() => setViewingVoucher(v)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-blue-500 transition-all" title="View Details">👁️</button>
-                       <button onClick={() => handleEdit(v)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-amber-500 transition-all" title="Edit Record">✏️</button>
-                       <button onClick={() => handleClone(v)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-emerald-500 transition-all" title="Clone Voucher">📑</button>
-                       <button onClick={() => handleDelete(v.id)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-rose-500 transition-all" title="Delete & Reverse">🗑️</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filteredVouchers.map((v) => {
+                const debitAccount = v.type === VoucherType.PAYMENT 
+                  ? accounts.find(a => a.id === v.details?.expenseId)?.name 
+                  : (v.customerId ? accounts.find(a => a.id === v.customerId)?.name : 'N/A');
+
+                return (
+                  <tr key={v.id} className="hover:bg-blue-50/20 dark:hover:bg-blue-900/10 transition-colors group">
+                    <td className="px-6 py-5">
+                      <p className="text-sm font-medium">{new Date(v.date).toLocaleDateString()}</p>
+                      <p className="font-bold text-blue-600 dark:text-blue-400 text-xs">{v.voucherNum}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col">
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {debitAccount || 'Unknown Account'}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate max-w-xs">{v.description}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <p className="font-orbitron font-bold text-lg">{v.totalAmountPKR.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-400">{v.currency} { (v.totalAmountPKR / v.roe).toLocaleString() } @ {v.roe}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex justify-center items-center space-x-2">
+                         <button onClick={() => setViewingVoucher(v)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-blue-500 transition-all" title="View Details">👁️</button>
+                         <button onClick={() => handleEdit(v)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-amber-500 transition-all" title="Edit Record">✏️</button>
+                         <button onClick={() => handleClone(v)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-emerald-500 transition-all" title="Clone Voucher">📑</button>
+                         <button onClick={() => handleDelete(v.id)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-rose-500 transition-all" title="Delete & Reverse">🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filteredVouchers.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-6 py-20 text-center">
@@ -339,11 +344,11 @@ const Vouchers: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="space-y-6">
                 <div>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Financial Narrative</p>
+                   <p className="text-[10px] font-bold text-slate-400 mb-1">Financial Narrative</p>
                    <p className="font-bold text-lg leading-snug">{viewingVoucher.description}</p>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Ledger Measurement</p>
+                  <p className="text-[10px] font-bold text-slate-400 mb-2">Ledger Measurement</p>
                   <p className="text-3xl font-orbitron font-bold text-blue-600">PKR {viewingVoucher.totalAmountPKR.toLocaleString()}</p>
                   <p className="text-xs text-slate-500 mt-1">Exchange Basis: {viewingVoucher.currency} @ {viewingVoucher.roe}</p>
                 </div>
@@ -352,13 +357,13 @@ const Vouchers: React.FC = () => {
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Debit Account</p>
+                      <p className="text-[10px] font-bold text-slate-400 mb-1">Debit Account</p>
                       <p className="font-bold text-sm">
                         {viewingVoucher.type === VoucherType.PAYMENT ? (accounts.find(a => a.id === viewingVoucher.details?.expenseId)?.name) : (viewingVoucher.customerId ? accounts.find(a => a.id === viewingVoucher.customerId)?.name : 'N/A')}
                       </p>
                    </div>
                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Credit Account</p>
+                      <p className="text-[10px] font-bold text-slate-400 mb-1">Credit Account</p>
                       <p className="font-bold text-sm">
                         {viewingVoucher.vendorId ? accounts.find(a => a.id === viewingVoucher.vendorId)?.name : (viewingVoucher.details?.bankId ? accounts.find(a => a.id === viewingVoucher.details.bankId)?.name : 'N/A')}
                       </p>
@@ -366,7 +371,7 @@ const Vouchers: React.FC = () => {
                 </div>
                 {viewingVoucher.reference && (
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Audit Reference</p>
+                    <p className="text-[10px] font-bold text-slate-400 mb-1">Audit Reference</p>
                     <p className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg inline-block">{viewingVoucher.reference}</p>
                   </div>
                 )}
@@ -579,10 +584,19 @@ const Vouchers: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Debit Account (Expense)</label>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Debit Account (Expense or Vendor)</label>
                       <select required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-lg appearance-none cursor-pointer shadow-inner" value={formData.expenseId} onChange={e => setFormData({...formData, expenseId: e.target.value})}>
-                        <option value="">Select Category...</option>
-                        {accounts.filter(a => a.type === AccountType.EXPENSE).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        <option value="">Select Account...</option>
+                        <optgroup label="Operating Expenses">
+                          {accounts.filter(a => a.type === AccountType.EXPENSE).map(a => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Vendor Payables">
+                          {accounts.filter(a => a.type === AccountType.VENDOR).map(a => (
+                            <option key={a.id} value={a.id}>{a.name} (Balance: {a.balance.toLocaleString()})</option>
+                          ))}
+                        </optgroup>
                       </select>
                     </div>
                     <div>
@@ -599,7 +613,7 @@ const Vouchers: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Payment Narrative</label>
-                      <textarea className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 h-32 font-medium" placeholder="Purpose..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                      <textarea className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 h-32 font-medium" placeholder="Purpose of payment..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                     </div>
                   </div>
                 </div>
