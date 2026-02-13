@@ -1,4 +1,3 @@
-
 export enum Currency {
   SAR = 'SAR',
   PKR = 'PKR'
@@ -73,7 +72,10 @@ export interface AppConfig {
   appSubtitle: string;
   companyAddress: string;
   companyPhone: string;
+  companyCell: string;
+  companyEmail: string;
   companyLogo?: string; // Base64
+  logoSize: number; // Height in pixels
   defaultROE: number;
   banks: { id: string; name: string; accountNumber: string }[];
 }

@@ -1,36 +1,42 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Account, AccountType, Voucher, VoucherType, Currency } from '../types';
+import { Account, AccountType, Voucher, Currency } from '../types';
 import { AccountingService } from '../services/AccountingService';
-import { getAccounts, getVouchers } from '../services/db';
+import { getAccounts, getVouchers, getConfig } from '../services/db';
 
 interface LedgerProps {
   type: AccountType;
+  onEditVoucher: (v: Voucher) => void;
 }
 
-const Ledger: React.FC<LedgerProps> = ({ type }) => {
+const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-  const [viewingAccountDetails, setViewingAccountDetails] = useState<Account | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [formMode, setFormMode] = useState<'CREATE' | 'EDIT' | 'CLONE'>('CREATE');
+  const [formMode, setFormMode] = useState<'CREATE' | 'EDIT'>('CREATE');
   const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
-  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [accountList, setAccountList] = useState<Account[]>([]);
   
+  const config = useMemo(() => getConfig(), []);
+  const allVouchers = useMemo(() => getVouchers(), []);
+
   const [formData, setFormData] = useState({ 
-    name: '', 
-    cell: '', 
-    location: '', 
-    code: '',
-    openingBalance: 0, 
+    name: '', cell: '', location: '', code: '', openingBalance: 0, 
     balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr' 
   });
 
-  // Sync state with storage on mount and when modal closes
+  // FIX: Reset selection when switching between Customer and Vendor tabs in the sidebar
   useEffect(() => {
+    setSelectedAccount(null);
+    setSearchTerm('');
     setAccountList(getAccounts().filter(a => a.type === type));
-  }, [type, showAddModal]);
+  }, [type]);
+
+  // Sync account list after modal close
+  useEffect(() => {
+    if (!showAddModal) {
+      setAccountList(getAccounts().filter(a => a.type === type));
+    }
+  }, [showAddModal, type]);
 
   const filteredAccounts = useMemo(() => {
     if (!searchTerm) return accountList;
@@ -43,138 +49,52 @@ const Ledger: React.FC<LedgerProps> = ({ type }) => {
     );
   }, [accountList, searchTerm]);
 
-  const handleOpenCreate = () => {
-    setFormMode('CREATE');
-    setAccountToEdit(null);
-    setFormData({ 
-      name: '', 
-      cell: '', 
-      location: '', 
-      code: '',
-      openingBalance: 0, 
-      balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr' 
-    });
-    setShowAddModal(true);
+  const handleAuditRefClick = (voucherNum: string) => {
+    const found = allVouchers.find(v => v.voucherNum === voucherNum);
+    if (found) onEditVoucher(found);
   };
 
-  const handleOpenEdit = (acc: Account, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setFormMode('EDIT');
-    setAccountToEdit(acc);
-    setFormData({
-      name: acc.name,
-      cell: acc.cell || '',
-      location: acc.location || '',
-      code: acc.code || '',
-      openingBalance: 0, // In edit mode we don't usually re-set opening balance
-      balanceType: acc.balance >= 0 ? 'dr' : 'cr'
-    });
-    setShowAddModal(true);
+  const handleDownloadPDF = () => {
+    window.print();
   };
 
-  const handleOpenClone = (acc: Account, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setFormMode('CLONE');
-    setAccountToEdit(acc);
-    setFormData({
-      name: `${acc.name} (Copy)`,
-      cell: acc.cell || '',
-      location: acc.location || '',
-      code: acc.code ? `${acc.code}-CL` : '',
-      openingBalance: Math.abs(acc.balance), // Carry over balance if desired, or set to 0
-      balanceType: acc.balance >= 0 ? 'dr' : 'cr'
-    });
-    setShowAddModal(true);
-  };
-
-  const handleDelete = (acc: Account, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete ${acc.name}? This will remove the account record from the system.`)) {
-      AccountingService.deleteAccount(acc.id);
-      setAccountList(getAccounts().filter(a => a.type === type));
-    }
-  };
-
-  const handleViewDetails = (acc: Account, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setViewingAccountDetails(acc);
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formMode === 'EDIT' && accountToEdit) {
-      AccountingService.updateAccount(accountToEdit.id, {
-        name: formData.name,
-        cell: formData.cell,
-        location: formData.location,
-        code: formData.code
-      });
-    } else {
-      // CREATE or CLONE
-      AccountingService.createAccount(
-        formData.name, 
-        type, 
-        formData.cell, 
-        formData.location, 
-        formData.openingBalance, 
-        formData.balanceType === 'dr',
-        formData.code
-      );
-    }
-    setShowAddModal(false);
-  };
-
-  const handleVoucherClick = (voucherNum: string) => {
-    const vouchers = getVouchers();
-    const found = vouchers.find(v => v.voucherNum === voucherNum);
-    if (found) setSelectedVoucher(found);
-  };
-
-  const exportToExcel = () => {
-    if (!selectedAccount) return;
-    const headers = ["Date", "Voucher #", "Description", "Debit", "Credit", "Balance"];
-    const rows = selectedAccount.ledger.map(e => [
-      new Date(e.date).toLocaleDateString(),
-      e.voucherNum,
-      e.description,
-      e.debit,
-      e.credit,
-      e.balanceAfter
-    ]);
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${selectedAccount.name}_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  };
+  const totalDebits = useMemo(() => selectedAccount?.ledger.reduce((sum, e) => sum + e.debit, 0) || 0, [selectedAccount]);
+  const totalCredits = useMemo(() => selectedAccount?.ledger.reduce((sum, e) => sum + e.credit, 0) || 0, [selectedAccount]);
+  const totalTransactions = useMemo(() => selectedAccount?.ledger.filter(e => e.voucherId !== 'opening').length || 0, [selectedAccount]);
 
   const typeLabel = type === AccountType.CUSTOMER ? 'Customer' : 'Vendor';
+
+  const getVoucherTypeLabel = (voucherNum: string) => {
+    if (voucherNum === 'OB-000') return 'Opening Balance';
+    const found = allVouchers.find(v => v.voucherNum === voucherNum);
+    if (!found) return 'Entry';
+    return found.type.charAt(0).toUpperCase() + found.type.slice(1).toLowerCase();
+  };
 
   return (
     <div className="space-y-6">
       {!selectedAccount ? (
         <>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
             <div className="relative flex-1 max-w-lg">
               <input 
                 type="text" 
-                placeholder={`Search by Name, Code, Location...`} 
-                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 pl-12 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition-all"
+                placeholder={`Search ${typeLabel}s...`} 
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 pl-12 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition-all text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               <span className="absolute left-4 top-4 text-xl opacity-40">🔍</span>
             </div>
             <button 
-              onClick={handleOpenCreate}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold shadow-xl shadow-blue-500/25 transition-all flex items-center justify-center space-x-2 active:scale-95"
+              onClick={() => { setFormMode('CREATE'); setAccountToEdit(null); setShowAddModal(true); }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold shadow-xl shadow-blue-500/25 transition-all active:scale-95 text-sm"
             >
-              <span className="text-xl">+</span> <span>New {typeLabel}</span>
+              + New {typeLabel}
             </button>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl no-print">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50/50 dark:bg-slate-800/30 text-slate-400 text-xs uppercase tracking-widest font-bold">
@@ -182,7 +102,7 @@ const Ledger: React.FC<LedgerProps> = ({ type }) => {
                     <th className="px-8 py-5">Name / Code</th>
                     <th className="px-8 py-5">Location</th>
                     <th className="px-8 py-5 text-right">Outstanding Balance</th>
-                    <th className="px-8 py-5 text-center no-print">Actions</th>
+                    <th className="px-8 py-5 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -194,46 +114,22 @@ const Ledger: React.FC<LedgerProps> = ({ type }) => {
                     >
                       <td className="px-8 py-6">
                         <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-600 font-bold group-hover:bg-blue-600 group-hover:text-white transition-all">
-                            {acc.name.charAt(0)}
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-600 font-bold group-hover:bg-blue-600 group-hover:text-white transition-all text-xs">
+                            {acc.code || acc.name.charAt(0)}
                           </div>
-                          <div>
-                            <p className="font-bold text-slate-800 dark:text-white">{acc.name}</p>
-                            <p className="text-xs text-slate-500 font-mono">{acc.code || 'NO CODE'}</p>
-                          </div>
+                          <div><p className="font-bold text-slate-800 dark:text-white">{acc.name}</p><p className="text-xs text-slate-500 font-mono">{acc.code || 'NO CODE'}</p></div>
                         </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-500">
-                          {acc.location || 'Not Specified'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <p className={`font-orbitron font-bold text-lg ${acc.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                          {Math.abs(acc.balance).toLocaleString()} 
-                          <span className="text-[10px] ml-1 opacity-60 font-sans">{acc.balance >= 0 ? 'DR' : 'CR'}</span>
-                        </p>
-                      </td>
-                      <td className="px-8 py-6 no-print">
+                      <td className="px-8 py-6"><span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-500">{acc.location || 'Not Specified'}</span></td>
+                      <td className="px-8 py-6 text-right"><p className={`font-orbitron font-bold text-lg ${acc.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.abs(acc.balance).toLocaleString()} <span className="text-[10px] ml-1 opacity-60 font-sans">{acc.balance >= 0 ? 'DR' : 'CR'}</span></p></td>
+                      <td className="px-8 py-6 text-center">
                         <div className="flex justify-center space-x-2">
-                           <button onClick={(e) => handleViewDetails(acc, e)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-blue-500 transition-all" title="View Info">👁️</button>
-                           <button onClick={(e) => handleOpenEdit(acc, e)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-amber-500 transition-all" title="Edit Record">✏️</button>
-                           <button onClick={(e) => handleOpenClone(acc, e)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-emerald-500 transition-all" title="Clone Record">📑</button>
-                           <button onClick={(e) => handleDelete(acc, e)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-rose-500 transition-all" title="Delete Record">🗑️</button>
+                           <button onClick={(e) => { e.stopPropagation(); setAccountToEdit(acc); setFormMode('EDIT'); setFormData({ name: acc.name, cell: acc.cell || '', location: acc.location || '', code: acc.code || '', openingBalance: 0, balanceType: acc.balance >= 0 ? 'dr' : 'cr' }); setShowAddModal(true); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-amber-500">✏️</button>
+                           <button onClick={(e) => { e.stopPropagation(); if(confirm('Delete account?')) { AccountingService.deleteAccount(acc.id); setAccountList(getAccounts().filter(a => a.type === type)); } }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-rose-500">🗑️</button>
                         </div>
                       </td>
                     </tr>
                   ))}
-                  {filteredAccounts.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-8 py-20 text-center text-slate-400">
-                        <div className="flex flex-col items-center">
-                          <span className="text-4xl mb-4">📂</span>
-                          <p className="text-lg font-medium">No {typeLabel.toLowerCase()} records found</p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -241,73 +137,147 @@ const Ledger: React.FC<LedgerProps> = ({ type }) => {
         </>
       ) : (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex justify-between items-center mb-6 no-print">
-            <button onClick={() => setSelectedAccount(null)} className="flex items-center space-x-2 text-blue-600 font-bold hover:underline">
-              <span className="text-xl">←</span> <span>Back to {typeLabel} List</span>
-            </button>
-            <div className="flex space-x-3">
-              <button onClick={exportToExcel} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20">
-                <span>Excel</span>
+          <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 no-print">
+            <div className="flex items-center space-x-4">
+              <button onClick={() => setSelectedAccount(null)} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-blue-600 transition-colors">
+                <span className="text-xl">←</span>
               </button>
-              <button onClick={() => window.print()} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-500/20">
-                <span>Print PDF</span>
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">{selectedAccount.name}</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Functional PKR Statement</p>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button onClick={handleDownloadPDF} className="flex items-center space-x-2 px-6 py-3 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                <span>📑</span> <span>Download PDF</span>
+              </button>
+              <button onClick={() => window.print()} className="flex items-center space-x-2 px-6 py-3 bg-[#0f172a] hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                <span>🖨️</span> <span>Print Ledger</span>
               </button>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-xl">
-            <div className="mb-8 border-b dark:border-slate-800 pb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-              <div>
-                <h2 className="text-3xl font-orbitron font-bold tracking-tight">{selectedAccount.name}</h2>
-                <p className="text-slate-500 font-medium mt-1">
-                  <span className="mr-4">📱 {selectedAccount.cell || 'N/A'}</span>
-                  <span>📍 {selectedAccount.location || 'N/A'}</span>
-                  <span className="ml-4 font-mono"># {selectedAccount.code || 'N/A'}</span>
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-1">Audit Adjusted Balance</p>
-                <p className={`text-4xl font-orbitron font-bold ${selectedAccount.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                  {Math.abs(selectedAccount.balance).toLocaleString()} 
-                  <span className="text-sm ml-2 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                    {selectedAccount.balance >= 0 ? 'DR' : 'CR'}
-                  </span>
-                </p>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 no-print">
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex items-center space-x-6 shadow-sm">
+              <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center">📈</div>
+              <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Period Debits</p><p className="text-2xl font-black font-orbitron text-slate-900 dark:text-white">Rs. {totalDebits.toLocaleString()}</p></div>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex items-center space-x-6 shadow-sm">
+              <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">📉</div>
+              <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Period Credits</p><p className="text-2xl font-black font-orbitron text-slate-900 dark:text-white">Rs. {totalCredits.toLocaleString()}</p></div>
+            </div>
+            <div className="bg-[#0f172a] p-8 rounded-[2.5rem] shadow-xl flex items-center space-x-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">🌐</div>
+              <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center">🏦</div>
+              <div className="relative z-10"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Net Functional Balance</p><p className="text-2xl font-black font-orbitron text-white">Rs. {Math.abs(selectedAccount.balance).toLocaleString()}</p><span className="inline-block mt-2 px-3 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-500/30">{selectedAccount.balance >= 0 ? 'Receivable' : 'Payable'}</span></div>
+            </div>
+          </div>
+
+          {/* ---------------- PIXEL-PERFECT PRINT TEMPLATE (Matches Screenshot) ---------------- */}
+          <div className="hidden print:block bg-white text-black p-0 font-inter">
+            <div className="mb-6 border-b border-slate-200 pb-6">
+              <h1 className="text-4xl font-black tracking-tight uppercase mb-1">{config.companyName}</h1>
+              <p className="text-sm font-medium text-slate-700">{config.companyAddress}</p>
+              <p className="text-sm font-medium text-slate-700 mt-1">
+                Contact: {config.companyCell} {config.companyPhone && `| ${config.companyPhone}`} | Email: {config.companyEmail}
+              </p>
             </div>
 
+            <div className="mb-8">
+              <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 mb-4">{typeLabel} Ledger Statement</h2>
+              <p className="text-lg font-bold">Party: <span className="uppercase text-slate-700">{selectedAccount.name} ({selectedAccount.code || 'N/A'})</span></p>
+              <p className="text-xs text-slate-400 mt-1 uppercase font-semibold">Generated on: {new Date().toLocaleString()}</p>
+            </div>
+
+            <table className="w-full border-collapse mb-10 text-[11px]">
+              <thead className="bg-[#0f172a] text-white">
+                <tr className="uppercase tracking-widest font-bold">
+                  <th className="p-3 text-left">Date</th>
+                  <th className="p-3 text-left">Ref #</th>
+                  <th className="p-3 text-left">Type</th>
+                  <th className="p-3 text-left">Narration</th>
+                  <th className="p-3 text-center">ROE</th>
+                  <th className="p-3 text-right">Debit</th>
+                  <th className="p-3 text-right">Credit</th>
+                  <th className="p-3 text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 border-b border-slate-300">
+                {selectedAccount.ledger.map((entry, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="p-3 font-medium text-slate-500 whitespace-nowrap">
+                      {entry.voucherId === 'opening' ? '-' : new Date(entry.date).toLocaleDateString()}
+                    </td>
+                    <td className="p-3 font-bold">{entry.voucherNum === 'OB-000' ? '-' : entry.voucherNum}</td>
+                    <td className="p-3 font-semibold text-slate-600 uppercase tracking-tighter">{getVoucherTypeLabel(entry.voucherNum)}</td>
+                    <td className="p-3 font-medium leading-tight max-w-[200px]">{entry.description}</td>
+                    <td className="p-3 text-center text-slate-500 font-bold">{entry.roe > 1 ? entry.roe.toFixed(1) : '-'}</td>
+                    <td className="p-3 text-right font-bold">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td>
+                    <td className="p-3 text-right font-bold">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td>
+                    <td className="p-3 text-right font-black whitespace-nowrap text-slate-900">
+                      {Math.abs(entry.balanceAfter).toLocaleString()} {entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-16">
+              <h3 className="text-xl font-black uppercase tracking-tight mb-4 text-slate-900">Financial Summary</h3>
+              <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100 flex justify-between items-center shadow-sm">
+                <div className="space-y-3 text-sm font-bold text-slate-600 uppercase tracking-widest">
+                  <p>Total Transactions: <span className="text-slate-900">{totalTransactions}</span></p>
+                  <p>Total Debits: <span className="text-emerald-600">Rs. {totalDebits.toLocaleString()}</span></p>
+                  <p>Total Credits: <span className="text-rose-600">Rs. {totalCredits.toLocaleString()}</span></p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-black font-orbitron text-slate-900">
+                    Net Balance: Rs. {Math.abs(selectedAccount.balance).toLocaleString()} {selectedAccount.balance >= 0 ? 'Dr' : 'Cr'}
+                  </p>
+                  <div className="mt-4 flex justify-end space-x-12 opacity-50">
+                    <div className="text-center"><div className="w-32 h-0.5 bg-slate-900 mb-2"></div><p className="text-[8px] font-bold">Authorised Signature</p></div>
+                    <div className="text-center"><div className="w-32 h-0.5 bg-slate-900 mb-2"></div><p className="text-[8px] font-bold">Customer Stamp</p></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Screen-Only Table (Hidden on Print) */}
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl no-print">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead>
-                  <tr className="text-slate-400 border-b border-slate-100 dark:border-slate-800 text-xs uppercase tracking-wider">
-                    <th className="py-4 font-bold">Post Date</th>
-                    <th className="py-4 font-bold">Voucher #</th>
-                    <th className="py-4 font-bold">Transaction Narrative</th>
-                    <th className="py-4 font-bold text-right">Debit</th>
-                    <th className="py-4 font-bold text-right">Credit</th>
-                    <th className="py-4 font-bold text-right">Running Balance</th>
+                <thead className="bg-[#0f172a] text-white">
+                  <tr className="text-[10px] uppercase tracking-widest font-black">
+                    <th className="px-8 py-6">Post Date</th><th className="px-8 py-6">Audit Ref</th><th className="px-8 py-6">Description / Narration</th><th className="px-8 py-6">ROE</th><th className="px-8 py-6 text-right">Debit (+)</th><th className="px-8 py-6 text-right">Credit (-)</th><th className="px-8 py-6 text-right">Balance</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                   {selectedAccount.ledger.map((entry, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="py-4 text-sm text-slate-400">{new Date(entry.date).toLocaleDateString()}</td>
-                      <td className="py-4">
-                        <button 
-                          onClick={() => handleVoucherClick(entry.voucherNum)}
-                          className="font-bold text-blue-600 hover:text-blue-400 underline underline-offset-4"
-                        >
-                          {entry.voucherNum}
-                        </button>
+                    <tr key={i} className="hover:bg-slate-50 transition-colors group">
+                      <td className="px-8 py-6 text-xs text-slate-400 font-medium">{entry.voucherId === 'opening' ? '-' : new Date(entry.date).toISOString().split('T')[0]}</td>
+                      <td className="px-8 py-6">
+                        {entry.voucherId === 'opening' ? <span className="text-slate-300 font-bold">--</span> : (
+                          <button onClick={() => handleAuditRefClick(entry.voucherNum)} className="font-black text-blue-600 dark:text-blue-400 text-xs hover:underline uppercase tracking-tighter" title="Click to edit">
+                             {entry.voucherNum}
+                          </button>
+                        )}
                       </td>
-                      <td className="py-4 text-sm max-w-md truncate font-medium">{entry.description}</td>
-                      <td className="py-4 text-right font-medium text-emerald-600">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td>
-                      <td className="py-4 text-right font-medium text-rose-600">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td>
-                      <td className={`py-4 text-right font-bold ${entry.balanceAfter >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {Math.abs(entry.balanceAfter).toLocaleString()} <span className="text-[10px]">{entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}</span>
+                      <td className="px-8 py-6 text-sm text-slate-700 dark:text-slate-300 font-bold">{entry.description}</td>
+                      <td className="px-8 py-6">{entry.roe > 1 ? <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[10px] font-black rounded-full">{entry.roe.toFixed(1)}</span> : <span className="text-slate-300 font-bold text-xs">--</span>}</td>
+                      <td className="px-8 py-6 text-right font-black">{entry.debit > 0 ? entry.debit.toLocaleString() : ''}</td>
+                      <td className="px-8 py-6 text-right font-black">{entry.credit > 0 ? entry.credit.toLocaleString() : ''}</td>
+                      <td className="px-8 py-6 text-right font-black text-slate-900 dark:text-white">
+                        {Math.abs(entry.balanceAfter).toLocaleString()} {entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}
                       </td>
                     </tr>
                   ))}
+                  <tr className="bg-slate-50 dark:bg-slate-800/30">
+                    <td colSpan={4} className="px-8 py-8 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Statement Totals:</td>
+                    <td className="px-8 py-8 text-right font-black text-sm">Rs. {totalDebits.toLocaleString()}</td>
+                    <td className="px-8 py-8 text-right font-black text-sm">Rs. {totalCredits.toLocaleString()}</td>
+                    <td className="px-0 py-0 text-right bg-[#0f172a] text-white"><div className="px-8 py-8 flex flex-col items-end"><p className="text-sm font-black font-orbitron">Rs. {Math.abs(selectedAccount.balance).toLocaleString()} {selectedAccount.balance >= 0 ? 'DR' : 'CR'}</p></div></td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -315,159 +285,22 @@ const Ledger: React.FC<LedgerProps> = ({ type }) => {
         </div>
       )}
 
-      {/* Add / Edit / Clone Modal */}
+      {/* Add / Edit Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 no-print">
           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[2.5rem] shadow-2xl p-10 border border-white/10">
-            <h3 className="text-3xl font-bold font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-400 mb-8">
-              {formMode === 'EDIT' ? 'Update' : (formMode === 'CLONE' ? 'Clone' : 'New')} {typeLabel} Profile
-            </h3>
-            <form onSubmit={handleFormSubmit} className="space-y-6">
+            <h3 className="text-3xl font-bold font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-400 mb-8 uppercase tracking-tighter">{formMode} {typeLabel} Profile</h3>
+            <form onSubmit={(e) => { e.preventDefault(); if(formMode === 'EDIT' && accountToEdit) AccountingService.updateAccount(accountToEdit.id, formData); else AccountingService.createAccount(formData.name, type, formData.cell, formData.location, formData.openingBalance, formData.balanceType === 'dr', formData.code); setShowAddModal(false); }} className="space-y-6">
               <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Code</label>
-                  <input 
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-blue-500/30 rounded-2xl p-4 transition-all outline-none font-mono font-bold"
-                    placeholder="e.g. 1010"
-                    value={formData.code}
-                    onChange={e => setFormData({...formData, code: e.target.value})}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Full Legal Entity Name</label>
-                  <input 
-                    required autoFocus
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-blue-500/30 rounded-2xl p-4 transition-all outline-none font-medium"
-                    placeholder="e.g. Skyline Travel Agency"
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                  />
-                </div>
+                <input className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 font-mono font-bold" placeholder="Code" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} />
+                <input required className="col-span-2 bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 font-bold" placeholder="Legal Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Cell (+92-XXX-XXXXXXX)</label>
-                  <input 
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-blue-500/30 rounded-2xl p-4 transition-all outline-none"
-                    placeholder="+92-300-1234567"
-                    value={formData.cell}
-                    onChange={e => setFormData({...formData, cell: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Office Location</label>
-                  <input 
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent focus:border-blue-500/30 rounded-2xl p-4 transition-all outline-none"
-                    placeholder="City, Country"
-                    value={formData.location}
-                    onChange={e => setFormData({...formData, location: e.target.value})}
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <input className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4" placeholder="Contact Cell" value={formData.cell} onChange={e => setFormData({...formData, cell: e.target.value})} />
+                <input className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4" placeholder="Location" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
               </div>
-              
-              {formMode !== 'EDIT' && (
-                <div className="bg-blue-50/30 dark:bg-blue-900/10 p-6 rounded-[2rem] border border-blue-500/10 space-y-4">
-                  <div>
-                    <label className="text-xs font-bold text-blue-600 uppercase tracking-widest px-1">Opening Balance (PKR)</label>
-                    <input 
-                      type="number"
-                      className="w-full bg-white dark:bg-slate-800 border-none rounded-xl p-4 focus:ring-2 focus:ring-blue-500 transition-all outline-none font-bold text-xl"
-                      value={formData.openingBalance}
-                      onChange={e => setFormData({...formData, openingBalance: Number(e.target.value)})}
-                    />
-                  </div>
-                  <div className="flex items-center space-x-6 px-1">
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input 
-                        type="radio" name="balanceType" value="dr" checked={formData.balanceType === 'dr'} 
-                        onChange={() => setFormData({...formData, balanceType: 'dr'})}
-                      />
-                      <span className={`text-sm font-bold uppercase ${formData.balanceType === 'dr' ? 'text-emerald-500' : 'text-slate-500'}`}>Debit</span>
-                    </label>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input 
-                        type="radio" name="balanceType" value="cr" checked={formData.balanceType === 'cr'} 
-                        onChange={() => setFormData({...formData, balanceType: 'cr'})}
-                      />
-                      <span className={`text-sm font-bold uppercase ${formData.balanceType === 'cr' ? 'text-rose-500' : 'text-slate-500'}`}>Credit</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex space-x-4">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-4 bg-slate-100 dark:bg-slate-800 font-bold rounded-2xl">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-xl">
-                  {formMode === 'EDIT' ? 'Update Profile' : 'Complete Setup'}
-                </button>
-              </div>
+              <div className="flex space-x-4"><button type="button" onClick={() => setShowAddModal(false)} className="flex-1 p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold">Cancel</button><button type="submit" className="flex-1 p-4 bg-blue-600 text-white rounded-2xl font-bold shadow-xl">Complete Setup</button></div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Account Info Detail View Modal */}
-      {viewingAccountDetails && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] p-10 border border-white/5 animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <span className="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-widest">{typeLabel} Intelligence</span>
-                <h3 className="text-3xl font-orbitron font-bold text-slate-900 dark:text-white mt-2">{viewingAccountDetails.name}</h3>
-                <p className="text-slate-400 text-sm font-mono mt-1">GL Code: {viewingAccountDetails.code || 'Not Assigned'}</p>
-              </div>
-              <button onClick={() => setViewingAccountDetails(null)} className="text-xl">✕</button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-8 mb-10">
-              <div className="space-y-4">
-                <div>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Number</p>
-                   <p className="font-bold text-lg">{viewingAccountDetails.cell || 'No Contact Data'}</p>
-                </div>
-                <div>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Corporate Address</p>
-                   <p className="font-bold text-lg">{viewingAccountDetails.location || 'Not Specified'}</p>
-                </div>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 text-right">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Outstanding Exposure</p>
-                <p className={`text-4xl font-orbitron font-bold ${viewingAccountDetails.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                   {Math.abs(viewingAccountDetails.balance).toLocaleString()}
-                </p>
-                <p className="text-xs font-bold uppercase text-slate-400 mt-1">{viewingAccountDetails.balance >= 0 ? 'Debit Balance' : 'Credit Balance'}</p>
-              </div>
-            </div>
-
-            <div className="flex space-x-4">
-              <button onClick={() => { setViewingAccountDetails(null); handleOpenEdit(viewingAccountDetails); }} className="flex-1 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-2xl text-xs uppercase tracking-widest">Edit Details</button>
-              <button onClick={() => setViewingAccountDetails(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 font-bold rounded-2xl text-xs uppercase tracking-widest">Close Information</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Voucher Modal */}
-      {selectedVoucher && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] p-10 border border-white/5">
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h3 className="text-3xl font-orbitron font-bold text-blue-600">{selectedVoucher.voucherNum}</h3>
-                <p className="text-slate-400 text-sm">Transaction recorded on {new Date(selectedVoucher.date).toLocaleString()}</p>
-              </div>
-              <button onClick={() => setSelectedVoucher(null)} className="text-xl">✕</button>
-            </div>
-            <div className="space-y-6">
-              <div className="border-b dark:border-slate-800 pb-6">
-                <p className="text-xs font-bold text-slate-400 uppercase mb-2">Narrative</p>
-                <p className="text-xl font-bold">{selectedVoucher.description}</p>
-                <p className="text-4xl font-orbitron font-bold text-blue-600 mt-4">
-                  PKR {selectedVoucher.totalAmountPKR.toLocaleString()}
-                </p>
-              </div>
-              <button onClick={() => setSelectedVoucher(null)} className="w-full py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold">Close Record</button>
-            </div>
           </div>
         </div>
       )}
