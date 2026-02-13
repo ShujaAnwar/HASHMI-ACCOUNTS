@@ -88,15 +88,20 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     }
   }, [formData.details.fromDate, formData.details.toDate, activeType]);
 
+  // PDF Download Trigger
   useEffect(() => {
     if (printType && viewingVoucher) {
       const originalTitle = document.title;
-      document.title = `${viewingVoucher.voucherNum}_${printType}_Voucher`;
-      setTimeout(() => { 
+      // This sets the suggested filename for the PDF download
+      document.title = `${viewingVoucher.voucherNum}_${viewingVoucher.details?.paxName || 'Statement'}.pdf`;
+      
+      const timer = setTimeout(() => { 
         window.print(); 
         document.title = originalTitle; 
         setPrintType(null); 
-      }, 500);
+      }, 300);
+      
+      return () => clearTimeout(timer);
     }
   }, [printType, viewingVoucher]);
 
@@ -150,7 +155,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
 
   /* ---------------- FORMAT 1: HOTEL BOOKING VOUCHER (SERVICE) ---------------- */
   const renderServiceVoucher = (v: Voucher) => (
-    <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page relative">
+    <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page">
       <div className="flex justify-between items-start mb-8">
         <div className="w-1/3">
           {config.companyLogo && <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" />}
@@ -159,10 +164,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           <h2 className="text-xl font-bold">Hotel Booking Voucher</h2>
           <p className="text-rose-600 font-bold">{config.companyName} {config.appSubtitle}</p>
         </div>
-        <div className="w-1/3 text-right text-[10px] text-slate-700 leading-relaxed font-medium no-print">
-          <button onClick={() => setPrintType('SERVICE')} className="bg-[#0b7ea1] text-white px-6 py-2 rounded font-bold text-xs uppercase shadow hover:bg-blue-600">Print</button>
-        </div>
-        <div className="w-1/3 text-right text-[10px] text-slate-700 leading-relaxed font-medium hidden print:block">
+        <div className="w-1/3 text-right text-[10px] text-slate-700 leading-relaxed font-medium">
           <p>{config.companyAddress}</p>
           <p>Cell: {config.companyCell}</p>
           <p>Phone: {config.companyPhone}</p>
@@ -187,7 +189,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
         <thead className="bg-slate-50 border-y-2 border-slate-200"><tr className="uppercase text-[9px] font-black text-slate-500"><th className="p-4 text-left">ROOMS/BEDS</th><th className="p-4 text-left">Room Type</th><th className="p-4 text-left">Meal</th><th className="p-4 text-left">Guest Name</th><th className="p-4 text-center">Adult(s)</th><th className="p-4 text-center">Children</th></tr></thead>
         <tbody><tr className="bg-slate-50/50"><td className="p-4 border-b font-bold">{v.details?.numRooms || 1}</td><td className="p-4 border-b font-bold">{v.details?.roomType || 'DBL C.V'}</td><td className="p-4 border-b font-bold uppercase">NONE</td><td className="p-4 border-b font-bold uppercase">{v.details?.paxName}</td><td className="p-4 border-b text-center font-bold">{v.details?.numAdults || 2}</td><td className="p-4 border-b text-center font-bold"></td></tr></tbody>
       </table>
-      <div className="space-y-4 text-[11px] mb-12"><p className="font-black uppercase">Check-in/Check-out Timings & Policies</p><ul className="list-disc pl-5 space-y-1 text-slate-700"><li>The usual check-in time is 2:00/4:00 PM hours however this might vary...</li><li>Rooms may not be available for early check-in, unless especially required in advance.</li><li>Note that reservation may be canceled automatically after 18:00 hours...</li><li>The usual checkout time is at 12:00 hours however this might vary...</li></ul></div>
+      <div className="space-y-4 text-[11px] mb-12"><p className="font-black uppercase">Check-in/Check-out Timings & Policies</p><ul className="list-disc pl-5 space-y-1 text-slate-700"><li>The usual check-in time is 2:00/4:00 PM hours...</li><li>Rooms may not be available for early check-in, unless especially required in advance.</li><li>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed.</li><li>The usual checkout time is at 12:00 hours...</li></ul></div>
       <p className="text-[10px] text-slate-500 font-bold border-t pt-4 italic">Booking Notes: Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.</p>
     </div>
   );
@@ -258,7 +260,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
         <tbody><tr><td className="border p-3 uppercase text-center">{v.details?.paxName}</td><td className="border p-3 uppercase text-center">{v.details?.hotelName}</td><td className="border p-3 text-center font-black">{v.details?.roomType}</td><td className="border p-3 text-center font-black">None</td><td className="border p-3 text-center uppercase font-black text-[9px] leading-tight">MADINAH MUNAWWARAH-SAUDIA ARABIA</td><td className="border p-3 text-center text-[9px] font-black">{new Date(v.details?.fromDate).toLocaleDateString()}<br/>{new Date(v.details?.toDate).toLocaleDateString()}</td><td className="border p-3 text-right font-black">{v.totalAmountPKR.toLocaleString()}</td></tr><tr className="font-black bg-slate-50"><td colSpan={6} className="border p-3 text-right">Total:</td><td className="border p-3 text-right font-black">PKR {v.totalAmountPKR.toLocaleString(undefined, {minimumFractionDigits: 2})}</td></tr></tbody></table>
         <div className="text-[11px] font-black uppercase mb-8 pt-4 border-t border-slate-100">IN WORDS: {amountToWords(v.totalAmountPKR)}</div>
         <p className="text-[11px] font-black mb-12">On behalf of {config.companyName} Travels Services</p>
-        <div className="space-y-4 text-[10px] font-bold text-slate-700 border-t-2 pt-6"><p className="font-black text-slate-900 text-sm uppercase tracking-widest mb-2">Acknowledgement</p><ol className="list-decimal pl-6 space-y-1"><li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li><li>IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li><li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li><li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li></ol></div>
+        <div className="space-y-4 text-[10px] font-bold text-slate-700 border-t-2 pt-6"><p className="font-black text-slate-900 text-sm uppercase tracking-widest mb-2">Acknowledgement</p><ol className="list-decimal pl-6 space-y-1"><li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li><li>IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li><li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li></ol></div>
       </div>
     );
   };
@@ -294,7 +296,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
             <div className="flex items-center space-x-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
               {['SERVICE', 'SAR', 'OFFICIAL', 'PKR'].map((v: any) => (<button key={v} onClick={() => setInspectorView(v)} className={`px-6 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${inspectorView === v ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}>{v} View</button>))}
             </div>
-            <div className="flex items-center space-x-3"><button onClick={() => setPrintType(inspectorView as any)} className="px-5 py-3 bg-[#0b7ea1] text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center space-x-2 hover:bg-blue-500 shadow-xl font-black"><span>🖨️</span> <span>Download PDF / Print</span></button><button onClick={() => { setViewingVoucher(null); handleEdit(viewingVoucher); }} className="px-5 py-3 bg-slate-800 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700"><span>✏️</span> <span>Edit Entry</span></button></div>
+            <div className="flex items-center space-x-3"><button onClick={() => setPrintType(inspectorView as any)} className="px-8 py-3 bg-[#0b7ea1] text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center space-x-3 hover:bg-blue-500 shadow-xl transition-all"><span>📥</span> <span>Download Statement as PDF</span></button><button onClick={() => { setViewingVoucher(null); handleEdit(viewingVoucher); }} className="px-5 py-3 bg-slate-800 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700"><span>✏️</span> <span>Edit Entry</span></button></div>
           </div>
           <div className="flex-1 p-8 md:p-12 flex justify-center bg-slate-100 dark:bg-slate-950">
             <div className="w-full max-w-5xl shadow-2xl rounded-xl overflow-hidden bg-white">

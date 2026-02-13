@@ -54,23 +54,20 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
 
   const handleDownloadPDF = () => {
     const originalTitle = document.title;
-    document.title = `${selectedAccount?.name || 'Ledger'}_Statement_${new Date().toISOString().split('T')[0]}`;
-    window.print();
-    setTimeout(() => { document.title = originalTitle; }, 500);
+    // Format: Ledger_AccountName_YYYY-MM-DD.pdf
+    document.title = `Statement_${selectedAccount?.name || 'Ledger'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    // Slight delay to allow DOM to settle if needed
+    setTimeout(() => {
+      window.print();
+      document.title = originalTitle;
+    }, 100);
   };
 
   const totalDebits = useMemo(() => selectedAccount?.ledger.reduce((sum, e) => sum + e.debit, 0) || 0, [selectedAccount]);
   const totalCredits = useMemo(() => selectedAccount?.ledger.reduce((sum, e) => sum + e.credit, 0) || 0, [selectedAccount]);
-  const totalTransactions = useMemo(() => selectedAccount?.ledger.filter(e => e.voucherId !== 'opening').length || 0, [selectedAccount]);
 
   const typeLabel = type === AccountType.CUSTOMER ? 'Customer' : 'Vendor';
-
-  const getVoucherTypeLabel = (voucherNum: string) => {
-    if (voucherNum === 'OB-000') return 'Opening Balance';
-    const found = allVouchers.find(v => v.voucherNum === voucherNum);
-    if (!found) return 'Entry';
-    return found.type.charAt(0).toUpperCase() + found.type.slice(1).toLowerCase();
-  };
 
   return (
     <div className="space-y-6">
@@ -148,14 +145,9 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Functional PKR Statement</p>
               </div>
             </div>
-            <div className="flex space-x-3">
-              <button onClick={handleDownloadPDF} className="flex items-center space-x-2 px-6 py-3 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                <span>📑</span> <span>Download PDF / Save</span>
-              </button>
-              <button onClick={() => window.print()} className="flex items-center space-x-2 px-6 py-3 bg-[#0f172a] hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                <span>🖨️</span> <span>Print Statement</span>
-              </button>
-            </div>
+            <button onClick={handleDownloadPDF} className="flex items-center space-x-3 px-8 py-4 bg-[#10b981] hover:bg-[#059669] text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">
+              <span>📥</span> <span>Download Account Statement as PDF</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 no-print">
@@ -174,7 +166,6 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
             </div>
           </div>
 
-          {/* Ledger Statement for Screen and Print */}
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl voucher-page">
             <div className="hidden print:block border-b-2 border-slate-900 p-10 mb-6">
                <h1 className="text-4xl font-black text-slate-900 mb-1">{config.companyName}</h1>
@@ -193,12 +184,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
                     <tr key={i} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-8 py-6 text-xs text-slate-400 font-medium">{entry.voucherId === 'opening' ? '-' : new Date(entry.date).toLocaleDateString()}</td>
                       <td className="px-8 py-6">
-                        {entry.voucherId === 'opening' ? <span className="text-slate-300 font-bold">--</span> : (
-                          <button onClick={() => handleAuditRefClick(entry.voucherNum)} className="font-black text-blue-600 dark:text-blue-400 text-xs hover:underline uppercase tracking-tighter no-print">
-                             {entry.voucherNum}
-                          </button>
-                        )}
-                        <span className="hidden print:inline font-bold text-xs">{entry.voucherNum}</span>
+                        <span className="font-bold text-xs text-blue-600">{entry.voucherNum}</span>
                       </td>
                       <td className="px-8 py-6 text-sm text-slate-700 dark:text-slate-300 font-bold">{entry.description}</td>
                       <td className="px-8 py-6">{entry.roe > 1 ? <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[10px] font-black rounded-full">{entry.roe.toFixed(1)}</span> : <span className="text-slate-300 font-bold text-xs">--</span>}</td>
@@ -219,7 +205,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
               </table>
             </div>
             <div className="hidden print:block p-10 mt-10 border-t-2 border-slate-100 italic text-[10px] text-slate-400">
-               * This is a computer generated ledger statement for audit purposes. Standard accounting rules apply.
+               * Standard accounting rules apply. Exported for compliance.
             </div>
           </div>
         </div>

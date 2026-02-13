@@ -30,19 +30,29 @@
             font-family: 'Orbitron', sans-serif;
         }
         @media print {
-            .no-print { display: none !important; }
+            .no-print, .no-print * { display: none !important; }
             .print-only { display: block !important; }
-            body { background: white !important; color: black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { 
+                background: white !important; 
+                color: black !important; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+                margin: 0 !important;
+                padding: 0 !important;
+            }
             #root { padding: 0 !important; margin: 0 !important; }
-            @page { margin: 0.5cm; }
+            @page { 
+                size: A4;
+                margin: 0; 
+            }
             .voucher-page { 
-              width: 100%;
-              height: auto;
-              min-height: 0;
-              padding: 0;
-              margin: 0;
+              width: 210mm;
+              height: 297mm;
+              padding: 20mm !important;
+              margin: 0 auto;
               box-shadow: none !important;
               border: none !important;
+              page-break-after: always;
             }
         }
     </style>
@@ -61,7 +71,6 @@
 </head>
 <body class="bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
     <div id="root"></div>
-    <!-- Entry point for the application bootstrap -->
     <script type="module" src="index.tsx"></script>
 </body>
 </html>
