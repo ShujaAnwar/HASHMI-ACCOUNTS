@@ -24,14 +24,12 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
     balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr' 
   });
 
-  // FIX: Reset selection when switching between Customer and Vendor tabs in the sidebar
   useEffect(() => {
     setSelectedAccount(null);
     setSearchTerm('');
     setAccountList(getAccounts().filter(a => a.type === type));
   }, [type]);
 
-  // Sync account list after modal close
   useEffect(() => {
     if (!showAddModal) {
       setAccountList(getAccounts().filter(a => a.type === type));
@@ -55,7 +53,10 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
   };
 
   const handleDownloadPDF = () => {
+    const originalTitle = document.title;
+    document.title = `${selectedAccount?.name || 'Ledger'}_Statement_${new Date().toISOString().split('T')[0]}`;
     window.print();
+    setTimeout(() => { document.title = originalTitle; }, 500);
   };
 
   const totalDebits = useMemo(() => selectedAccount?.ledger.reduce((sum, e) => sum + e.debit, 0) || 0, [selectedAccount]);
@@ -140,7 +141,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
           <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 no-print">
             <div className="flex items-center space-x-4">
               <button onClick={() => setSelectedAccount(null)} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-blue-600 transition-colors">
-                <span className="text-xl">←</span>
+                <span className="text-xl font-bold">←</span>
               </button>
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">{selectedAccount.name}</h2>
@@ -149,102 +150,37 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
             </div>
             <div className="flex space-x-3">
               <button onClick={handleDownloadPDF} className="flex items-center space-x-2 px-6 py-3 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                <span>📑</span> <span>Download PDF</span>
+                <span>📑</span> <span>Download PDF / Save</span>
               </button>
               <button onClick={() => window.print()} className="flex items-center space-x-2 px-6 py-3 bg-[#0f172a] hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                <span>🖨️</span> <span>Print Ledger</span>
+                <span>🖨️</span> <span>Print Statement</span>
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 no-print">
             <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex items-center space-x-6 shadow-sm">
-              <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center">📈</div>
+              <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center font-bold">📈</div>
               <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Period Debits</p><p className="text-2xl font-black font-orbitron text-slate-900 dark:text-white">Rs. {totalDebits.toLocaleString()}</p></div>
             </div>
             <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex items-center space-x-6 shadow-sm">
-              <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">📉</div>
+              <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center font-bold">📉</div>
               <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Period Credits</p><p className="text-2xl font-black font-orbitron text-slate-900 dark:text-white">Rs. {totalCredits.toLocaleString()}</p></div>
             </div>
             <div className="bg-[#0f172a] p-8 rounded-[2.5rem] shadow-xl flex items-center space-x-6 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">🌐</div>
-              <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center">🏦</div>
+              <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center font-bold">🏦</div>
               <div className="relative z-10"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Net Functional Balance</p><p className="text-2xl font-black font-orbitron text-white">Rs. {Math.abs(selectedAccount.balance).toLocaleString()}</p><span className="inline-block mt-2 px-3 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-500/30">{selectedAccount.balance >= 0 ? 'Receivable' : 'Payable'}</span></div>
             </div>
           </div>
 
-          {/* ---------------- PIXEL-PERFECT PRINT TEMPLATE (Matches Screenshot) ---------------- */}
-          <div className="hidden print:block bg-white text-black p-0 font-inter">
-            <div className="mb-6 border-b border-slate-200 pb-6">
-              <h1 className="text-4xl font-black tracking-tight uppercase mb-1">{config.companyName}</h1>
-              <p className="text-sm font-medium text-slate-700">{config.companyAddress}</p>
-              <p className="text-sm font-medium text-slate-700 mt-1">
-                Contact: {config.companyCell} {config.companyPhone && `| ${config.companyPhone}`} | Email: {config.companyEmail}
-              </p>
+          {/* Ledger Statement for Screen and Print */}
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl voucher-page">
+            <div className="hidden print:block border-b-2 border-slate-900 p-10 mb-6">
+               <h1 className="text-4xl font-black text-slate-900 mb-1">{config.companyName}</h1>
+               <p className="text-rose-600 font-bold uppercase tracking-widest text-sm mb-4">{config.appSubtitle}</p>
+               <p className="text-xs text-slate-500">{config.companyAddress} | Cell: {config.companyCell} | Email: {config.companyEmail}</p>
             </div>
-
-            <div className="mb-8">
-              <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 mb-4">{typeLabel} Ledger Statement</h2>
-              <p className="text-lg font-bold">Party: <span className="uppercase text-slate-700">{selectedAccount.name} ({selectedAccount.code || 'N/A'})</span></p>
-              <p className="text-xs text-slate-400 mt-1 uppercase font-semibold">Generated on: {new Date().toLocaleString()}</p>
-            </div>
-
-            <table className="w-full border-collapse mb-10 text-[11px]">
-              <thead className="bg-[#0f172a] text-white">
-                <tr className="uppercase tracking-widest font-bold">
-                  <th className="p-3 text-left">Date</th>
-                  <th className="p-3 text-left">Ref #</th>
-                  <th className="p-3 text-left">Type</th>
-                  <th className="p-3 text-left">Narration</th>
-                  <th className="p-3 text-center">ROE</th>
-                  <th className="p-3 text-right">Debit</th>
-                  <th className="p-3 text-right">Credit</th>
-                  <th className="p-3 text-right">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 border-b border-slate-300">
-                {selectedAccount.ledger.map((entry, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="p-3 font-medium text-slate-500 whitespace-nowrap">
-                      {entry.voucherId === 'opening' ? '-' : new Date(entry.date).toLocaleDateString()}
-                    </td>
-                    <td className="p-3 font-bold">{entry.voucherNum === 'OB-000' ? '-' : entry.voucherNum}</td>
-                    <td className="p-3 font-semibold text-slate-600 uppercase tracking-tighter">{getVoucherTypeLabel(entry.voucherNum)}</td>
-                    <td className="p-3 font-medium leading-tight max-w-[200px]">{entry.description}</td>
-                    <td className="p-3 text-center text-slate-500 font-bold">{entry.roe > 1 ? entry.roe.toFixed(1) : '-'}</td>
-                    <td className="p-3 text-right font-bold">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td>
-                    <td className="p-3 text-right font-bold">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td>
-                    <td className="p-3 text-right font-black whitespace-nowrap text-slate-900">
-                      {Math.abs(entry.balanceAfter).toLocaleString()} {entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="mt-16">
-              <h3 className="text-xl font-black uppercase tracking-tight mb-4 text-slate-900">Financial Summary</h3>
-              <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100 flex justify-between items-center shadow-sm">
-                <div className="space-y-3 text-sm font-bold text-slate-600 uppercase tracking-widest">
-                  <p>Total Transactions: <span className="text-slate-900">{totalTransactions}</span></p>
-                  <p>Total Debits: <span className="text-emerald-600">Rs. {totalDebits.toLocaleString()}</span></p>
-                  <p>Total Credits: <span className="text-rose-600">Rs. {totalCredits.toLocaleString()}</span></p>
-                </div>
-                <div className="text-right">
-                  <p className="text-3xl font-black font-orbitron text-slate-900">
-                    Net Balance: Rs. {Math.abs(selectedAccount.balance).toLocaleString()} {selectedAccount.balance >= 0 ? 'Dr' : 'Cr'}
-                  </p>
-                  <div className="mt-4 flex justify-end space-x-12 opacity-50">
-                    <div className="text-center"><div className="w-32 h-0.5 bg-slate-900 mb-2"></div><p className="text-[8px] font-bold">Authorised Signature</p></div>
-                    <div className="text-center"><div className="w-32 h-0.5 bg-slate-900 mb-2"></div><p className="text-[8px] font-bold">Customer Stamp</p></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Screen-Only Table (Hidden on Print) */}
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl no-print">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-[#0f172a] text-white">
@@ -255,13 +191,14 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                   {selectedAccount.ledger.map((entry, i) => (
                     <tr key={i} className="hover:bg-slate-50 transition-colors group">
-                      <td className="px-8 py-6 text-xs text-slate-400 font-medium">{entry.voucherId === 'opening' ? '-' : new Date(entry.date).toISOString().split('T')[0]}</td>
+                      <td className="px-8 py-6 text-xs text-slate-400 font-medium">{entry.voucherId === 'opening' ? '-' : new Date(entry.date).toLocaleDateString()}</td>
                       <td className="px-8 py-6">
                         {entry.voucherId === 'opening' ? <span className="text-slate-300 font-bold">--</span> : (
-                          <button onClick={() => handleAuditRefClick(entry.voucherNum)} className="font-black text-blue-600 dark:text-blue-400 text-xs hover:underline uppercase tracking-tighter" title="Click to edit">
+                          <button onClick={() => handleAuditRefClick(entry.voucherNum)} className="font-black text-blue-600 dark:text-blue-400 text-xs hover:underline uppercase tracking-tighter no-print">
                              {entry.voucherNum}
                           </button>
                         )}
+                        <span className="hidden print:inline font-bold text-xs">{entry.voucherNum}</span>
                       </td>
                       <td className="px-8 py-6 text-sm text-slate-700 dark:text-slate-300 font-bold">{entry.description}</td>
                       <td className="px-8 py-6">{entry.roe > 1 ? <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[10px] font-black rounded-full">{entry.roe.toFixed(1)}</span> : <span className="text-slate-300 font-bold text-xs">--</span>}</td>
@@ -281,11 +218,13 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher }) => {
                 </tbody>
               </table>
             </div>
+            <div className="hidden print:block p-10 mt-10 border-t-2 border-slate-100 italic text-[10px] text-slate-400">
+               * This is a computer generated ledger statement for audit purposes. Standard accounting rules apply.
+            </div>
           </div>
         </div>
       )}
 
-      {/* Add / Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 no-print">
           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[2.5rem] shadow-2xl p-10 border border-white/10">

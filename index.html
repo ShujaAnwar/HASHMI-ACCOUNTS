@@ -35,6 +35,15 @@
             body { background: white !important; color: black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             #root { padding: 0 !important; margin: 0 !important; }
             @page { margin: 0.5cm; }
+            .voucher-page { 
+              width: 100%;
+              height: auto;
+              min-height: 0;
+              padding: 0;
+              margin: 0;
+              box-shadow: none !important;
+              border: none !important;
+            }
         }
     </style>
 <script type="importmap">
@@ -52,5 +61,7 @@
 </head>
 <body class="bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
     <div id="root"></div>
+    <!-- Entry point for the application bootstrap -->
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>
