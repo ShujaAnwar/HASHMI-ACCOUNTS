@@ -11,6 +11,14 @@ const CITIES_BY_COUNTRY: Record<string, string[]> = {
   "Egypt": ["Cairo", "Sharm El-Sheikh", "Alexandria"]
 };
 
+const TRANSPORT_PRESETS = [
+  { label: 'Makkah → Jeddah (H1)', sector: 'Makkah → Jeddah', vehicle: 'H1', rate: 200, currency: Currency.SAR },
+  { label: 'Makkah → Jeddah (Car)', sector: 'Makkah → Jeddah', vehicle: 'Sedan', rate: 150, currency: Currency.SAR },
+  { label: 'Makkah → Madinah → Makkah (H1)', sector: 'Makkah → Madinah → Makkah', vehicle: 'H1', rate: 400, currency: Currency.SAR },
+  { label: 'Makkah → Madinah → Makkah (Car)', sector: 'Makkah → Madinah → Makkah', vehicle: 'Sedan', rate: 350, currency: Currency.SAR },
+  { label: 'Madinah Hotel → Airport (H1/Car)', sector: 'Madinah Hotel → Madinah Airport', vehicle: 'H1', rate: 100, currency: Currency.SAR },
+];
+
 const Vouchers: React.FC = () => {
   const [activeType, setActiveType] = useState<VoucherType>(VoucherType.RECEIPT);
   const [showForm, setShowForm] = useState(false);
@@ -63,9 +71,10 @@ const Vouchers: React.FC = () => {
       numAdults: 1,
       numChildren: 0,
       sector: '',
-      vehicle: 'H1',
+      vehicle: 'Bus',
       ticketNum: '',
-      airline: ''
+      airline: '',
+      visaType: 'Umrah'
     }
   });
 
@@ -112,6 +121,19 @@ const Vouchers: React.FC = () => {
     return formData.amount;
   }, [activeType, formData.amount, formData.details.numNights, formData.details.numRooms]);
 
+  const applyPreset = (preset: typeof TRANSPORT_PRESETS[0]) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      currency: preset.currency,
+      amount: preset.rate,
+      details: {
+        ...prev.details,
+        sector: preset.sector,
+        vehicle: preset.vehicle
+      }
+    }));
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.currency === Currency.SAR && formData.roe <= 0) {
@@ -127,8 +149,16 @@ const Vouchers: React.FC = () => {
     const finalAmountPKR = totalCalculatedAmount * roe;
 
     let desc = formData.description;
-    if (!desc && activeType === VoucherType.HOTEL) {
-      desc = `Hotel: ${formData.details.hotelName} (${formData.details.numNights} nights, ${formData.details.numRooms} rooms) for ${formData.details.paxName}`;
+    if (!desc) {
+      if (activeType === VoucherType.HOTEL) {
+        desc = `Hotel: ${formData.details.hotelName} (${formData.details.numNights} nights) for ${formData.details.paxName}`;
+      } else if (activeType === VoucherType.VISA) {
+        desc = `Visa: ${formData.details.visaType} (${formData.details.country}) for ${formData.details.paxName}`;
+      } else if (activeType === VoucherType.TRANSPORT) {
+        desc = `Transport: ${formData.details.vehicle} (${formData.details.sector}) for ${formData.details.paxName}`;
+      } else if (activeType === VoucherType.TICKET) {
+        desc = `Ticket: ${formData.details.airline} (${formData.details.ticketNum}) for ${formData.details.paxName}`;
+      }
     }
 
     const voucherPayload = {
@@ -189,9 +219,10 @@ const Vouchers: React.FC = () => {
         numAdults: 1,
         numChildren: 0,
         sector: '',
-        vehicle: 'H1',
+        vehicle: 'Bus',
         ticketNum: '',
-        airline: ''
+        airline: '',
+        visaType: 'Umrah'
       }
     });
   };
@@ -211,9 +242,11 @@ const Vouchers: React.FC = () => {
   const handleDelete = (id: string) => {
     if (window.confirm("ARE YOU SURE? This action will permanently delete this voucher and REVERSE all associated ledger entries. This cannot be undone.")) {
       AccountingService.deleteVoucher(id);
-      window.location.reload(); // Refresh to sync memo states
+      window.location.reload(); 
     }
   };
+
+  const isSalesVoucher = [VoucherType.HOTEL, VoucherType.TRANSPORT, VoucherType.VISA, VoucherType.TICKET].includes(activeType);
 
   return (
     <div className="space-y-6">
@@ -334,9 +367,9 @@ const Vouchers: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-[2.5rem] shadow-2xl p-10 border border-white/10 animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-start mb-10 border-b dark:border-slate-800 pb-6">
               <div>
-                <span className="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-widest">Double-Entry Post Receipt</span>
+                <span className="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-widest">Transaction Post Review</span>
                 <h3 className="text-3xl font-orbitron font-bold text-slate-900 dark:text-white mt-2">{viewingVoucher.voucherNum}</h3>
-                <p className="text-slate-400 text-sm">Created on {new Date(viewingVoucher.date).toLocaleString()}</p>
+                <p className="text-slate-400 text-sm">Recorded on {new Date(viewingVoucher.date).toLocaleString()}</p>
               </div>
               <button onClick={() => setViewingVoucher(null)} className="text-2xl opacity-40 hover:opacity-100">✕</button>
             </div>
@@ -403,7 +436,7 @@ const Vouchers: React.FC = () => {
               {/* Common Header Info */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-[1.5rem] border border-slate-100 dark:border-slate-800">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Date</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Voucher Date</label>
                   <input 
                     type="date"
                     required
@@ -436,7 +469,7 @@ const Vouchers: React.FC = () => {
                 )}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
-                    {activeType === VoucherType.HOTEL ? 'Rate per Room/Night' : 'Voucher Amount'}
+                    {activeType === VoucherType.HOTEL ? 'Rate per Room/Night' : 'Base Voucher Amount'}
                   </label>
                   <input 
                     type="number"
@@ -450,105 +483,167 @@ const Vouchers: React.FC = () => {
               </div>
 
               {/* Dynamic Sections Based on Type */}
-              {activeType === VoucherType.HOTEL ? (
+              {isSalesVoucher ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-4">
+                    {activeType === VoucherType.TRANSPORT && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800/30">
+                        <label className="block text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Quick Transport Presets (SAR Rates)</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {TRANSPORT_PRESETS.map((preset, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => applyPreset(preset)}
+                              className="text-left text-[10px] px-3 py-2 bg-white dark:bg-slate-800 rounded-lg hover:bg-blue-600 hover:text-white transition-all font-bold border border-slate-100 dark:border-slate-700 shadow-sm"
+                            >
+                              {preset.label} - {preset.rate} {preset.currency}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Customer (Dr Account)</label>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Customer (Debit Account)</label>
                         <select required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
-                          <option value="">Select...</option>
+                          <option value="">Select Customer...</option>
                           {accounts.filter(a => a.type === AccountType.CUSTOMER).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Vendor (Cr Account)</label>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Vendor (Credit Account)</label>
                         <select required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.vendorId} onChange={e => setFormData({...formData, vendorId: e.target.value})}>
-                          <option value="">Select...</option>
+                          <option value="">Select Vendor...</option>
                           {accounts.filter(a => a.type === AccountType.VENDOR).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pax Name</label>
-                      <input required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" placeholder="Applicant / Traveler Name" value={formData.details.paxName} onChange={e => setFormData({...formData, details: {...formData.details, paxName: e.target.value}})} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pax / Traveler Name</label>
+                      <input required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" placeholder="Full name of pax" value={formData.details.paxName} onChange={e => setFormData({...formData, details: {...formData.details, paxName: e.target.value}})} />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Hotel Name</label>
-                        <input required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" value={formData.details.hotelName} onChange={e => setFormData({...formData, details: {...formData.details, hotelName: e.target.value}})} />
+
+                    {activeType === VoucherType.HOTEL && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Hotel Name</label>
+                          <input required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" value={formData.details.hotelName} onChange={e => setFormData({...formData, details: {...formData.details, hotelName: e.target.value}})} />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Room Type</label>
+                          <select className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.details.roomType} onChange={e => setFormData({...formData, details: {...formData.details, roomType: e.target.value}})}>
+                            {['Single', 'Double', 'Triple', 'Quad', 'Quint', 'Executive Suite', 'Suite'].map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Room Type</label>
-                        <select className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.details.roomType} onChange={e => setFormData({...formData, details: {...formData.details, roomType: e.target.value}})}>
-                          {['Single', 'Double', 'Triple', 'Quad', 'Quint', 'Executive Suite', 'Suite'].map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
+                    )}
+
+                    {activeType === VoucherType.TRANSPORT && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Vehicle Type</label>
+                          <select className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.details.vehicle} onChange={e => setFormData({...formData, details: {...formData.details, vehicle: e.target.value}})}>
+                            {['Bus', 'Sedan', 'SUV', 'GMC', 'Hiace', 'Coaster', 'H1'].map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sector / Route</label>
+                          <input required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" placeholder="e.g. JED-MAK-MAD" value={formData.details.sector} onChange={e => setFormData({...formData, details: {...formData.details, sector: e.target.value}})} />
+                        </div>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Country</label>
-                        <select className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.details.country} onChange={e => setFormData({...formData, details: {...formData.details, country: e.target.value, city: CITIES_BY_COUNTRY[e.target.value][0]}})}>
-                          {Object.keys(CITIES_BY_COUNTRY).map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                    )}
+
+                    {activeType === VoucherType.VISA && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Visa Category</label>
+                          <select className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.details.visaType} onChange={e => setFormData({...formData, details: {...formData.details, visaType: e.target.value}})}>
+                            {['Umrah', 'Hajj', 'Tourist', 'Business', 'Work', 'Visit'].map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Destination Country</label>
+                          <select className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.details.country} onChange={e => setFormData({...formData, details: {...formData.details, country: e.target.value}})}>
+                            {Object.keys(CITIES_BY_COUNTRY).map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">City</label>
-                        <select className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-semibold" value={formData.details.city} onChange={e => setFormData({...formData, details: {...formData.details, city: e.target.value}})}>
-                          {CITIES_BY_COUNTRY[formData.details.country]?.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                    )}
+
+                    {activeType === VoucherType.TICKET && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Airline</label>
+                          <input required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" placeholder="e.g. Saudi Airlines" value={formData.details.airline} onChange={e => setFormData({...formData, details: {...formData.details, airline: e.target.value}})} />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ticket Number</label>
+                          <input required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-mono" placeholder="13 digits" value={formData.details.ticketNum} onChange={e => setFormData({...formData, details: {...formData.details, ticketNum: e.target.value}})} />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Check-in</label>
-                        <input type="date" required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" value={formData.details.fromDate} onChange={e => setFormData({...formData, details: {...formData.details, fromDate: e.target.value}})} />
+                    {activeType === VoucherType.HOTEL ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Check-in</label>
+                            <input type="date" required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" value={formData.details.fromDate} onChange={e => setFormData({...formData, details: {...formData.details, fromDate: e.target.value}})} />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Check-out</label>
+                            <input type="date" required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" value={formData.details.toDate} onChange={e => setFormData({...formData, details: {...formData.details, toDate: e.target.value}})} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 text-center">Nights</label>
+                            <input readOnly className="w-full bg-slate-200 dark:bg-slate-900 border-none rounded-xl p-3 text-center font-bold text-sm" value={formData.details.numNights} />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 text-center">Rooms</label>
+                            <input type="number" min="1" className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-center text-sm font-bold" value={formData.details.numRooms} onChange={e => setFormData({...formData, details: {...formData.details, numRooms: Number(e.target.value)}})} />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 text-center">Adults</label>
+                            <input type="number" min="1" className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-center text-sm" value={formData.details.numAdults} onChange={e => setFormData({...formData, details: {...formData.details, numAdults: Number(e.target.value)}})} />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 text-center">Kids</label>
+                            <input type="number" min="0" className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-center text-sm" value={formData.details.numChildren} onChange={e => setFormData({...formData, details: {...formData.details, numChildren: Number(e.target.value)}})} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Meals Plan</label>
+                          <div className="flex space-x-4 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl">
+                            {['breakfast', 'lunch', 'dinner'].map(m => (
+                              <label key={m} className="flex items-center space-x-2 cursor-pointer group">
+                                <input 
+                                  type="checkbox" 
+                                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                                  checked={formData.details.meals[m]} 
+                                  onChange={e => setFormData({...formData, details: {...formData.details, meals: {...formData.details.meals, [m]: e.target.checked}}})} 
+                                />
+                                <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors">{m}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="bg-slate-50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
+                         <span className="text-4xl mb-3 opacity-30">🗓️</span>
+                         <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Single Posting Date</p>
+                         <p className="text-[10px] text-slate-400 mt-1">Audit record will use the primary voucher date selected above.</p>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Check-out</label>
-                        <input type="date" required className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm" value={formData.details.toDate} onChange={e => setFormData({...formData, details: {...formData.details, toDate: e.target.value}})} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      <div className="col-span-1">
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nights</label>
-                        <input readOnly className="w-full bg-slate-200 dark:bg-slate-900 border-none rounded-xl p-3 text-center font-bold text-sm" value={formData.details.numNights} />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Rooms</label>
-                        <input type="number" min="1" className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-center text-sm font-bold" value={formData.details.numRooms} onChange={e => setFormData({...formData, details: {...formData.details, numRooms: Number(e.target.value)}})} />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Adults</label>
-                        <input type="number" min="1" className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-center text-sm" value={formData.details.numAdults} onChange={e => setFormData({...formData, details: {...formData.details, numAdults: Number(e.target.value)}})} />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Children</label>
-                        <input type="number" min="0" className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 text-center text-sm" value={formData.details.numChildren} onChange={e => setFormData({...formData, details: {...formData.details, numChildren: Number(e.target.value)}})} />
-                      </div>
-                    </div>
+                    )}
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Meals</label>
-                      <div className="flex space-x-4 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl">
-                        {['breakfast', 'lunch', 'dinner'].map(m => (
-                          <label key={m} className="flex items-center space-x-2 cursor-pointer group">
-                            <input 
-                              type="checkbox" 
-                              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                              checked={formData.details.meals[m]} 
-                              onChange={e => setFormData({...formData, details: {...formData.details, meals: {...formData.details.meals, [m]: e.target.checked}}})} 
-                            />
-                            <span className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors">{m}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Remarks</label>
-                      <textarea className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 h-20 text-sm" placeholder="Additional details..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Narrative / Remarks</label>
+                      <textarea className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-3 h-20 text-sm" placeholder="Additional audit details..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                     </div>
                   </div>
                 </div>
