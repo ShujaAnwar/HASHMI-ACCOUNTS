@@ -1,7 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { VoucherType, Currency, AccountType, Voucher, VoucherStatus } from '../types';
+import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountingService } from '../services/AccountingService';
+import PaymentVoucherForm from './PaymentVoucherForm';
+import ReceiptVoucherForm from './ReceiptVoucherForm';
+import TransportVoucherForm from './TransportVoucherForm';
+import VisaVoucherForm from './VisaVoucherForm';
+import HotelVoucherForm from './HotelVoucherForm';
+import TicketVoucherForm from './TicketVoucherForm';
 
 const amountToWords = (num: number): string => {
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
@@ -25,329 +31,636 @@ interface VouchersProps {
 }
 
 const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
-  const [activeType, setActiveType] = useState<VoucherType>(VoucherType.RECEIPT);
+  const [activeType, setActiveType] = useState<VoucherType>(VoucherType.HOTEL);
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<'CREATE' | 'EDIT' | 'CLONE'>('CREATE');
   const [viewingVoucher, setViewingVoucher] = useState<Voucher | null>(null);
-  const [inspectorView, setInspectorView] = useState<'SERVICE' | 'SAR' | 'OFFICIAL' | 'PKR'>('SERVICE');
-  const [printType, setPrintType] = useState<'SERVICE' | 'SAR' | 'OFFICIAL' | 'PKR' | null>(null);
+  const [inspectorView, setInspectorView] = useState<'OFFICIAL' | 'PKR' | 'SAR' | 'SERVICE'>('OFFICIAL');
   const [voucherToEdit, setVoucherToEdit] = useState<Voucher | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   
-  const accounts = useMemo(() => getAccounts(), []);
-  const config = useMemo(() => getConfig(), [refreshKey]);
-  const allVouchers = useMemo(() => getVouchers(), [showForm, refreshKey]);
-
-  const getDefaultFormData = (type: VoucherType) => ({
-    date: new Date().toISOString().split('T')[0],
-    currency: Currency.PKR,
-    roe: config.defaultROE,
-    amount: 0, 
-    customerId: '', vendorId: '', description: '', reference: '',
-    bankId: config.banks[0]?.id || '', expenseId: '',
-    details: { 
-      paxName: '', hotelName: '', country: 'SAUDIA ARABIA', city: 'MADINAH MUNAWWARAH', 
-      roomType: 'DBL C.V', fromDate: '', toDate: '', numNights: 0, 
-      numRooms: 1, meals: { breakfast: false, lunch: false, dinner: false }, 
-      numAdults: 2, numChildren: 0 
-    }
-  });
-
-  const [formData, setFormData] = useState<any>(getDefaultFormData(activeType));
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [allVouchers, setAllVouchers] = useState<Voucher[]>([]);
 
   useEffect(() => {
-    if (formMode !== 'EDIT') {
-      setFormData(getDefaultFormData(activeType));
-    }
-    setViewingVoucher(null);
-  }, [activeType, config.defaultROE, config.banks]);
+    const fetchData = async () => {
+      const [accs, conf, vchs] = await Promise.all([
+        getAccounts(),
+        getConfig(),
+        getVouchers()
+      ]);
+      setAccounts(accs);
+      setConfig(conf);
+      setAllVouchers(vchs);
+    };
+    fetchData();
+  }, [refreshKey, showForm]);
 
   useEffect(() => {
-    if (externalIntent && externalIntent.type === 'EDIT') {
-      setActiveType(externalIntent.voucher.type);
-      setFormMode('EDIT');
-      setVoucherToEdit(externalIntent.voucher);
-      setShowForm(true);
+    if (externalIntent) {
+      if (externalIntent.type === 'EDIT') handleEdit(externalIntent.voucher);
+      else if (externalIntent.type === 'VIEW') {
+        setViewingVoucher(externalIntent.voucher);
+        setInspectorView('OFFICIAL');
+      }
       if (clearIntent) clearIntent();
     }
   }, [externalIntent]);
 
-  const filteredVouchers = useMemo(() => {
-    return allVouchers
-      .filter(v => v.type === activeType)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [allVouchers, activeType]);
-
-  useEffect(() => {
-    if (activeType === VoucherType.HOTEL && formData.details.fromDate && formData.details.toDate) {
-      const start = new Date(formData.details.fromDate);
-      const end = new Date(formData.details.toDate);
-      const diffTime = end.getTime() - start.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 0;
-      setFormData((prev: any) => ({ ...prev, details: { ...prev.details, numNights: Math.max(0, diffDays) } }));
-    }
-  }, [formData.details.fromDate, formData.details.toDate, activeType]);
-
-  // PDF Download Trigger
-  useEffect(() => {
-    if (printType && viewingVoucher) {
-      const originalTitle = document.title;
-      // This sets the suggested filename for the PDF download
-      document.title = `${viewingVoucher.voucherNum}_${viewingVoucher.details?.paxName || 'Statement'}.pdf`;
-      
-      const timer = setTimeout(() => { 
-        window.print(); 
-        document.title = originalTitle; 
-        setPrintType(null); 
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [printType, viewingVoucher]);
-
   const handleEdit = (v: Voucher) => { setFormMode('EDIT'); setVoucherToEdit(v); setShowForm(true); };
   const handleClone = (v: Voucher) => { setFormMode('CLONE'); setVoucherToEdit(v); setShowForm(true); };
-  const handleDelete = (id: string) => { if (window.confirm('Delete voucher?')) { AccountingService.deleteVoucher(id); setRefreshKey(prev => prev + 1); setViewingVoucher(null); } };
+  
+  const handleDelete = async (id: string) => { 
+    if (window.confirm('Delete voucher?')) { 
+      await AccountingService.deleteVoucher(id); 
+      setRefreshKey(prev => prev + 1); 
+      setViewingVoucher(null); 
+    } 
+  };
 
-  useEffect(() => {
-    if (voucherToEdit) {
-      setFormData({
-        date: formMode === 'CLONE' ? new Date().toISOString().split('T')[0] : voucherToEdit.date.split('T')[0],
-        currency: voucherToEdit.currency,
-        roe: voucherToEdit.roe,
-        amount: voucherToEdit.details?.unitRate || (voucherToEdit.totalAmountPKR / voucherToEdit.roe),
-        customerId: voucherToEdit.customerId || '',
-        vendorId: voucherToEdit.vendorId || '',
-        description: voucherToEdit.description,
-        reference: formMode === 'CLONE' ? '' : (voucherToEdit.reference || ''),
-        bankId: voucherToEdit.details?.bankId || config.banks[0]?.id || '',
-        expenseId: voucherToEdit.details?.expenseId || '',
-        details: { ...voucherToEdit.details }
-      });
-    }
-  }, [voucherToEdit, formMode, config.banks]);
-
-  const totalCalculatedAmount = useMemo(() => {
-    if (activeType === VoucherType.HOTEL) return (formData.amount || 0) * (formData.details.numNights || 1) * (formData.details.numRooms || 1);
-    return formData.amount;
-  }, [activeType, formData.amount, formData.details.numNights, formData.details.numRooms]);
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    const roe = formData.currency === Currency.SAR ? formData.roe : 1;
-    const voucherPayload = { 
-      type: activeType, 
-      date: new Date(formData.date).toISOString(), 
-      currency: formData.currency, 
-      roe, 
-      totalAmountPKR: totalCalculatedAmount * roe, 
-      customerId: formData.customerId, 
-      vendorId: formData.vendorId, 
-      description: formData.description, 
-      reference: formData.reference, 
-      status: VoucherStatus.POSTED, 
-      details: { ...formData.details, bankId: formData.bankId, expenseId: formData.expenseId, unitRate: formData.amount } 
-    };
-    if (formMode === 'EDIT' && voucherToEdit) AccountingService.updateVoucher(voucherToEdit.id, voucherPayload);
-    else AccountingService.postVoucher(voucherPayload);
+  const handleSave = async (data: any) => {
+    if (formMode === 'EDIT' && voucherToEdit) await AccountingService.updateVoucher(voucherToEdit.id, data);
+    else await AccountingService.postVoucher(data);
     setShowForm(false); setVoucherToEdit(null); setRefreshKey(prev => prev + 1);
   };
 
-  /* ---------------- FORMAT 1: HOTEL BOOKING VOUCHER (SERVICE) ---------------- */
-  const renderServiceVoucher = (v: Voucher) => (
-    <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page">
-      <div className="flex justify-between items-start mb-8">
-        <div className="w-1/3">
-          {config.companyLogo && <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" />}
-        </div>
-        <div className="w-1/3 text-center">
-          <h2 className="text-xl font-bold">Hotel Booking Voucher</h2>
-          <p className="text-rose-600 font-bold">{config.companyName} {config.appSubtitle}</p>
-        </div>
-        <div className="w-1/3 text-right text-[10px] text-slate-700 leading-relaxed font-medium">
-          <p>{config.companyAddress}</p>
-          <p>Cell: {config.companyCell}</p>
-          <p>Phone: {config.companyPhone}</p>
-        </div>
-      </div>
-      <div className="mb-6"><p className="font-bold">Hotel Voucher: {v.voucherNum.split('-')[1]}</p></div>
-      <div className="grid grid-cols-2 gap-8 mb-8 border-b-2 border-slate-100 pb-8">
-        <div className="space-y-4">
-          <div><p className="text-[10px] font-bold text-slate-400 uppercase">HOTEL NAME</p><p className="font-black uppercase text-slate-800">{v.details?.hotelName || 'ARTAL INTERNATIONAL HOTEL'}</p></div>
-          <div><p className="text-[10px] font-bold text-slate-400 uppercase">CITY / COUNTRY</p><p className="font-bold uppercase text-slate-700 text-xs">{v.details?.city || 'MADINAH MUNAWWARAH'}-{v.details?.country || 'SAUDIA ARABIA'}</p></div>
-        </div>
-        <div className="space-y-4">
-          <div><p className="text-[10px] font-bold text-slate-400 uppercase">CHECK-IN</p><p className="font-black text-sm">{v.details?.fromDate ? new Date(v.details.fromDate).toDateString() : 'N/A'}</p></div>
-          <div><p className="text-[10px] font-bold text-slate-400 uppercase">CHECK-OUT</p><p className="font-black text-sm">{v.details?.toDate ? new Date(v.details.toDate).toDateString() : 'N/A'}</p></div>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-8 mb-10">
-        <div><p className="text-[10px] font-bold text-slate-400 uppercase">LEAD GUEST</p><p className="font-black uppercase text-slate-800">{v.details?.paxName || 'N/A'}</p></div>
-        <div><p className="text-[10px] font-bold text-slate-400 uppercase">ROOM(S) / NIGHT(S)</p><p className="font-black text-xs">{v.details?.numRooms || 1} / {v.details?.numNights || 1}</p></div>
-      </div>
-      <table className="w-full text-[11px] border-collapse mb-10">
-        <thead className="bg-slate-50 border-y-2 border-slate-200"><tr className="uppercase text-[9px] font-black text-slate-500"><th className="p-4 text-left">ROOMS/BEDS</th><th className="p-4 text-left">Room Type</th><th className="p-4 text-left">Meal</th><th className="p-4 text-left">Guest Name</th><th className="p-4 text-center">Adult(s)</th><th className="p-4 text-center">Children</th></tr></thead>
-        <tbody><tr className="bg-slate-50/50"><td className="p-4 border-b font-bold">{v.details?.numRooms || 1}</td><td className="p-4 border-b font-bold">{v.details?.roomType || 'DBL C.V'}</td><td className="p-4 border-b font-bold uppercase">NONE</td><td className="p-4 border-b font-bold uppercase">{v.details?.paxName}</td><td className="p-4 border-b text-center font-bold">{v.details?.numAdults || 2}</td><td className="p-4 border-b text-center font-bold"></td></tr></tbody>
-      </table>
-      <div className="space-y-4 text-[11px] mb-12"><p className="font-black uppercase">Check-in/Check-out Timings & Policies</p><ul className="list-disc pl-5 space-y-1 text-slate-700"><li>The usual check-in time is 2:00/4:00 PM hours...</li><li>Rooms may not be available for early check-in, unless especially required in advance.</li><li>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed.</li><li>The usual checkout time is at 12:00 hours...</li></ul></div>
-      <p className="text-[10px] text-slate-500 font-bold border-t pt-4 italic">Booking Notes: Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.</p>
-    </div>
-  );
+  const filteredVouchers = useMemo(() => {
+    return allVouchers.filter(v => v.type === activeType);
+  }, [allVouchers, activeType]);
 
-  /* ---------------- FORMAT 2: SAR DEFINITE INVOICE (SAR) ---------------- */
-  const renderSARInvoice = (v: Voucher) => {
+  const formatMeals = (meals: any) => {
+    if (Array.isArray(meals)) return meals.join(', ');
+    if (typeof meals === 'string') return meals;
+    return 'Room Only';
+  };
+
+  // --- RENDERING FUNCTIONS FOR INSPECTOR ---
+
+  const renderOfficialInvoice = (v: Voucher) => {
     const customer = accounts.find(a => a.id === v.customerId);
-    const amountSAR = (v.totalAmountPKR / v.roe);
     return (
-      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page">
-        <div className="text-center mb-10">
-          {config.companyLogo && <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" className="mx-auto mb-4" />}
-          <p className="text-rose-600 text-sm font-black uppercase tracking-widest">{config.companyName} Travels Services</p>
+      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page text-sm">
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="logo" className="mb-4" />}
+          </div>
+          <div className="text-center pt-8">
+            <h2 className="text-xl font-bold text-[#e11d48] uppercase tracking-tight">{config?.companyName} {config?.appSubtitle}</h2>
+          </div>
+          <div className="text-right">
+            <div className="border-2 border-slate-900 px-8 py-3 text-center min-w-[220px] rounded-sm shadow-sm">
+              <p className="font-bold text-[13px] uppercase tracking-wide">INVOICE : {v.voucherNum.split('-').pop()}</p>
+              <p className="font-bold text-[13px] mt-1">(PKR) = {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-x-20 mb-8 text-[11px] leading-tight font-black">
-          <div className="space-y-1"><p>Account Name: <span className="uppercase">{customer?.name || 'NEEM TREE CUSTOMER'}</span></p><p>Subject: Definite Invoice</p><p>Confirmation #: {v.reference || 'N/A'}</p></div>
-          <div className="text-right space-y-1"><p>HVI #: {v.voucherNum.split('-')[1]}</p><p>Date: {new Date(v.date).toDateString()}</p><p>Phone No: {config.companyCell}</p></div>
+
+        <div className="mb-8 text-[11px] font-medium text-slate-800 leading-relaxed">
+          <p>{config?.companyAddress}</p>
+          <p className="mt-1">CELL : {config?.companyCell} - PHONE : {config?.companyPhone} - EMAIL : {config?.companyEmail}</p>
+          <p className="mt-1"><span className="font-bold">Status:</span> Definite Invoice</p>
         </div>
-        <p className="text-[11px] mb-6">Guest Name: <span className="font-black uppercase">{v.details?.paxName}</span> <span className="float-right">Option Date: <span className="font-black">30, Nov -0001</span></span></p>
-        <table className="w-full text-[10px] border-collapse mb-4 font-bold">
-          <thead className="bg-[#0b7ea1] text-white uppercase"><tr className="border border-slate-300"><th className="border p-2">Hotel</th><th className="border p-2">Room</th><th className="border p-2">Meal</th><th className="border p-2">Checkin</th><th className="border p-2">Checkout</th><th className="border p-2">Rooms / Nights</th><th className="border p-2">Rate</th><th className="border p-2">Total(SAR)</th></tr></thead>
-          <tbody><tr><td className="border p-2 text-center uppercase">{v.details?.hotelName}</td><td className="border p-2 text-center">{v.details?.roomType}</td><td className="border p-2 text-center">Room Only</td><td className="border p-2 text-center">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString() : 'N/A'}</td><td className="border p-2 text-center">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString() : 'N/A'}</td><td className="border p-2 text-center">{v.details?.numRooms}/{v.details?.numNights}</td><td className="border p-2 text-right">{(amountSAR / (v.details?.numNights || 1) / (v.details?.numRooms || 1)).toFixed(2)}</td><td className="border p-2 text-right">{amountSAR.toLocaleString(undefined, {minimumFractionDigits:2})}</td></tr><tr className="bg-slate-50 font-black"><td colSpan={7} className="border p-2 text-right">Total:</td><td className="border p-2 text-right">SAR {amountSAR.toLocaleString(undefined, {minimumFractionDigits: 2})}</td></tr></tbody>
+
+        <div className="mb-8 border border-slate-300">
+          <table className="w-full text-center border-collapse">
+            <thead className="bg-[#0b7ea1] text-white">
+              <tr>
+                <th className="py-2 px-3 border-r border-slate-400 font-bold uppercase text-[11px]">Account Name:</th>
+                <th className="py-2 px-3 border-r border-slate-400 font-bold uppercase text-[11px]">Hotel Invoice Date #</th>
+                <th className="py-2 px-3 border-r border-slate-400 font-bold uppercase text-[11px]">Option Date</th>
+                <th className="py-2 px-3 font-bold uppercase text-[11px]">Confirmation #</th>
+              </tr>
+            </thead>
+            <tbody className="text-[12px] font-bold">
+              <tr>
+                <td className="py-4 px-3 border-r border-slate-300 uppercase">{customer?.name || 'N/A'}</td>
+                <td className="py-4 px-3 border-r border-slate-300">{new Date(v.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                <td className="py-4 px-3 border-r border-slate-300">30, Nov -0001</td>
+                <td className="py-4 px-3 uppercase">{v.reference || 'N/A'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mb-8 border border-slate-300">
+          <table className="w-full text-center border-collapse text-[10px]">
+            <thead className="bg-[#0b7ea1] text-white">
+              <tr>
+                <th className="py-2 border-r border-slate-400 font-bold uppercase">Pax Name</th>
+                <th className="py-2 border-r border-slate-400 font-bold uppercase">Hotel</th>
+                <th className="py-2 border-r border-slate-400 font-bold uppercase">Room Type #</th>
+                <th className="py-2 border-r border-slate-400 font-bold uppercase">Meal</th>
+                <th className="py-2 border-r border-slate-400 font-bold uppercase">Destination</th>
+                <th className="py-2 border-r border-slate-400 font-bold uppercase">Checkin Checkout</th>
+                <th className="py-2 font-bold uppercase">Amount(PKR)</th>
+              </tr>
+            </thead>
+            <tbody className="text-[11px] font-bold">
+              <tr>
+                <td className="py-6 px-2 border-r border-slate-300 uppercase max-w-[120px]">{v.details?.paxName || 'N/A'}</td>
+                <td className="py-6 px-2 border-r border-slate-300 uppercase max-w-[150px]">{v.details?.hotelName || 'N/A'}</td>
+                <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.roomType || 'N/A'}</td>
+                <td className="py-6 px-2 border-r border-slate-300 uppercase">{formatMeals(v.details?.meals)}</td>
+                <td className="py-6 px-2 border-r border-slate-300 uppercase max-w-[150px]">{v.details?.city}, {v.details?.country}</td>
+                <td className="py-6 px-2 border-r border-slate-300 leading-normal">
+                  {v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}<br/>
+                  {v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                </td>
+                <td className="py-6 px-2 font-black">{v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              </tr>
+              <tr className="bg-slate-50 border-t border-slate-300 font-bold text-[12px]">
+                <td colSpan={6} className="py-3 text-right px-6 uppercase">Total:</td>
+                <td className="py-3">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mb-10 text-[12px] font-bold text-slate-900 italic">
+          <p>IN WORDS: <span className="uppercase">{amountToWords(v.totalAmountPKR)}</span></p>
+          <p className="mt-8 not-italic">On behalf of <span className="text-[#e11d48]">{config?.companyName} {config?.appSubtitle}</span></p>
+        </div>
+
+        <div className="mt-20">
+          <h3 className="text-[14px] font-black border-b-2 border-slate-900 pb-2 mb-4 tracking-tight uppercase">Acknowledgement</h3>
+          <ol className="text-[10px] space-y-1 font-bold text-slate-700 uppercase leading-relaxed">
+            <li>1. ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT. NO OBJECTIONS ACCEPTED AFTERWARD.</li>
+            <li>2. IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li>
+            <li>3. ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li>
+            <li>4. ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li>
+          </ol>
+        </div>
+      </div>
+    );
+  };
+
+  const renderConfirmationLetter = (v: Voucher) => {
+    const customer = accounts.find(a => a.id === v.customerId);
+    return (
+      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page text-sm">
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex flex-col items-center">
+            {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="logo" />}
+          </div>
+          <div className="text-center pt-4">
+            <h1 className="text-2xl font-bold text-[#e11d48] uppercase tracking-tight">{config?.companyName} {config?.appSubtitle}</h1>
+          </div>
+          <div className="text-right">
+            <div className="flex items-center justify-end space-x-4 border-b-2 border-slate-300 pb-2 mb-3">
+              <span className="text-slate-500 font-bold text-[18px]">Invoice #</span>
+              <span className="text-slate-900 font-black text-[22px] tracking-tighter">{v.voucherNum.split('-').pop()}</span>
+            </div>
+            <p className="text-[#0b7ea1] font-black uppercase text-[16px] max-w-[250px] leading-tight">{v.details?.hotelName}</p>
+          </div>
+        </div>
+
+        <hr className="border-slate-200 mb-10" />
+
+        <div className="mb-10 text-[14px] leading-loose">
+          <p>Dear Sir:</p>
+          <p className="mt-3">Greeting From <span className="text-[#e11d48] font-bold">{config?.companyName} {config?.appSubtitle}</span></p>
+          <p className="mt-1">We are pleased to confirm the following reservation on a <span className="font-bold">Definite basis .</span></p>
+        </div>
+
+        <div className="flex space-x-12 mb-8 items-center bg-slate-50 p-4 rounded-lg">
+          <p className="font-bold text-[13px] uppercase tracking-wider text-slate-500 whitespace-nowrap">Account Name:</p>
+          <p className="font-black text-[15px] uppercase flex-1 border-b border-slate-400 pb-1">{customer?.name}</p>
+        </div>
+
+        <table className="w-full text-left mb-8 border-collapse border border-slate-300 shadow-sm">
+          <thead className="bg-[#bdc3c7] text-slate-700 text-[10px] font-black uppercase tracking-widest">
+            <tr>
+              <th className="p-3 border border-slate-400">Hotel</th>
+              <th className="p-3 border border-slate-400">Guest Name</th>
+              <th className="p-3 border border-slate-400">Location</th>
+              <th className="p-3 border border-slate-400">CONF NO</th>
+            </tr>
+          </thead>
+          <tbody className="text-[11px] uppercase font-bold text-slate-800">
+            <tr className="bg-white">
+              <td className="p-4 border border-slate-300">{v.details?.hotelName}</td>
+              <td className="p-4 border border-slate-300">{v.details?.paxName}</td>
+              <td className="p-4 border border-slate-300">{v.details?.city}, {v.details?.country}</td>
+              <td className="p-4 border border-slate-300">{v.reference || 'N/A'}</td>
+            </tr>
+          </tbody>
         </table>
-        <div className="border border-[#0b7ea1] rounded overflow-hidden mb-10"><div className="bg-[#0b7ea1] text-white text-center py-1.5 text-[10px] font-black uppercase tracking-widest">TERMS AND CONDITIONS</div><div className="p-5 text-[10px] space-y-1 font-medium"><li>Above rates are net and non commission-able quoted in SAR.</li><li>Once you Re-Confirm this booking it will be:</li><div className="pl-4"><li>Non Cancellation / Non Refundable / Non Amendable</li></div><li>Check in after 16:00 hour and check out at 12:00 hour.</li><li>Triple or Quad occupancy will be through extra bed # standard room is not available.</li></div></div>
-        <p className="text-[10px] font-black text-blue-800 mb-2">Bank Account Details with Account Title {config.companyName} Travels Services</p>
-        <table className="w-full text-[10px] border-collapse font-bold"><thead className="bg-[#0b7ea1] text-white"><tr><th className="border p-2 text-left">Bank Name</th><th className="border p-2 text-left">Bank Address</th><th className="border p-2 text-left">Bank Accounts</th></tr></thead><tbody>{config.banks.map((b, i) => (<tr key={i}><td className="border p-2">{b.name}</td><td className="border p-2">Saudi Arabia Branch</td><td className="border p-2">{b.accountNumber}</td></tr>))}</tbody></table>
+
+        <table className="w-full text-left mb-10 border-collapse border border-slate-300 shadow-sm">
+          <thead className="bg-[#bdc3c7] text-slate-700 text-[9px] font-black uppercase tracking-widest">
+            <tr>
+              <th className="p-2 border border-slate-400">ROOM TYPE</th>
+              <th className="p-2 border border-slate-400">MEAL</th>
+              <th className="p-2 border border-slate-400">CHECK IN</th>
+              <th className="p-2 border border-slate-400">CHECK OUT</th>
+              <th className="p-2 border border-slate-400">NIGHT(s)</th>
+              <th className="p-2 border border-slate-400">ROOM(s)</th>
+              <th className="p-2 border border-slate-400">RATE/R/N</th>
+              <th className="p-2 border border-slate-400">HCN</th>
+              <th className="p-2 border border-slate-400">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody className="text-[10px] font-bold uppercase text-slate-800">
+            <tr className="bg-white">
+              <td className="p-3 border border-slate-300">{v.details?.roomType}</td>
+              <td className="p-3 border border-slate-300">{formatMeals(v.details?.meals)}</td>
+              <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+              <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+              <td className="p-3 border border-slate-300 text-center">{v.details?.numNights}</td>
+              <td className="p-3 border border-slate-300 text-center">{v.details?.numRooms}</td>
+              <td className="p-3 border border-slate-300 text-right">{v.details?.unitRate?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              <td className="p-3 border border-slate-300"></td>
+              <td className="p-3 border border-slate-300 font-black text-right text-[12px]">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="mb-12">
+          <h3 className="text-[16px] font-black text-[#0b7ea1] mb-5 uppercase tracking-tighter">Bank Details</h3>
+          <table className="w-full border-collapse border border-slate-300">
+            <thead className="bg-[#bdc3c7] text-[10px] uppercase font-black tracking-widest text-slate-700">
+              <tr>
+                <th className="p-2 border border-slate-300">Sr. #</th>
+                <th className="p-2 border border-slate-300">Bank Name</th>
+                <th className="p-2 border border-slate-300">Account Name</th>
+                <th className="p-2 border border-slate-300">Account Number</th>
+                <th className="p-2 border border-slate-300">Bank Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td className="p-10 border border-slate-300 text-center italic text-slate-300 text-xs" colSpan={5}>No bank accounts listed</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="text-[11px] font-bold leading-relaxed space-y-1 mb-10 text-slate-700 uppercase">
+          <p className="underline font-black text-slate-900 mb-2 tracking-widest">Terms & Conditions</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT. NO OBJECTIONS ACCEPTED AFTERWARD.</li>
+            <li>IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li>
+            <li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li>
+          </ul>
+        </div>
+
+        <p className="text-[12px] font-medium text-slate-600 mt-12 pt-8 border-t border-slate-100 italic">
+          <span className="font-black text-slate-900 not-italic uppercase tracking-widest">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to <span className="font-bold text-slate-900">contact us.</span>
+        </p>
       </div>
     );
   };
 
-  /* ---------------- FORMAT 3: PKR FORMAL INVOICE (OFFICIAL) ---------------- */
-  const renderFormalInvoice = (v: Voucher) => {
+  const renderSARQuotation = (v: Voucher) => {
     const customer = accounts.find(a => a.id === v.customerId);
-    const ratePerNight = v.totalAmountPKR / (v.details?.numNights || 1) / (v.details?.numRooms || 1);
+    const totalSAR = v.details?.totalSelectedCurrency || (v.totalAmountPKR / (v.roe || 1));
     return (
-      <div className="bg-white p-16 text-black font-inter min-h-[11in] voucher-page">
-        <div className="flex justify-between items-start mb-10">
-          <div className="w-1/3">{config.companyLogo && <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" />}</div>
-          <div className="w-1/3 text-center"><p className="text-rose-600 text-lg font-black">{config.companyName} Travels Services</p></div>
-          <div className="w-1/3 text-right"><p className="text-xl font-bold text-amber-600">Invoice # <span className="ml-10 text-slate-900 font-black">{v.voucherNum.split('-')[1]}</span></p><p className="text-amber-600 font-black uppercase text-lg mt-1">{v.details?.hotelName}</p></div>
+      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page text-sm">
+        <div className="flex justify-center mb-10">
+          {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="logo" />}
         </div>
-        <div className="border-t-2 border-slate-100 pt-8 text-sm mb-12 space-y-1 font-medium">
-          <p>Dear Sir:</p><p>Greeting From <span className="text-rose-600 font-black">{config.companyName} Travels Services</span></p><p>We are pleased to confirm the following reservation on a <span className="font-black">Definite basis .</span></p>
-          <div className="pt-4 flex"><span className="font-black w-32 uppercase">Account Name:</span> <span className="font-black uppercase">{customer?.name || 'NEEM TREE CUSTOMER'}</span></div>
-        </div>
-        <table className="w-full text-xs border-collapse mb-10"><thead className="bg-slate-200"><tr className="uppercase text-[10px] font-black tracking-widest"><th className="border p-3 text-left">Hotel</th><th className="border p-3 text-left">Guest Name</th><th className="border p-3 text-left">Location</th><th className="border p-3 text-left">CONF NO</th></tr></thead><tbody><tr className="font-bold"><td className="border p-3 uppercase">{v.details?.hotelName}</td><td className="border p-3 uppercase">{v.details?.paxName}</td><td className="border p-3 uppercase">MADINAH MUNAWWARAH-SAUDIA ARABIA</td><td className="border p-3">N/A</td></tr></tbody></table>
-        <table className="w-full text-[10px] border-collapse mb-12"><thead className="bg-slate-200"><tr className="uppercase font-black text-slate-700 tracking-tighter"><th className="border p-3">ROOM TYPE</th><th className="border p-3">MEAL</th><th className="border p-3">CHECK IN</th><th className="border p-3">CHECK OUT</th><th className="border p-3">NIGHT (s)</th><th className="border p-3">ROOM (s)</th><th className="border p-3">RATE/R/N</th><th className="border p-3">HCN</th><th className="border p-3">TOTAL</th></tr></thead>
-        <tbody className="font-black"><tr><td className="border p-3 uppercase text-center">{v.details?.roomType}</td><td className="border p-3 text-center">None</td><td className="border p-3 text-center">{new Date(v.details?.fromDate).toDateString()}</td><td className="border p-3 text-center">{new Date(v.details?.toDate).toDateString()}</td><td className="border p-3 text-center">{v.details?.numNights}</td><td className="border p-3 text-center">{v.details?.numRooms}</td><td className="border p-3 text-right">{ratePerNight.toLocaleString(undefined, {minimumFractionDigits:2})}</td><td className="border p-3"></td><td className="border p-3 text-right">PKR {v.totalAmountPKR.toLocaleString(undefined, {minimumFractionDigits:2})}</td></tr></tbody></table>
-        <div className="mb-12"><p className="font-black text-slate-800 text-sm mb-4">Bank Details</p><table className="w-full text-[10px] border-collapse font-bold"><thead className="bg-slate-200"><tr><th className="border p-2">Sr. #</th><th className="border p-2 text-left">Bank Name</th><th className="border p-2 text-left">Account Name</th><th className="border p-2 text-left">Account Number</th><th className="border p-2 text-left">Bank Address</th></tr></thead><tbody>{config.banks.map((b, i) => (<tr key={i}><td className="border p-2 text-center">{i+1}</td><td className="border p-2">{b.name}</td><td className="border p-2 uppercase">{config.companyName}</td><td className="border p-2">{b.accountNumber}</td><td className="border p-2">Karachi, PK</td></tr>))}</tbody></table></div>
-        <div className="text-[10px] space-y-4 border-t-2 pt-6"><p className="font-black uppercase tracking-widest border-b border-slate-900 inline-block pr-10">Notes</p><ul className="list-disc pl-5 space-y-1 font-bold text-slate-700"><li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li><li>IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li><li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li></ul></div>
-      </div>
-    );
-  };
 
-  /* ---------------- FORMAT 4: PKR ACCOUNT SUMMARY (PKR) ---------------- */
-  const renderPKRSummaryInvoice = (v: Voucher) => {
-    const customer = accounts.find(a => a.id === v.customerId);
-    return (
-      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page">
-        <div className="flex justify-between items-start mb-12">
-          <div className="w-1/3">{config.companyLogo && <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" />}</div>
-          <div className="w-1/3 text-center pt-10"><p className="text-rose-600 font-black uppercase text-sm tracking-widest">{config.companyName} Travels Services</p></div>
-          <div className="w-1/3 text-right"><div className="border border-slate-900 p-3 inline-block min-w-[220px] text-center font-black text-xs uppercase shadow-sm"><p className="border-b border-slate-900 pb-2 mb-2">INVOICE : {v.voucherNum.split('-')[1]}</p><p>(PKR) = {v.totalAmountPKR.toLocaleString()}</p></div></div>
+        <div className="grid grid-cols-2 gap-y-4 mb-10 text-[11px] font-bold uppercase tracking-wide">
+          <div className="flex space-x-3"><span>Account Name:</span> <span className="font-black border-b border-slate-900 px-2 min-w-[150px]">{customer?.name}</span></div>
+          <div className="text-right flex justify-end space-x-3"><span>HVI #:</span> <span className="font-black">{v.voucherNum.split('-').pop()}</span></div>
+          <div className="flex space-x-3"><span>Subject:</span> <span className="font-black italic text-blue-700 uppercase">Definite Invoice</span></div>
+          <div className="text-right flex justify-end space-x-3"><span>Date:</span> <span className="font-black">{new Date(v.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
+          <div className="flex space-x-3"><span>Confirmation #:</span> <span className="font-black text-[#e11d48]">{v.reference || 'PENDING'}</span></div>
+          <div className="text-right flex justify-end space-x-3"><span>Phone No:</span> <span className="font-black">{config?.companyCell}</span></div>
         </div>
-        <div className="text-[11px] leading-relaxed text-slate-800 mb-10 space-y-0.5 font-bold"><p>{config.companyAddress}</p><p><span className="font-black">CELL :</span> {config.companyCell} - <span className="font-black">PHONE :</span> {config.companyPhone} - <span className="font-black">EMAIL :</span> {config.companyEmail}</p><p><span className="font-black">Status:</span> Definite Invoice</p></div>
-        <table className="w-full text-[10px] border-collapse mb-6 font-black"><thead className="bg-[#0b7ea1] text-white uppercase border border-slate-300"><tr><th className="border p-3">Account Name:</th><th className="border p-3">Hotel Invoice Date #</th><th className="border p-3">Option Date</th><th className="border p-3">Confirmation #</th></tr></thead><tbody><tr><td className="border p-3 text-center uppercase">{customer?.name || 'NEEM TREE CUSTOMER'}</td><td className="border p-3 text-center">{new Date(v.date).toDateString()}</td><td className="border p-3 text-center">30, Nov -0001</td><td className="border p-3 text-center">N/A</td></tr></tbody></table>
-        <table className="w-full text-[10px] border-collapse mb-8 font-black"><thead className="bg-[#0b7ea1] text-white uppercase border border-slate-300"><tr><th className="border p-3">Pax Name</th><th className="border p-3">Hotel</th><th className="border p-3">Room Type #</th><th className="border p-3">Meal</th><th className="border p-3">Destination</th><th className="border p-3">Checkin Checkout</th><th className="border p-3">Amount(PKR)</th></tr></thead>
-        <tbody><tr><td className="border p-3 uppercase text-center">{v.details?.paxName}</td><td className="border p-3 uppercase text-center">{v.details?.hotelName}</td><td className="border p-3 text-center font-black">{v.details?.roomType}</td><td className="border p-3 text-center font-black">None</td><td className="border p-3 text-center uppercase font-black text-[9px] leading-tight">MADINAH MUNAWWARAH-SAUDIA ARABIA</td><td className="border p-3 text-center text-[9px] font-black">{new Date(v.details?.fromDate).toLocaleDateString()}<br/>{new Date(v.details?.toDate).toLocaleDateString()}</td><td className="border p-3 text-right font-black">{v.totalAmountPKR.toLocaleString()}</td></tr><tr className="font-black bg-slate-50"><td colSpan={6} className="border p-3 text-right">Total:</td><td className="border p-3 text-right font-black">PKR {v.totalAmountPKR.toLocaleString(undefined, {minimumFractionDigits: 2})}</td></tr></tbody></table>
-        <div className="text-[11px] font-black uppercase mb-8 pt-4 border-t border-slate-100">IN WORDS: {amountToWords(v.totalAmountPKR)}</div>
-        <p className="text-[11px] font-black mb-12">On behalf of {config.companyName} Travels Services</p>
-        <div className="space-y-4 text-[10px] font-bold text-slate-700 border-t-2 pt-6"><p className="font-black text-slate-900 text-sm uppercase tracking-widest mb-2">Acknowledgement</p><ol className="list-decimal pl-6 space-y-1"><li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li><li>IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li><li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li></ol></div>
-      </div>
-    );
-  };
 
-  return (
-    <div className="space-y-6">
-      <div className={`${printType || viewingVoucher ? 'hidden' : 'block'}`}>
-        <div className="flex flex-wrap gap-2 no-print bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          {Object.entries(VoucherType).map(([key, val]) => (
-            <button key={val} onClick={() => setActiveType(val)} className={`px-5 py-2.5 rounded-xl font-bold transition-all text-sm ${activeType === val ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>{key.replace('_', ' ')}</button>
-          ))}
+        <p className="text-center text-[#e11d48] font-black mb-8 text-[16px] uppercase tracking-tighter">{config?.companyName} {config?.appSubtitle}</p>
+
+        <div className="flex justify-between items-center mb-6 text-[12px] font-bold bg-slate-50 p-4 rounded-xl">
+          <p className="uppercase tracking-widest">Guest Name: <span className="font-black text-blue-800 ml-2">{v.details?.paxName}</span></p>
+          <p className="uppercase tracking-widest">Option Date: <span className="font-black ml-2 text-slate-400">30, Nov -0001</span></p>
         </div>
-        <div className="flex justify-between items-center mt-6 no-print"><h2 className="text-2xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">{activeType} Central Console</h2><button onClick={() => { setFormMode('CREATE'); setVoucherToEdit(null); setShowForm(true); }} className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-8 py-3.5 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">+ New {activeType}</button></div>
-        <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl mt-6">
-          <table className="w-full text-left"><thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-xs uppercase tracking-widest font-bold"><tr><th className="px-6 py-5">Date / ID</th><th className="px-6 py-5">Customer & Description</th><th className="px-6 py-5 text-right">PKR Total</th><th className="px-6 py-5 text-center">Actions</th></tr></thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{filteredVouchers.map((v) => (
-              <tr key={v.id} className="hover:bg-blue-50/20 transition-colors group"><td className="px-6 py-5"><p className="text-sm font-medium">{new Date(v.date).toLocaleDateString()}</p><p className="font-bold text-blue-600 text-xs uppercase">{v.voucherNum}</p></td><td className="px-6 py-5"><p className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase">{accounts.find(a => a.id === v.customerId)?.name || 'Walk-in'}</p><p className="text-xs text-slate-500 truncate max-w-xs">{v.description || `${v.type} Transaction`}</p></td><td className="px-6 py-5 text-right"><p className="font-orbitron font-bold text-lg">{v.totalAmountPKR.toLocaleString()}</p></td>
-                <td className="px-6 py-5 text-center"><div className="flex justify-center space-x-2">
-                  <button onClick={() => { setViewingVoucher(v); setInspectorView('SERVICE'); }} className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white">👁️</button>
-                  <button onClick={() => handleClone(v)} className="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white">📑</button>
-                  <button onClick={() => handleEdit(v)} className="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-600 rounded-lg hover:bg-amber-600 hover:text-white">✏️</button>
-                  <button onClick={() => handleDelete(v.id)} className="p-2 bg-rose-50 dark:bg-rose-900/30 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white">🗑️</button>
-                </div></td></tr>))}
+
+        <table className="w-full text-center mb-10 border-collapse border border-slate-300 shadow-sm">
+          <thead className="bg-[#0b7ea1] text-white text-[10px] font-black uppercase tracking-widest">
+            <tr>
+              <th className="p-3 border-r border-slate-400">Hotel</th>
+              <th className="p-3 border-r border-slate-400">Room</th>
+              <th className="p-3 border-r border-slate-400">Meal</th>
+              <th className="p-3 border-r border-slate-400">Checkin</th>
+              <th className="p-3 border-r border-slate-400">Checkout</th>
+              <th className="p-3 border-r border-slate-400">Rooms / Nights</th>
+              <th className="p-3 border-r border-slate-400">Rate</th>
+              <th className="p-3">Total(SAR)</th>
+            </tr>
+          </thead>
+          <tbody className="text-[10px] uppercase font-bold text-slate-800">
+            <tr className="bg-white">
+              <td className="p-4 border border-slate-300 leading-tight max-w-[150px]">{v.details?.hotelName}</td>
+              <td className="p-4 border border-slate-300">{v.details?.roomType}</td>
+              <td className="p-4 border border-slate-300">{formatMeals(v.details?.meals)}</td>
+              <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+              <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+              <td className="p-4 border border-slate-300">{v.details?.numRooms} / {v.details?.numNights}</td>
+              <td className="p-4 border border-slate-300 text-right">{v.details?.unitRate?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              <td className="p-4 border border-slate-300 font-black text-right">{totalSAR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr className="bg-slate-50 font-black text-[13px]">
+              <td colSpan={7} className="p-3 text-right uppercase tracking-widest">Total SAR:</td>
+              <td className="p-3 text-right">SAR {totalSAR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="mb-12">
+          <div className="bg-[#0b7ea1] text-white py-3 px-6 text-center font-black uppercase text-[12px] tracking-[0.4em] mb-4 shadow-md">
+            TERMS AND CONDITIONS
+          </div>
+          <ul className="text-[10px] font-bold text-slate-700 space-y-3 uppercase list-disc pl-8">
+            <li>Above rates are net and non commission-able quoted in SAR.</li>
+            <li>Once you Re-Confirm this booking it will be:</li>
+            <li className="ml-4 list-none">▪ Non Cancellation</li>
+            <li className="ml-4 list-none">▪ Non Refundable</li>
+            <li className="ml-4 list-none">▪ Non Amendable</li>
+            <li>Check in after 16:00 hour and check out at 12:00 hour.</li>
+            <li>Triple or Quad occupancy will be through extra bed # standard room is not available.</li>
+          </ul>
+        </div>
+
+        <div className="mt-auto">
+          <p className="font-black text-[11px] mb-4 text-blue-900 uppercase">Bank Account Details with Account Title <span className="text-[#e11d48]">{config?.companyName} {config?.appSubtitle}</span></p>
+          <table className="w-full border-collapse border border-slate-300 text-[10px] font-black uppercase tracking-wider text-center">
+            <thead className="bg-[#0b7ea1] text-white">
+              <tr>
+                <th className="p-2 border border-slate-400">Bank Name</th>
+                <th className="p-2 border border-slate-400">Bank Address</th>
+                <th className="p-2">Bank Accounts</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td className="p-6 border border-slate-300" colSpan={3}></td></tr>
             </tbody>
           </table>
         </div>
       </div>
+    );
+  };
 
-      {viewingVoucher && !printType && (
-        <div className="fixed inset-0 z-[100] bg-slate-100 dark:bg-slate-950 flex flex-col no-print overflow-y-auto">
-          <div className="bg-[#0f172a] text-white p-6 shadow-2xl flex flex-col md:flex-row justify-between items-center sticky top-0 z-20">
-            <div className="flex items-center space-x-6"><button onClick={() => setViewingVoucher(null)} className="p-3 bg-slate-800 rounded-xl hover:bg-slate-700 font-black">←</button><div><h3 className="text-2xl font-black font-orbitron uppercase">Voucher Inspector</h3><p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Audit Ref: {viewingVoucher.voucherNum}</p></div></div>
-            <div className="flex items-center space-x-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
-              {['SERVICE', 'SAR', 'OFFICIAL', 'PKR'].map((v: any) => (<button key={v} onClick={() => setInspectorView(v)} className={`px-6 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${inspectorView === v ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}>{v} View</button>))}
-            </div>
-            <div className="flex items-center space-x-3"><button onClick={() => setPrintType(inspectorView as any)} className="px-8 py-3 bg-[#0b7ea1] text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center space-x-3 hover:bg-blue-500 shadow-xl transition-all"><span>📥</span> <span>Download Statement as PDF</span></button><button onClick={() => { setViewingVoucher(null); handleEdit(viewingVoucher); }} className="px-5 py-3 bg-slate-800 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700"><span>✏️</span> <span>Edit Entry</span></button></div>
-          </div>
-          <div className="flex-1 p-8 md:p-12 flex justify-center bg-slate-100 dark:bg-slate-950">
-            <div className="w-full max-w-5xl shadow-2xl rounded-xl overflow-hidden bg-white">
-               {inspectorView === 'SERVICE' && renderServiceVoucher(viewingVoucher)}
-               {inspectorView === 'SAR' && renderSARInvoice(viewingVoucher)}
-               {inspectorView === 'OFFICIAL' && renderFormalInvoice(viewingVoucher)}
-               {inspectorView === 'PKR' && renderPKRSummaryInvoice(viewingVoucher)}
+  const renderServiceVoucher = (v: Voucher) => {
+    return (
+      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page text-sm">
+        <div className="flex justify-between items-start mb-10">
+          <div className="flex items-center space-x-6">
+            {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="logo" />}
+            <div>
+               <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Hotel Booking Voucher</h1>
+               <p className="text-[14px] font-black text-[#e11d48] mt-2 tracking-wide">{config?.companyName} {config?.appSubtitle}</p>
             </div>
           </div>
+          <div className="text-right text-[11px] font-medium leading-relaxed uppercase text-slate-500">
+             <p>{config?.companyAddress}</p>
+             <p>Cell: {config?.companyCell}</p>
+             <p>Phone: {config?.companyPhone}</p>
+          </div>
         </div>
-      )}
 
-      {printType && viewingVoucher && (
-        <div className="fixed inset-0 z-[999] bg-white text-slate-900 print-only overflow-visible">
-          {printType === 'SERVICE' && renderServiceVoucher(viewingVoucher)}
-          {printType === 'SAR' && renderSARInvoice(viewingVoucher)}
-          {printType === 'OFFICIAL' && renderFormalInvoice(viewingVoucher)}
-          {printType === 'PKR' && renderPKRSummaryInvoice(viewingVoucher)}
+        <div className="mb-10 text-[14px] font-bold text-slate-900 border-b border-slate-200 pb-2">
+          <p>Hotel Voucher: <span className="font-black text-blue-600 ml-2">{v.voucherNum.split('-').pop()}</span></p>
         </div>
-      )}
 
-      {showForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[2.5rem] shadow-2xl p-8 md:p-12 border border-white/10 my-10 animate-in slide-in-from-bottom-6 duration-300">
-            <div className="flex justify-between items-start mb-8"><div><h3 className="text-3xl font-orbitron font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 uppercase tracking-tighter">{formMode} {activeType}</h3><p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-2">Enterprise Double-Entry Authorization</p></div><button onClick={() => setShowForm(false)} className="text-2xl hover:rotate-90 transition-transform">✕</button></div>
-            <form onSubmit={handleSave} className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-slate-50 dark:bg-slate-800/30 p-8 rounded-[2rem]">
-                <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Date</label><input type="date" required className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm font-bold text-sm" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Currency</label><select className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm font-bold text-sm" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value as Currency})}><option value={Currency.PKR}>PKR</option><option value={Currency.SAR}>SAR</option></select></div>
-                {formData.currency === Currency.SAR && (<div className="space-y-1"><label className="text-[10px] font-bold text-blue-600 uppercase ml-1">ROE</label><input type="number" step="0.01" className="w-full bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 font-bold text-sm" value={formData.roe} onChange={e => setFormData({...formData, roe: Number(e.target.value)})} /></div>)}
-                <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{activeType === VoucherType.HOTEL ? 'Rate/Unit' : 'Amount'}</label><input type="number" required className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm font-orbitron font-bold text-lg text-blue-600" value={formData.amount} onChange={e => setFormData({...formData, amount: Number(e.target.value)})} /></div>
+        <div className="grid grid-cols-2 gap-x-12 gap-y-10 mb-12">
+          <div className="space-y-6">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">HOTEL NAME</p>
+              <p className="text-[16px] font-black uppercase text-slate-800 leading-tight">{v.details?.hotelName}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CITY / COUNTRY</p>
+              <p className="text-[14px] font-black uppercase text-slate-700">{v.details?.city} - {v.details?.country}</p>
+            </div>
+            <div className="pt-4 border-t border-slate-100">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">LEAD GUEST</p>
+               <p className="text-[15px] font-black uppercase text-slate-900">{v.details?.paxName}</p>
+            </div>
+          </div>
+          <div className="space-y-6">
+            <div className="flex justify-between items-start">
+               <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CHECK-IN</p>
+                  <p className="text-[16px] font-black uppercase text-slate-800">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
+               </div>
+            </div>
+            <div>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CHECK-OUT</p>
+               <p className="text-[16px] font-black uppercase text-slate-800">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
+            </div>
+            <div className="pt-4 border-t border-slate-100">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">ROOM(S) / NIGHT(S)</p>
+               <p className="text-[14px] font-black uppercase text-slate-700">{v.details?.numRooms} / {v.details?.numNights}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-12">
+          <table className="w-full border-collapse border-y border-slate-200">
+            <thead className="bg-slate-50">
+              <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <th className="py-4 px-2 text-left">ROOMS/BEDS</th>
+                <th className="py-4 px-2 text-left">Room Type</th>
+                <th className="py-4 px-2 text-left">Meal</th>
+                <th className="py-4 px-2 text-left">Guest Name</th>
+                <th className="py-4 px-2 text-center">Adult(s)</th>
+                <th className="py-4 px-2 text-center">Children</th>
+              </tr>
+            </thead>
+            <tbody className="text-[12px] font-bold text-slate-700">
+              <tr className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors">
+                <td className="py-5 px-2">{v.details?.numRooms}</td>
+                <td className="py-5 px-2 uppercase">{v.details?.roomType}</td>
+                <td className="py-5 px-2 uppercase">{formatMeals(v.details?.meals)}</td>
+                <td className="py-5 px-2 uppercase">{v.details?.paxName}</td>
+                <td className="py-5 px-2 text-center font-black">{v.details?.adults || 2}</td>
+                <td className="py-5 px-2 text-center font-black">{v.details?.children || 0}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="bg-[#f8fafc] p-10 rounded-[2rem] mb-10 border border-slate-100">
+          <h4 className="text-[12px] font-black text-slate-900 uppercase tracking-widest mb-6">Check-in/Check-out Timings & Policies</h4>
+          <ul className="text-[11px] font-medium text-slate-600 space-y-3 leading-relaxed">
+            <li className="flex items-start space-x-3"><span className="text-blue-500 mt-1">•</span> <span>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.</span></li>
+            <li className="flex items-start space-x-3"><span className="text-blue-500 mt-1">•</span> <span>Rooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.</span></li>
+            <li className="flex items-start space-x-3"><span className="text-blue-500 mt-1">•</span> <span>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.</span></li>
+            <li className="flex items-start space-x-3"><span className="text-blue-500 mt-1">•</span> <span>The usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.</span></li>
+            <li className="flex items-start space-x-3"><span className="text-blue-500 mt-1">•</span> <span>For any specific queries related to a particular hotel, kindly reach out to local support team for further assistance</span></li>
+          </ul>
+        </div>
+
+        <p className="text-[12px] font-bold text-slate-500 mt-auto leading-relaxed italic">
+          <span className="font-black text-slate-900 not-italic uppercase tracking-widest mr-2">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to contact us.
+        </p>
+      </div>
+    );
+  };
+
+  const renderInspectorContent = () => {
+    if (!viewingVoucher) return null;
+    switch (inspectorView) {
+      case 'OFFICIAL': return renderOfficialInvoice(viewingVoucher);
+      case 'PKR': return renderConfirmationLetter(viewingVoucher);
+      case 'SAR': return renderSARQuotation(viewingVoucher);
+      case 'SERVICE': return renderServiceVoucher(viewingVoucher);
+      default: return renderOfficialInvoice(viewingVoucher);
+    }
+  };
+
+  const renderVoucherForm = () => {
+    const props = {
+      initialData: formMode === 'CREATE' ? undefined : (voucherToEdit || {}),
+      onSave: handleSave,
+      onCancel: () => setShowForm(false),
+      isClone: formMode === 'CLONE'
+    };
+    switch (activeType) {
+      case VoucherType.RECEIPT: return <ReceiptVoucherForm {...props} />;
+      case VoucherType.HOTEL: return <HotelVoucherForm {...props} />;
+      case VoucherType.TRANSPORT: return <TransportVoucherForm {...props} />;
+      case VoucherType.VISA: return <VisaVoucherForm {...props} />;
+      case VoucherType.TICKET: return <TicketVoucherForm {...props} />;
+      case VoucherType.PAYMENT: return <PaymentVoucherForm {...props} />;
+      default: return null;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Vouchers Table View */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
+        <div className="flex bg-white dark:bg-slate-900 p-2 rounded-2xl border dark:border-slate-800 shadow-sm overflow-x-auto w-full md:w-auto">
+          {Object.values(VoucherType).map(t => (
+            <button 
+              key={t} 
+              onClick={() => setActiveType(t)} 
+              className={`px-6 py-3 rounded-xl font-bold text-xs transition-all uppercase whitespace-nowrap ${activeType === t ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-blue-500'}`}
+            >
+              {t === VoucherType.HOTEL ? 'Hotels' : 
+               t === VoucherType.RECEIPT ? 'Receipts' :
+               t === VoucherType.PAYMENT ? 'Payments' :
+               t === VoucherType.VISA ? 'Visas' :
+               t === VoucherType.TRANSPORT ? 'Transport' : 'Tickets'}
+            </button>
+          ))}
+        </div>
+        <button 
+          onClick={() => { setFormMode('CREATE'); setShowForm(true); }}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-500/20 uppercase tracking-widest text-[11px] font-orbitron transition-all active:scale-95 w-full md:w-auto"
+        >
+          + Post New Voucher
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 rounded-[2rem] border dark:border-slate-800 shadow-xl overflow-hidden no-print">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
+              <tr>
+                <th className="px-8 py-5">Date / Number</th>
+                <th className="px-8 py-5">Particulars</th>
+                <th className="px-8 py-5">Narrative</th>
+                <th className="px-8 py-5 text-right">Aggregate (PKR)</th>
+                <th className="px-8 py-5 text-center">Command</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y dark:divide-slate-800">
+              {filteredVouchers.map(v => (
+                <tr key={v.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all">
+                  <td className="px-8 py-6">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-600 font-black group-hover:bg-blue-600 group-hover:text-white transition-all text-xs">
+                        {v.type}
+                      </div>
+                      <div>
+                        <p className="font-black text-slate-900 dark:text-white leading-none text-sm">{v.voucherNum}</p>
+                        <p className="text-[10px] text-slate-400 mt-1 font-bold">{new Date(v.date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="font-black text-xs uppercase tracking-tight truncate max-w-[200px] text-slate-700 dark:text-slate-300">
+                      {accounts.find(a => a.id === (v.type === VoucherType.PAYMENT ? v.details.bankId : v.customerId))?.name || '-'}
+                    </p>
+                    <p className="text-[9px] text-slate-400 uppercase font-black mt-1">
+                      {v.type === VoucherType.HOTEL ? v.details?.hotelName : 
+                       v.type === VoucherType.VISA ? v.details?.headName : 
+                       v.type === VoucherType.TRANSPORT ? v.details?.paxName : ''}
+                    </p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="text-[11px] font-medium text-slate-500 italic truncate max-w-xs">{v.description}</p>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <p className="font-black font-orbitron text-slate-900 dark:text-white text-base leading-none">
+                      {v.totalAmountPKR.toLocaleString()}
+                    </p>
+                    <p className="text-[9px] text-slate-400 font-black uppercase mt-1">PKR Aggregated</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex justify-center space-x-2">
+                       <button onClick={() => { setViewingVoucher(v); setInspectorView('OFFICIAL'); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all text-xs">👁️</button>
+                       <button onClick={() => handleEdit(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs">✏️</button>
+                       <button onClick={() => handleClone(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-emerald-600 hover:text-white transition-all text-xs">👯</button>
+                       <button onClick={() => handleDelete(v.id)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-rose-600 hover:text-white transition-all text-xs">🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredVouchers.length === 0 && (
+            <div className="py-24 text-center text-slate-300 italic flex flex-col items-center">
+              <span className="text-6xl mb-4 opacity-20">📭</span>
+              <p className="font-orbitron font-bold uppercase tracking-widest text-sm">No ledger history for {activeType}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Inspector Modal */}
+      {viewingVoucher && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-4 overflow-y-auto print:p-0 print:bg-white print:block">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 print:shadow-none print:rounded-none print:max-w-none print:m-0">
+            {/* Control Bar */}
+            <div className="no-print p-6 border-b dark:border-slate-800 flex flex-wrap justify-between items-center bg-slate-50 dark:bg-slate-800/50 gap-4">
+               <div className="flex space-x-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border dark:border-slate-700">
+                  {[
+                    { id: 'OFFICIAL', label: 'Official Invoice', icon: '📄' },
+                    { id: 'PKR', label: 'Confirmation', icon: '✅' },
+                    { id: 'SAR', label: 'SAR Quote', icon: '🇸🇦' },
+                    { id: 'SERVICE', label: 'Booking Voucher', icon: '🏨' }
+                  ].map(tab => (
+                    <button 
+                      key={tab.id} 
+                      onClick={() => setInspectorView(tab.id as any)}
+                      className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center space-x-2 transition-all ${inspectorView === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                    >
+                      <span>{tab.icon}</span> <span>{tab.label}</span>
+                    </button>
+                  ))}
+               </div>
+               <div className="flex items-center space-x-3">
+                  <button onClick={() => window.print()} className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center space-x-2 hover:scale-105 active:scale-95 transition-all">
+                    <span>🖨️</span> <span>Print / PDF</span>
+                  </button>
+                  <button onClick={() => setViewingVoucher(null)} className="p-3 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-500 hover:text-rose-500 transition-all">✕</button>
+               </div>
+            </div>
+
+            {/* Print Content Area */}
+            <div className="overflow-y-auto max-h-[80vh] print:max-h-none print:overflow-visible">
+              <div className="flex justify-center bg-slate-100 dark:bg-slate-950 py-10 print:bg-white print:py-0">
+                {renderInspectorContent()}
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Customer (Dr)</label><select required className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-sm font-semibold" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}><option value="">Payer...</option>{accounts.filter(a => a.type === AccountType.CUSTOMER).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
-                    <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Vendor (Cr)</label><select required className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-sm font-semibold" value={formData.vendorId} onChange={e => setFormData({...formData, vendorId: e.target.value})}><option value="">Payee...</option>{accounts.filter(a => a.type === AccountType.VENDOR).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
-                  </div>
-                  <input required className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-sm font-bold" placeholder="Lead Pax Name" value={formData.details.paxName} onChange={e => setFormData({...formData, details: {...formData.details, paxName: e.target.value}})} />
-                  {activeType === VoucherType.HOTEL && (
-                    <><div className="grid grid-cols-2 gap-4"><input required className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-sm" placeholder="Hotel Name" value={formData.details.hotelName} onChange={e => setFormData({...formData, details: {...formData.details, hotelName: e.target.value}})} /><select className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-sm font-semibold" value={formData.details.roomType} onChange={e => setFormData({...formData, details: {...formData.details, roomType: e.target.value}})}>{['Single', 'Double', 'Triple', 'Quad', 'Suite', 'DBL C.V'].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-                      <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Check In</label><input type="date" required className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 text-sm" value={formData.details.fromDate} onChange={e => setFormData({...formData, details: {...formData.details, fromDate: e.target.value}})} /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Check Out</label><input type="date" required className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 text-sm" value={formData.details.toDate} onChange={e => setFormData({...formData, details: {...formData.details, toDate: e.target.value}})} /></div></div></>)}
-                </div>
-                <div className="space-y-6">{activeType === VoucherType.HOTEL && (<div className="bg-slate-50 dark:bg-slate-800/20 p-6 rounded-[2rem] space-y-4"><div className="grid grid-cols-4 gap-2 text-center"><div><label className="text-[8px] font-bold text-slate-400 uppercase">Nights</label><input readOnly className="w-full bg-slate-200 dark:bg-slate-900 rounded-lg p-2 font-bold text-xs" value={formData.details.numNights} /></div><div><label className="text-[8px] font-bold text-slate-400 uppercase">Rooms</label><input type="number" min="1" className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs" value={formData.details.numRooms} onChange={e => setFormData({...formData, details: {...formData.details, numRooms: Number(e.target.value)}})} /></div><div><label className="text-[8px] font-bold text-slate-400 uppercase">Adults</label><input type="number" min="1" className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs" value={formData.details.numAdults} onChange={e => setFormData({...formData, details: {...formData.details, numAdults: Number(e.target.value)}})} /></div><div><label className="text-[8px] font-bold text-slate-400 uppercase">Children</label><input type="number" min="0" className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-xs" value={formData.details.numChildren} onChange={e => setFormData({...formData, details: {...formData.details, numChildren: Number(e.target.value)}})} /></div></div></div>)}<textarea className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-4 h-[100px] text-sm" placeholder="Internal Narrative / Remarks..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
-              </div>
-              <div className="bg-slate-900 p-10 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center text-white"><div><p className="text-[10px] font-bold uppercase opacity-60">Calculated Total</p><p className="text-5xl font-orbitron font-bold">{totalCalculatedAmount.toLocaleString()} {formData.currency}</p></div>{formData.currency === Currency.SAR && (<div className="text-right mt-4 md:mt-0"><p className="text-[10px] font-bold uppercase opacity-60">Measured PKR</p><p className="text-4xl font-orbitron font-bold text-cyan-400">{(totalCalculatedAmount * formData.roe).toLocaleString()}</p></div>)}</div>
-              <div className="flex space-x-4"><button type="button" onClick={() => setShowForm(false)} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 font-bold rounded-2xl">Discard</button><button type="submit" className="flex-[2] py-5 bg-blue-600 text-white font-bold rounded-2xl shadow-xl">Commit Transaction</button></div>
-            </form>
+            </div>
           </div>
         </div>
       )}
+
+      {showForm && renderVoucherForm()}
     </div>
   );
 };

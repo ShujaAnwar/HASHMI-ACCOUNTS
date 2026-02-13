@@ -1,44 +1,39 @@
-
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
-import { getAccounts, getVouchers } from '../services/db';
-import { AccountType, VoucherType } from '../types';
+import { getAccounts, getVouchers, getDashboardMetrics } from '../services/db';
+import { AccountType, VoucherType, DashboardStats, Voucher, Account } from '../types';
 
 const Dashboard: React.FC = () => {
-  // Use fresher data on component mount
-  const accounts = useMemo(() => getAccounts(), []);
-  const vouchers = useMemo(() => getVouchers(), []);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalReceivables: 0,
+    totalPayables: 0,
+    totalIncome: 0,
+    totalCash: 0
+  });
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = useMemo(() => {
-    const receivables = accounts
-      .filter(a => a.type === AccountType.CUSTOMER)
-      .reduce((sum, a) => sum + (a.balance > 0 ? a.balance : 0), 0);
-    
-    const payables = accounts
-      .filter(a => a.type === AccountType.VENDOR)
-      .reduce((sum, a) => sum + (a.balance < 0 ? Math.abs(a.balance) : 0), 0);
-    
-    const cash = accounts
-      .filter(a => a.type === AccountType.CASH_BANK)
-      .reduce((sum, a) => sum + a.balance, 0);
-
-    // Revenue only includes sales vouchers (Hotel, Visa, etc.), not receipts
-    const income = vouchers
-      .filter(v => [VoucherType.HOTEL, VoucherType.VISA, VoucherType.TRANSPORT, VoucherType.TICKET].includes(v.type))
-      .reduce((sum, v) => sum + v.totalAmountPKR, 0);
-
-    return { receivables, payables, cash, income };
-  }, [accounts, vouchers]);
+  useEffect(() => {
+    const fetchData = async () => {
+      const [s, v] = await Promise.all([
+        getDashboardMetrics(),
+        getVouchers()
+      ]);
+      setStats(s);
+      setVouchers(v);
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
 
   const pieData = useMemo(() => [
-    { name: 'Receivables', value: Math.max(stats.receivables, 0.1), color: '#3B82F6' },
-    { name: 'Payables', value: Math.max(stats.payables, 0.1), color: '#EF4444' }
+    { name: 'Receivables', value: Math.max(stats.totalReceivables, 0.1), color: '#3B82F6' },
+    { name: 'Payables', value: Math.max(stats.totalPayables, 0.1), color: '#EF4444' }
   ], [stats]);
 
-  // Real-time Income Trends Calculation
   const lineData = useMemo(() => {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const now = new Date();
@@ -65,15 +60,16 @@ const Dashboard: React.FC = () => {
     return last6Months;
   }, [vouchers]);
 
+  if (loading) return null;
+
   return (
     <div className="space-y-6">
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Receivables', value: stats.receivables, color: 'blue', icon: '↗️' },
-          { label: 'Total Payables', value: stats.payables, color: 'red', icon: '↘️' },
-          { label: 'Total Revenue', value: stats.income, color: 'green', icon: '💰' },
-          { label: 'Cash/Bank', value: stats.cash, color: 'purple', icon: '🏦' }
+          { label: 'Total Receivables', value: stats.totalReceivables, color: 'blue', icon: '↗️' },
+          { label: 'Total Payables', value: stats.totalPayables, color: 'red', icon: '↘️' },
+          { label: 'Total Revenue', value: stats.totalIncome, color: 'green', icon: '💰' },
+          { label: 'Cash/Bank', value: stats.totalCash, color: 'purple', icon: '🏦' }
         ].map((card, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1">
             <div className="flex justify-between items-start mb-4">
@@ -88,17 +84,15 @@ const Dashboard: React.FC = () => {
         ))}
       </div>
 
-      {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Income Trends */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold">Real-time Income Trends</h3>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last 6 Months</span>
           </div>
-          <div className="h-64 w-full" style={{ minHeight: '256px' }}>
-            <ResponsiveContainer width="99%" height="100%" minWidth={0}>
-              <LineChart data={lineData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+          <div className="h-72 w-full min-h-[300px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={lineData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} />
@@ -112,11 +106,10 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Receivables vs Payables */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center min-w-0">
-          <div className="flex-1 w-full h-64 min-w-0" style={{ minHeight: '256px' }}>
+          <div className="flex-1 w-full h-72 min-h-[300px] min-w-0">
             <h3 className="text-lg font-bold mb-4">Exposure Breakdown</h3>
-            <ResponsiveContainer width="99%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                   {pieData.map((entry, index) => (

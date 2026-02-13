@@ -1,48 +1,70 @@
-import React, { useState, useRef } from 'react';
-import { getConfig, saveConfig, exportFullDatabase, importFullDatabase, getAccounts } from '../services/db';
-import { AppConfig, AccountType } from '../types';
-import { AccountingService } from '../services/AccountingService';
+import React, { useState, useEffect, useRef } from 'react';
+import { getConfig, saveConfig, exportFullDatabase, importFullDatabase } from '../services/db';
+import { AppConfig } from '../types';
 
 interface ControlPanelProps {
   onConfigUpdate?: () => void;
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
-  const [config, setConfig] = useState<AppConfig>(getConfig());
+  const [config, setConfig] = useState<AppConfig | null>(null);
   const [saveStatus, setSaveStatus] = useState('');
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'branding' | 'financial' | 'disaster'>('branding');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await getConfig();
+      setConfig(data);
+      setLoading(false);
+    };
+    load();
+  }, []);
 
   const triggerNotification = (msg: string) => {
     setSaveStatus(msg);
     setTimeout(() => setSaveStatus(''), 4000);
   };
 
-  const handleUpdate = (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveConfig(config);
-    triggerNotification('System configuration updated successfully.');
-    if (onConfigUpdate) onConfigUpdate();
+    if (!config) return;
+
+    try {
+      setSaveStatus('Saving changes...');
+      await saveConfig(config);
+      triggerNotification('System configuration updated successfully.');
+      if (onConfigUpdate) onConfigUpdate();
+    } catch (err) {
+      console.error("Save failed:", err);
+      triggerNotification('Error: Could not save configuration.');
+    }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !config) return;
+    
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       const newConfig = { ...config, companyLogo: base64 };
       setConfig(newConfig);
-      saveConfig(newConfig);
-      triggerNotification('Brand logo uploaded.');
-      if (onConfigUpdate) onConfigUpdate();
+      try {
+        await saveConfig(newConfig);
+        triggerNotification('Brand logo uploaded.');
+        if (onConfigUpdate) onConfigUpdate();
+      } catch (err) {
+        triggerNotification('Logo upload failed.');
+      }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleBackup = () => {
-    const data = exportFullDatabase();
+  const handleBackup = async () => {
+    const data = await exportFullDatabase();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -56,24 +78,41 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const data = JSON.parse(event.target?.result as string);
         if (data.config) {
-          importFullDatabase(data);
+          await importFullDatabase(data);
           alert("Database restored. Reloading...");
           window.location.reload();
         }
-      } catch (err) { alert("Restore Failed"); }
+      } catch (err) { 
+        alert("Restore Failed: Invalid backup file format."); 
+      }
     };
     reader.readAsText(file);
   };
+
+  if (loading || !config) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl space-y-8 animate-in fade-in duration-700 pb-20">
       <div className="flex space-x-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm w-fit overflow-x-auto no-print">
         {['branding', 'financial', 'disaster'].map(t => (
-          <button key={t} onClick={() => setActiveTab(t as any)} className={`px-6 py-3 rounded-xl font-bold text-xs transition-all uppercase ${activeTab === t ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}>{t}</button>
+          <button 
+            key={t} 
+            type="button"
+            onClick={() => setActiveTab(t as any)} 
+            className={`px-6 py-3 rounded-xl font-bold text-xs transition-all uppercase ${activeTab === t ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}
+          >
+            {t}
+          </button>
         ))}
       </div>
 
@@ -81,29 +120,57 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
         {activeTab === 'branding' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
-              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border shadow-xl text-center">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border shadow-xl text-center border-slate-100 dark:border-slate-800">
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-widest">Master Brand Asset</p>
-                <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-video rounded-3xl border-2 border-dashed flex items-center justify-center cursor-pointer hover:border-blue-500 bg-slate-50 dark:bg-slate-800 overflow-hidden">
-                  {config.companyLogo ? <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="Logo" /> : <span>Upload Logo</span>}
+                <div 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="w-full aspect-video rounded-3xl border-2 border-dashed flex items-center justify-center cursor-pointer hover:border-blue-500 bg-slate-50 dark:bg-slate-800 overflow-hidden group transition-all"
+                >
+                  {config.companyLogo ? (
+                    <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="Logo" className="object-contain" />
+                  ) : (
+                    <span className="text-slate-400 font-bold text-xs uppercase group-hover:text-blue-500 transition-colors">Upload Logo</span>
+                  )}
                 </div>
                 <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleLogoUpload} />
                 <div className="mt-8 space-y-2">
-                   <label className="text-[10px] font-bold text-slate-500 uppercase">Logo Height: {config.logoSize}px</label>
-                   <input type="range" min="20" max="200" className="w-full" value={config.logoSize} onChange={e => setConfig({...config, logoSize: Number(e.target.value)})} />
+                   <label className="text-[10px] font-bold text-slate-500 uppercase flex justify-between">
+                     <span>Logo Height</span>
+                     <span className="text-blue-600 font-black">{config.logoSize}px</span>
+                   </label>
+                   <input type="range" min="20" max="200" className="w-full accent-blue-600" value={config.logoSize} onChange={e => setConfig({...config, logoSize: Number(e.target.value)})} />
                 </div>
               </div>
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8">
-                <h3 className="text-2xl font-orbitron font-bold uppercase">Identity Settings</h3>
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8 border border-slate-100 dark:border-slate-800">
+                <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">Identity Settings</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div><label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block">Company Name</label><input className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-4 font-bold uppercase" value={config.companyName} onChange={e => setConfig({...config, companyName: e.target.value.toUpperCase()})} /></div>
-                  <div><label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block">Subtitle</label><input className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-4" value={config.appSubtitle} onChange={e => setConfig({...config, appSubtitle: e.target.value})} /></div>
-                  <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Cell Number</label><input className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-4" value={config.companyCell} onChange={e => setConfig({...config, companyCell: e.target.value})} /></div>
-                  <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Phone Number</label><input className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-4" value={config.companyPhone} onChange={e => setConfig({...config, companyPhone: e.target.value})} /></div>
-                  <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Email Address</label><input className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-4" value={config.companyEmail} onChange={e => setConfig({...config, companyEmail: e.target.value})} /></div>
-                  <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Corporate Address</label><textarea className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-4 h-24 font-medium" value={config.companyAddress} onChange={e => setConfig({...config, companyAddress: e.target.value})} /></div>
+                  <div>
+                    <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Company Name</label>
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 font-black uppercase text-sm shadow-inner" value={config.companyName} onChange={e => setConfig({...config, companyName: e.target.value.toUpperCase()})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Subtitle</label>
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner" value={config.appSubtitle} onChange={e => setConfig({...config, appSubtitle: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cell Number</label>
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner" value={config.companyCell} onChange={e => setConfig({...config, companyCell: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Phone Number</label>
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner" value={config.companyPhone} onChange={e => setConfig({...config, companyPhone: e.target.value})} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Email Address</label>
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner" value={config.companyEmail} onChange={e => setConfig({...config, companyEmail: e.target.value})} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Corporate Address</label>
+                    <textarea className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 h-24 font-medium text-sm shadow-inner resize-none" value={config.companyAddress} onChange={e => setConfig({...config, companyAddress: e.target.value})} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -111,22 +178,64 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
         )}
 
         {activeTab === 'financial' && (
-           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8">
-              <h3 className="text-2xl font-orbitron font-bold uppercase">Exchange Rate Controls</h3>
-              <div className="w-64"><label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block">Default SAR Rate</label><input type="number" step="0.01" className="w-full bg-blue-50 dark:bg-blue-900/20 border-2 rounded-2xl p-4 font-orbitron font-bold text-2xl text-center" value={config.defaultROE} onChange={e => setConfig({...config, defaultROE: Number(e.target.value)})} /></div>
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8 border border-slate-100 dark:border-slate-800">
+              <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">Exchange Rate Controls</h3>
+              <div className="w-64">
+                <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Default SAR Rate (PKR/1 SAR)</label>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  className="w-full bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-100 dark:border-blue-900/30 rounded-2xl p-6 font-orbitron font-black text-3xl text-center text-blue-600 shadow-sm outline-none focus:border-blue-500 transition-all" 
+                  value={config.defaultROE} 
+                  onChange={e => setConfig({...config, defaultROE: Number(e.target.value)})} 
+                />
+                <p className="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">Global Value for SAR/PKR Vouchers</p>
+              </div>
            </div>
         )}
 
         {activeTab === 'disaster' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-slate-900 text-white rounded-[2.5rem] p-12 shadow-2xl"><h3 className="text-3xl font-orbitron font-bold mb-4">Export Vault</h3><button type="button" onClick={handleBackup} className="w-full py-4 bg-white text-slate-900 font-bold rounded-2xl uppercase text-xs tracking-widest">Download Full Backup</button></div>
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-12 shadow-xl border"><h3 className="text-3xl font-orbitron font-bold mb-4">Restoration</h3><button type="button" onClick={() => restoreInputRef.current?.click()} className="w-full py-4 bg-rose-600 text-white font-bold rounded-2xl shadow-xl uppercase text-xs tracking-widest">Upload JSON Backup</button><input type="file" hidden ref={restoreInputRef} accept=".json" onChange={handleRestore} /></div>
+            <div className="bg-slate-900 text-white rounded-[2.5rem] p-12 shadow-2xl flex flex-col justify-between min-h-[300px] border border-white/5">
+              <div>
+                <h3 className="text-3xl font-orbitron font-bold mb-2 tracking-tighter uppercase">Export Vault</h3>
+                <p className="text-slate-400 text-xs mb-8">Download a secure local backup of all accounts and vouchers.</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={handleBackup} 
+                className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Download Full Backup
+              </button>
+            </div>
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-12 shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[300px]">
+              <div>
+                <h3 className="text-3xl font-orbitron font-bold mb-2 tracking-tighter uppercase dark:text-white">Restoration</h3>
+                <p className="text-slate-400 text-xs mb-8">Upload a JSON backup file to overwrite current cloud state.</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => restoreInputRef.current?.click()} 
+                className="w-full py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-600/20 uppercase text-xs tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Upload JSON Backup
+              </button>
+              <input type="file" hidden ref={restoreInputRef} accept=".json" onChange={handleRestore} />
+            </div>
           </div>
         )}
 
         <div className="flex items-center justify-between pt-8 border-t dark:border-slate-800 no-print">
-          <p className="text-emerald-500 font-bold text-[10px] uppercase tracking-widest">{saveStatus}</p>
-          <button type="submit" className="px-12 py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-3xl shadow-2xl hover:scale-[1.02] transition-all uppercase tracking-[0.2em] text-[10px]">Commit Identity Changes</button>
+          <p className={`font-black text-[10px] uppercase tracking-widest transition-opacity duration-300 ${saveStatus ? 'opacity-100' : 'opacity-0'} ${saveStatus.includes('Error') ? 'text-rose-500' : 'text-emerald-500'}`}>
+            {saveStatus}
+          </p>
+          <button 
+            type="submit" 
+            className="px-12 py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-2xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-[0.3em] text-[10px] font-orbitron"
+          >
+            Commit Identity Changes
+          </button>
         </div>
       </form>
     </div>

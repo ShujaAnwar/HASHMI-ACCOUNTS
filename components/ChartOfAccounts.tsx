@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Account, AccountType } from '../types';
 import { getAccounts } from '../services/db';
@@ -7,6 +6,8 @@ import { AccountingService } from '../services/AccountingService';
 const ChartOfAccounts: React.FC = () => {
   const [accountList, setAccountList] = useState<Account[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -15,8 +16,15 @@ const ChartOfAccounts: React.FC = () => {
     isDr: true
   });
 
+  const refreshAccounts = async () => {
+    setLoading(true);
+    const data = await getAccounts();
+    setAccountList(data);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    setAccountList(getAccounts());
+    refreshAccounts();
   }, [showAddModal]);
 
   const categories = useMemo(() => {
@@ -29,18 +37,27 @@ const ChartOfAccounts: React.FC = () => {
     ];
   }, []);
 
-  const handleAddAccount = (e: React.FormEvent) => {
+  const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    AccountingService.createAccount(
-      formData.name,
-      formData.type,
-      '', '', // cell, location empty for COA structural accounts
-      formData.openingBalance,
-      formData.isDr,
-      formData.code
-    );
-    setShowAddModal(false);
-    setFormData({ code: '', name: '', type: AccountType.CASH_BANK, openingBalance: 0, isDr: true });
+    setIsSubmitting(true);
+    try {
+      await AccountingService.createAccount(
+        formData.name,
+        formData.type,
+        '', '', 
+        formData.openingBalance,
+        formData.isDr,
+        formData.code
+      );
+      setShowAddModal(false);
+      setFormData({ code: '', name: '', type: AccountType.CASH_BANK, openingBalance: 0, isDr: true });
+      await refreshAccounts();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Ledger creation failed: ${err.message || "Unique constraint violation on code"}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getAccountsByCategory = (prefix: string) => {
@@ -48,6 +65,14 @@ const ChartOfAccounts: React.FC = () => {
       .filter(a => a.code?.startsWith(prefix))
       .sort((a, b) => (a.code || '').localeCompare(b.code || ''));
   };
+
+  if (loading && accountList.length === 0) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -104,7 +129,6 @@ const ChartOfAccounts: React.FC = () => {
         ))}
       </div>
 
-      {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[2.5rem] shadow-2xl p-10 border border-white/10 animate-in zoom-in-95 duration-200">
@@ -174,7 +198,13 @@ const ChartOfAccounts: React.FC = () => {
 
               <div className="flex space-x-4 pt-4">
                 <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 font-bold rounded-2xl text-xs uppercase tracking-widest">Cancel</button>
-                <button type="submit" className="flex-1 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-xl text-xs uppercase tracking-widest">Register Head</button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="flex-1 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-xl text-xs uppercase tracking-widest disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Registering...' : 'Register Head'}
+                </button>
               </div>
             </form>
           </div>

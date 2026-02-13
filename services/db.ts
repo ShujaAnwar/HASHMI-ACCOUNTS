@@ -1,88 +1,176 @@
-import { Account, Voucher, AppConfig, AccountType, Currency, LedgerEntry } from '../types';
+import { supabase } from './supabase';
+import { Account, Voucher, AppConfig, AccountType, Currency, VoucherType, VoucherStatus, DashboardStats } from '../types';
 
-const DB_KEYS = {
-  ACCOUNTS: 'tlp_accounts',
-  VOUCHERS: 'tlp_vouchers',
-  CONFIG: 'tlp_config'
-};
+const mapVoucher = (v: any): Voucher => ({
+  id: v.id,
+  type: v.type as VoucherType,
+  voucherNum: v.voucher_num,
+  date: v.date,
+  currency: v.currency as Currency,
+  roe: Number(v.roe),
+  totalAmountPKR: Number(v.total_amount_pkr),
+  description: v.description,
+  status: v.status as VoucherStatus,
+  reference: v.reference,
+  customerId: v.customer_id,
+  vendorId: v.vendor_id,
+  details: v.details
+});
 
-const DEFAULT_CONFIG: AppConfig = {
-  companyName: "NEEM TREE",
-  appSubtitle: "Travels Services",
-  companyAddress: "Shah Faisal Town Malir Halt Karachi",
-  companyPhone: "021000000",
-  companyCell: "0334 3666777",
-  companyEmail: "neemtreetravel@gmail.com",
-  defaultROE: 74.5,
-  logoSize: 80,
-  banks: [
-    { id: 'bank1', name: 'Al Rajhi Bank', accountNumber: 'SA123456789' },
-    { id: 'bank2', name: 'Meezan Bank', accountNumber: 'PK987654321' }
-  ]
-};
+const mapAccount = (a: any): Account => ({
+  id: a.id,
+  code: a.code,
+  name: a.name,
+  type: a.type as AccountType,
+  cell: a.cell,
+  location: a.location,
+  balance: Number(a.balance),
+  ledger: (a.ledger || []).map((l: any) => ({
+    id: l.id,
+    date: l.date,
+    voucherId: l.voucher_id,
+    description: l.description,
+    debit: Number(l.debit),
+    credit: Number(l.credit),
+    balanceAfter: Number(l.balance_after)
+  }))
+});
 
-// Full standard COA seeding
-const INITIAL_ACCOUNTS: Account[] = [
-  { id: 'cash-hand', code: '1001', name: 'Cash in Hand', type: AccountType.CASH_BANK, balance: 0, ledger: [] },
-  { id: 'bank1', code: '1002', name: 'Al Rajhi Bank', type: AccountType.CASH_BANK, balance: 0, ledger: [] },
-  { id: 'bank2', code: '1003', name: 'Meezan Bank', type: AccountType.CASH_BANK, balance: 0, ledger: [] },
-  { id: 'ar-customers', code: '1010', name: 'Accounts Receivable (Customers)', type: AccountType.CUSTOMER, balance: 0, ledger: [] },
-  { id: 'adv-vendors', code: '1015', name: 'Advance to Vendors', type: AccountType.VENDOR, balance: 0, ledger: [] },
-  { id: 'ap-vendors', code: '2001', name: 'Accounts Payable (Vendors)', type: AccountType.VENDOR, balance: 0, ledger: [] },
-  { id: 'adv-customers', code: '2010', name: 'Advance from Customers', type: AccountType.CUSTOMER, balance: 0, ledger: [] },
-  { id: 'reserve-fund', code: '3001', name: 'General Reserve Fund', type: AccountType.EQUITY, balance: 0, ledger: [] },
-  { id: 'owners-capital', code: '3005', name: "Owner's Capital", type: AccountType.EQUITY, balance: 0, ledger: [] },
-  { id: 'rev-hotels', code: '4001', name: 'Revenue from Hotel Services', type: AccountType.REVENUE, balance: 0, ledger: [] },
-  { id: 'exp-petty', code: '5001', name: 'Petty Cash Expenses', type: AccountType.EXPENSE, balance: 0, ledger: [] }
-];
-
-export const getAccounts = (): Account[] => {
-  const data = localStorage.getItem(DB_KEYS.ACCOUNTS);
-  if (!data) {
-    saveAccounts(INITIAL_ACCOUNTS);
-    return INITIAL_ACCOUNTS;
+export const getAccounts = async (): Promise<Account[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('*, ledger:ledger_entries(*)')
+      .order('code', { ascending: true });
+    
+    if (error) {
+      console.error("Error fetching accounts:", error);
+      return [];
+    }
+    return (data || []).map(mapAccount);
+  } catch (err) {
+    console.error("System error fetching accounts:", err);
+    return [];
   }
-  return JSON.parse(data);
 };
 
-export const saveAccounts = (accounts: Account[]) => {
-  localStorage.setItem(DB_KEYS.ACCOUNTS, JSON.stringify(accounts));
-};
-
-export const getVouchers = (): Voucher[] => {
-  const data = localStorage.getItem(DB_KEYS.VOUCHERS);
-  return data ? JSON.parse(data) : [];
-};
-
-export const saveVouchers = (vouchers: Voucher[]) => {
-  localStorage.setItem(DB_KEYS.VOUCHERS, JSON.stringify(vouchers));
-};
-
-export const getConfig = (): AppConfig => {
-  const data = localStorage.getItem(DB_KEYS.CONFIG);
-  if (!data) {
-    saveConfig(DEFAULT_CONFIG);
-    return DEFAULT_CONFIG;
+export const getVouchers = async (): Promise<Voucher[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('vouchers')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) {
+      console.error("Error fetching vouchers:", error);
+      return [];
+    }
+    return (data || []).map(mapVoucher);
+  } catch (err) {
+    console.error("System error fetching vouchers:", err);
+    return [];
   }
-  return JSON.parse(data);
 };
 
-export const saveConfig = (config: AppConfig) => {
-  localStorage.setItem(DB_KEYS.CONFIG, JSON.stringify(config));
+export const getConfig = async (): Promise<AppConfig> => {
+  try {
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('*')
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      if (error) console.error("Error fetching config:", error);
+      return {
+        companyName: "HASHMI BOOKS",
+        appSubtitle: "Travels Services",
+        companyAddress: "Karachi, Pakistan",
+        companyPhone: "",
+        companyCell: "",
+        companyEmail: "",
+        defaultROE: 74.5,
+        logoSize: 80,
+        banks: []
+      };
+    }
+
+    return {
+      companyName: data.company_name,
+      appSubtitle: data.app_subtitle,
+      companyAddress: data.company_address,
+      companyPhone: data.company_phone,
+      companyCell: data.company_cell,
+      companyEmail: data.company_email,
+      companyLogo: data.company_logo,
+      logoSize: data.logo_size,
+      defaultROE: Number(data.default_roe),
+      banks: data.banks || []
+    };
+  } catch (err) {
+    console.error("System error fetching config:", err);
+    return {
+      companyName: "HASHMI BOOKS",
+      appSubtitle: "Travels Services",
+      companyAddress: "Karachi, Pakistan",
+      companyPhone: "",
+      companyCell: "",
+      companyEmail: "",
+      defaultROE: 74.5,
+      logoSize: 80,
+      banks: []
+    };
+  }
 };
 
-export const exportFullDatabase = () => {
-  return {
-    accounts: getAccounts(),
-    vouchers: getVouchers(),
-    config: getConfig(),
-    exportDate: new Date().toISOString(),
-    version: "4.0"
-  };
+export const saveConfig = async (config: AppConfig) => {
+  const { error } = await supabase
+    .from('app_config')
+    .upsert({
+      id: '00000000-0000-0000-0000-000000000001',
+      company_name: config.companyName,
+      app_subtitle: config.appSubtitle,
+      company_address: config.companyAddress,
+      company_phone: config.companyPhone,
+      company_cell: config.companyCell,
+      company_email: config.companyEmail,
+      company_logo: config.companyLogo,
+      logo_size: config.logoSize,
+      default_roe: config.defaultROE,
+      banks: config.banks
+    });
+  
+  if (error) throw error;
 };
 
-export const importFullDatabase = (data: any) => {
-  if (data.accounts && Array.isArray(data.accounts)) saveAccounts(data.accounts);
-  if (data.vouchers && Array.isArray(data.vouchers)) saveVouchers(data.vouchers);
-  if (data.config && typeof data.config === 'object') saveConfig(data.config);
+export const getDashboardMetrics = async (): Promise<DashboardStats> => {
+  try {
+    const { data, error } = await supabase.from('dashboard_stats').select('*').maybeSingle();
+    if (error || !data) {
+      if (error) console.error("Error fetching dashboard metrics:", error);
+      return { totalReceivables: 0, totalPayables: 0, totalIncome: 0, totalCash: 0 };
+    }
+    return {
+      totalReceivables: Number(data.total_receivables),
+      totalPayables: Number(data.total_payables),
+      totalIncome: Number(data.total_revenue),
+      totalCash: Number(data.total_cash_bank)
+    };
+  } catch (err) {
+    console.error("System error fetching dashboard metrics:", err);
+    return { totalReceivables: 0, totalPayables: 0, totalIncome: 0, totalCash: 0 };
+  }
+};
+
+export const exportFullDatabase = async () => {
+  const [accounts, vouchers, config] = await Promise.all([
+    getAccounts(),
+    getVouchers(),
+    getConfig()
+  ]);
+  return { accounts, vouchers, config };
+};
+
+export const importFullDatabase = async (data: any) => {
+  console.warn("Import not implemented for Supabase mode.");
 };

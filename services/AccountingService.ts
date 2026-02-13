@@ -1,169 +1,223 @@
 
-import { Account, AccountType, Voucher, VoucherType, LedgerEntry, Currency, VoucherStatus } from '../types';
-import { getAccounts, saveAccounts, getVouchers, saveVouchers } from './db';
+import { supabase } from './supabase';
+import { Account, AccountType, Voucher, VoucherType, Currency, VoucherStatus } from '../types';
 
 export class AccountingService {
   
-  static createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string) {
-    const accounts = getAccounts();
-    const id = crypto.randomUUID();
-    const pkrValue = openingBalance || 0; 
+  static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string) {
+    const sanitizedCode = (code && code.trim() !== '') ? code.trim() : null;
 
-    const newAccount: Account = {
-      id,
-      code,
-      name,
-      type,
-      cell,
-      location,
-      balance: isDr ? pkrValue : -pkrValue,
-      ledger: []
-    };
+    const { data: account, error: accError } = await supabase
+      .from('accounts')
+      .insert({
+        name,
+        type,
+        cell,
+        location,
+        code: sanitizedCode,
+        balance: 0
+      })
+      .select()
+      .single();
 
-    if (pkrValue !== 0) {
-      const entry: LedgerEntry = {
-        id: crypto.randomUUID(),
+    if (accError) throw accError;
+
+    if (openingBalance > 0) {
+      await supabase.from('ledger_entries').insert({
+        account_id: account.id,
         date: new Date().toISOString(),
-        voucherId: 'opening',
-        voucherNum: 'OB-000',
-        description: 'Opening Balance (IFRS Initial Measurement)',
-        debit: isDr ? pkrValue : 0,
-        credit: isDr ? 0 : pkrValue,
-        balanceAfter: isDr ? pkrValue : -pkrValue,
-        currency: Currency.PKR,
-        roe: 1
-      };
-      newAccount.ledger.push(entry);
+        description: 'Opening Balance (Initial Measurement)',
+        debit: isDr ? openingBalance : 0,
+        credit: isDr ? 0 : openingBalance,
+      });
 
-      const reserve = accounts.find(a => a.id === 'reserve-fund' || a.code === '3001')!;
-      const reserveEntry: LedgerEntry = {
-        id: crypto.randomUUID(),
+      const { data: reserve } = await supabase.from('accounts').select('id').eq('code', '3001').single();
+      if (reserve) {
+        await supabase.from('ledger_entries').insert({
+          account_id: reserve.id,
+          date: new Date().toISOString(),
+          description: `Contra Opening Balance: ${name}`,
+          debit: isDr ? 0 : openingBalance,
+          credit: isDr ? openingBalance : 0,
+        });
+      }
+    }
+    return account;
+  }
+
+  static async updateAccount(id: string, updates: any) {
+    const sanitizedCode = (updates.code && updates.code.trim() !== '') ? updates.code.trim() : null;
+    
+    const { error } = await supabase
+      .from('accounts')
+      .update({
+        name: updates.name,
+        cell: updates.cell,
+        location: updates.location,
+        code: sanitizedCode
+      })
+      .eq('id', id);
+    if (error) throw error;
+
+    if (updates.openingBalance !== undefined) {
+      const isDr = updates.balanceType === 'dr';
+      const amount = updates.openingBalance;
+
+      const { data: entries } = await supabase
+        .from('ledger_entries')
+        .select('id')
+        .eq('account_id', id)
+        .eq('description', 'Opening Balance (Initial Measurement)')
+        .limit(1);
+
+      if (entries && entries.length > 0) {
+        await supabase
+          .from('ledger_entries')
+          .update({
+            debit: isDr ? amount : 0,
+            credit: isDr ? 0 : amount,
+          })
+          .eq('id', entries[0].id);
+
+        const { data: reserve } = await supabase.from('accounts').select('id').eq('code', '3001').single();
+        if (reserve) {
+          const { data: contraEntries } = await supabase
+            .from('ledger_entries')
+            .select('id')
+            .eq('account_id', reserve.id)
+            .or(`description.ilike.%Contra Opening Balance: ${updates.oldName}%,description.ilike.%Contra Opening Balance: ${updates.name}%`)
+            .limit(1);
+
+          if (contraEntries && contraEntries.length > 0) {
+            await supabase
+              .from('ledger_entries')
+              .update({
+                debit: isDr ? 0 : amount,
+                credit: isDr ? amount : 0,
+                description: `Contra Opening Balance: ${updates.name}`
+              })
+              .eq('id', contraEntries[0].id);
+          }
+        }
+      } else if (amount > 0) {
+        await this.createOpeningBalanceEntries(id, updates.name, amount, isDr);
+      }
+    }
+  }
+
+  // Added deleteAccount to fix ReferenceError in Ledger.tsx
+  static async deleteAccount(id: string) {
+    const { error } = await supabase.from('accounts').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  private static async createOpeningBalanceEntries(accountId: string, name: string, amount: number, isDr: boolean) {
+    await supabase.from('ledger_entries').insert({
+      account_id: accountId,
+      date: new Date().toISOString(),
+      description: 'Opening Balance (Initial Measurement)',
+      debit: isDr ? amount : 0,
+      credit: isDr ? 0 : amount,
+    });
+
+    const { data: reserve } = await supabase.from('accounts').select('id').eq('code', '3001').single();
+    if (reserve) {
+      await supabase.from('ledger_entries').insert({
+        account_id: reserve.id,
         date: new Date().toISOString(),
-        voucherId: 'opening',
-        voucherNum: 'OB-000',
         description: `Contra Opening Balance: ${name}`,
-        debit: isDr ? 0 : pkrValue,
-        credit: isDr ? pkrValue : 0,
-        balanceAfter: isDr ? reserve.balance - pkrValue : reserve.balance + pkrValue,
-        currency: Currency.PKR,
-        roe: 1
-      };
-      reserve.balance = reserveEntry.balanceAfter;
-      reserve.ledger.push(reserveEntry);
+        debit: isDr ? 0 : amount,
+        credit: isDr ? amount : 0,
+      });
+    }
+  }
+
+  static async deleteVoucher(id: string) {
+    const { error } = await supabase.from('vouchers').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  static async postVoucher(vData: Partial<Voucher>) {
+    const { data: voucher, error: vError } = await supabase
+      .from('vouchers')
+      .insert({
+        type: vData.type,
+        voucher_num: vData.voucherNum || `${vData.type}-${Date.now().toString().slice(-6)}`,
+        date: vData.date || new Date().toISOString(),
+        currency: vData.currency,
+        roe: vData.roe,
+        total_amount_pkr: vData.totalAmountPKR,
+        description: vData.description,
+        reference: vData.reference,
+        status: VoucherStatus.POSTED,
+        customer_id: vData.customerId,
+        vendor_id: vData.vendorId,
+        details: vData.details
+      })
+      .select()
+      .single();
+
+    if (vError) throw vError;
+
+    const amount = Number(voucher.total_amount_pkr);
+    const entries = [];
+
+    if (voucher.type === 'RV') {
+      entries.push({ account_id: vData.details.bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
+    } else if (voucher.type === 'TV' || voucher.type === 'HV') {
+      const vendorAmount = Number(vData.details?.vendorAmountPKR) || amount;
+      const incomeAmount = Number(vData.details?.incomeAmountPKR) || 0;
+      
+      // Dr Customer (Total Selling Price)
+      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      
+      // Cr Vendor (Actual Cost)
+      entries.push({ account_id: voucher.vendor_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description });
+      
+      // Cr Income (Service Fee / Margin)
+      if (incomeAmount > 0 && vData.details?.incomeAccountId) {
+        entries.push({ 
+          account_id: vData.details.incomeAccountId, 
+          voucher_id: voucher.id, 
+          date: voucher.date, 
+          debit: 0, 
+          credit: incomeAmount, 
+          description: `Service Revenue: ${voucher.description}` 
+        });
+      }
+    } else if (['VV', 'TK'].includes(voucher.type)) {
+      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      entries.push({ account_id: voucher.vendor_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
+    } else if (voucher.type === 'PV') {
+      if (vData.details?.items && Array.isArray(vData.details.items)) {
+        vData.details.items.forEach((item: any) => {
+          const itemAmountPKR = item.amount * (voucher.currency === Currency.SAR ? voucher.roe : 1);
+          entries.push({ 
+            account_id: item.accountId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: itemAmountPKR, 
+            credit: 0, 
+            description: item.description || voucher.description 
+          });
+        });
+      } else {
+        entries.push({ account_id: vData.details.expenseId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      }
+      entries.push({ account_id: vData.details.bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
     }
 
-    accounts.push(newAccount);
-    saveAccounts(accounts);
-    return newAccount;
-  }
+    if (entries.length > 0) {
+      const { error: jError } = await supabase.from('ledger_entries').insert(entries);
+      if (jError) throw jError;
+    }
 
-  static updateAccount(id: string, updates: Partial<Account>) {
-    const accounts = getAccounts();
-    const index = accounts.findIndex(a => a.id === id);
-    if (index === -1) return;
-
-    accounts[index] = { ...accounts[index], ...updates };
-    saveAccounts(accounts);
-  }
-
-  static deleteAccount(id: string) {
-    const accounts = getAccounts();
-    const filtered = accounts.filter(a => a.id !== id);
-    saveAccounts(filtered);
-  }
-
-  static postVoucher(voucherData: Partial<Voucher>) {
-    const vouchers = getVouchers();
-    const accounts = getAccounts();
-    
-    const voucher: Voucher = {
-      id: crypto.randomUUID(),
-      type: voucherData.type as VoucherType,
-      voucherNum: voucherData.voucherNum || `${voucherData.type}-${(vouchers.filter(v => v.type === voucherData.type).length + 1).toString().padStart(3, '0')}`,
-      date: voucherData.date || new Date().toISOString(),
-      currency: voucherData.currency || Currency.PKR,
-      roe: voucherData.roe || 1,
-      totalAmountPKR: voucherData.totalAmountPKR || 0,
-      description: voucherData.description || '',
-      status: voucherData.status || VoucherStatus.POSTED,
-      reference: voucherData.reference || '',
-      customerId: voucherData.customerId,
-      vendorId: voucherData.vendorId,
-      details: voucherData.details
-    };
-
-    const amount = voucher.totalAmountPKR;
-    this.executeLedgerImpact(accounts, voucher, amount);
-
-    vouchers.push(voucher);
-    saveVouchers(vouchers);
-    saveAccounts(accounts);
     return voucher;
   }
 
-  static deleteVoucher(voucherId: string) {
-    const vouchers = getVouchers();
-    const accounts = getAccounts();
-    const voucher = vouchers.find(v => v.id === voucherId);
-    
-    if (!voucher) return;
-
-    // Reverse ledger impacts
-    this.executeLedgerImpact(accounts, voucher, -voucher.totalAmountPKR, true);
-
-    const updatedVouchers = vouchers.filter(v => v.id !== voucherId);
-    saveVouchers(updatedVouchers);
-    saveAccounts(accounts);
-  }
-
-  static updateVoucher(voucherId: string, voucherData: Partial<Voucher>) {
-    this.deleteVoucher(voucherId);
-    return this.postVoucher({ ...voucherData, id: voucherId });
-  }
-
-  private static executeLedgerImpact(accounts: Account[], voucher: Voucher, amount: number, isDeletion: boolean = false) {
-    const desc = isDeletion ? `REVERSAL: ${voucher.description}` : voucher.description;
-    
-    switch (voucher.type) {
-      case VoucherType.RECEIPT:
-        this.addLedgerEntry(accounts, voucher.details.bankId, voucher, amount, 0, desc); 
-        this.addLedgerEntry(accounts, voucher.customerId!, voucher, 0, amount, desc);
-        break;
-      
-      case VoucherType.HOTEL:
-      case VoucherType.TRANSPORT:
-      case VoucherType.VISA:
-      case VoucherType.TICKET:
-        this.addLedgerEntry(accounts, voucher.customerId!, voucher, amount, 0, desc);
-        this.addLedgerEntry(accounts, voucher.vendorId!, voucher, 0, amount, desc);
-        break;
-
-      case VoucherType.PAYMENT:
-        this.addLedgerEntry(accounts, voucher.details.expenseId, voucher, amount, 0, desc);
-        this.addLedgerEntry(accounts, voucher.details.bankId, voucher, 0, amount, desc);
-        break;
-    }
-  }
-
-  private static addLedgerEntry(accounts: Account[], accountId: string, voucher: Voucher, dr: number, cr: number, description: string) {
-    const acc = accounts.find(a => a.id === accountId);
-    if (!acc) return;
-
-    const lastBalance = acc.balance;
-    const newBalance = lastBalance + (dr - cr);
-    
-    acc.ledger.push({
-      id: crypto.randomUUID(),
-      date: voucher.date,
-      voucherId: voucher.id,
-      voucherNum: voucher.voucherNum,
-      description: description,
-      debit: dr > 0 ? dr : 0,
-      credit: cr > 0 ? cr : 0,
-      balanceAfter: newBalance,
-      currency: voucher.currency,
-      roe: voucher.roe
-    });
-    acc.balance = newBalance;
+  static async updateVoucher(id: string, vData: Partial<Voucher>) {
+    await this.deleteVoucher(id);
+    return this.postVoucher(vData);
   }
 }
