@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
-import { getAccounts, getVouchers, getDashboardMetrics } from '../services/db';
-import { AccountType, VoucherType, DashboardStats, Voucher, Account } from '../types';
+import { getVouchers, getDashboardMetrics } from '../services/db';
+import { VoucherType, DashboardStats, Voucher } from '../types';
 
 const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats>({
@@ -76,12 +76,10 @@ const Dashboard: React.FC = () => {
           { label: 'Cash/Bank', value: stats.totalCash, color: 'purple', icon: '🏦', light: 'bg-violet-500' }
         ].map((card, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group">
-            {/* Blinking Status Light */}
             <div className={`absolute top-4 right-4 flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full border dark:border-slate-700`}>
               <div className={`w-1.5 h-1.5 rounded-full ${card.light} animate-blink shadow-[0_0_8px_rgba(59,130,246,0.5)]`}></div>
               <span className="text-[8px] font-black uppercase tracking-tighter text-slate-500 dark:text-slate-400">Live</span>
             </div>
-
             <div className="flex justify-between items-start mb-4">
               <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
             </div>
