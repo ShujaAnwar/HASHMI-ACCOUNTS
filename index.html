@@ -29,6 +29,15 @@
         .font-orbitron {
             font-family: 'Orbitron', sans-serif;
         }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.9); }
+        }
+        .animate-blink {
+            animation: blink 1s infinite cubic-bezier(0.4, 0, 0.6, 1);
+        }
+
         @media print {
             .no-print, .no-print * { display: none !important; }
             .print-only { display: block !important; }

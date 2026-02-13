@@ -60,24 +60,33 @@ const Dashboard: React.FC = () => {
     return last6Months;
   }, [vouchers]);
 
-  if (loading) return null;
+  if (loading) return (
+    <div className="flex justify-center items-center h-64">
+      <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Receivables', value: stats.totalReceivables, color: 'blue', icon: '↗️' },
-          { label: 'Total Payables', value: stats.totalPayables, color: 'red', icon: '↘️' },
-          { label: 'Total Revenue', value: stats.totalIncome, color: 'green', icon: '💰' },
-          { label: 'Cash/Bank', value: stats.totalCash, color: 'purple', icon: '🏦' }
+          { label: 'Total Receivables', value: stats.totalReceivables, color: 'blue', icon: '↗️', light: 'bg-blue-500' },
+          { label: 'Total Payables', value: stats.totalPayables, color: 'red', icon: '↘️', light: 'bg-rose-500' },
+          { label: 'Total Revenue', value: stats.totalIncome, color: 'green', icon: '💰', light: 'bg-emerald-500' },
+          { label: 'Cash/Bank', value: stats.totalCash, color: 'purple', icon: '🏦', light: 'bg-violet-500' }
         ].map((card, i) => (
-          <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1">
+          <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group">
+            {/* Blinking Status Light */}
+            <div className={`absolute top-4 right-4 flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full border dark:border-slate-700`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${card.light} animate-blink shadow-[0_0_8px_rgba(59,130,246,0.5)]`}></div>
+              <span className="text-[8px] font-black uppercase tracking-tighter text-slate-500 dark:text-slate-400">Live</span>
+            </div>
+
             <div className="flex justify-between items-start mb-4">
-              <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl">{card.icon}</span>
-              <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Live</span>
+              <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
             </div>
             <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{card.label}</h3>
-            <p className="text-2xl font-orbitron font-bold mt-1">
+            <p className="text-2xl font-orbitron font-bold mt-1 tracking-tighter">
               PKR {card.value.toLocaleString()}
             </p>
           </div>

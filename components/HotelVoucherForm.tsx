@@ -33,10 +33,11 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0],
     currency: initialData?.currency || Currency.PKR,
     roe: initialData?.roe || 1,
-    voucherNum: initialData?.voucherNum || `HV-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+    voucherNum: (isClone || !initialData?.voucherNum) 
+      ? `HV-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}` 
+      : initialData.voucherNum,
     customerId: initialData?.customerId || '',
     vendorId: initialData?.vendorId || '',
-    incomeAccountId: initialData?.details?.incomeAccountId || '',
     description: initialData?.description || '',
     reference: isClone ? '' : (initialData?.reference || ''),
     paxName: initialData?.details?.paxName || '',
@@ -47,7 +48,6 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     numRooms: initialData?.details?.numRooms || 1,
     numNights: initialData?.details?.numNights || 0,
     unitRate: initialData?.details?.unitRate || 0,
-    serviceFee: initialData?.details?.serviceFee || 0,
     fromDate: initialData?.details?.fromDate || '',
     toDate: initialData?.details?.toDate || '',
     meals: (Array.isArray(initialData?.details?.meals) ? initialData.details.meals : (typeof initialData?.details?.meals === 'string' ? [initialData.details.meals] : [])) as string[],
@@ -55,26 +55,17 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     children: initialData?.details?.children || 0
   });
 
-  const incomeAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.REVENUE), [accounts]);
   const customerAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CUSTOMER), [accounts]);
   const vendorAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.VENDOR), [accounts]);
 
-  // Set defaults from config when config loads
   useEffect(() => {
     if (config && !initialData) {
       setFormData(prev => ({ 
         ...prev, 
-        roe: prev.currency === Currency.SAR ? config.defaultROE : 1,
-        incomeAccountId: prev.incomeAccountId || incomeAccounts.find(a => a.name.toLowerCase().includes('service'))?.id || incomeAccounts[0]?.id || ''
-      }));
-    } else if (config && initialData) {
-      // If editing an existing voucher, only set income account if missing
-      setFormData(prev => ({ 
-        ...prev, 
-        incomeAccountId: prev.incomeAccountId || incomeAccounts.find(a => a.name.toLowerCase().includes('service'))?.id || incomeAccounts[0]?.id || ''
+        roe: prev.currency === Currency.SAR ? config.defaultROE : 1
       }));
     }
-  }, [config, incomeAccounts, initialData]);
+  }, [config, initialData]);
 
   useEffect(() => {
     if (formData.fromDate && formData.toDate) {
@@ -93,8 +84,8 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
   }, [formData.unitRate, formData.numRooms, formData.numNights]);
 
   const totalSelectedCurrency = useMemo(() => {
-    return vendorSubtotal + (Number(formData.serviceFee) || 0);
-  }, [vendorSubtotal, formData.serviceFee]);
+    return vendorSubtotal;
+  }, [vendorSubtotal]);
 
   const totalPKR = useMemo(() => {
     const rate = formData.currency === Currency.SAR ? formData.roe : 1;
@@ -122,6 +113,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     e.preventDefault();
     if (!formData.customerId || !formData.vendorId) return alert("Select Customer and Vendor");
     
+    // Explicitly exclude id if it's a clone to force new insertion
     onSave({
       ...formData,
       type: VoucherType.HOTEL,
@@ -130,7 +122,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
       details: {
         ...formData,
         vendorAmountPKR: vendorSubtotal * (formData.currency === Currency.SAR ? formData.roe : 1),
-        incomeAmountPKR: (Number(formData.serviceFee) || 0) * (formData.currency === Currency.SAR ? formData.roe : 1),
+        incomeAmountPKR: 0,
         totalSelectedCurrency
       }
     });
@@ -142,7 +134,6 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto no-print">
       <div className="bg-[#f8fbff] dark:bg-slate-900 w-full max-w-5xl rounded-[2.5rem] shadow-2xl flex flex-col border border-white/20 animate-in zoom-in-95 duration-200 overflow-hidden">
         
-        {/* Simple Heading */}
         <div className="px-10 pt-8 pb-4 flex justify-between items-center bg-[#f8fbff] dark:bg-slate-900">
             <h1 className="text-2xl font-black font-orbitron text-slate-800 dark:text-white uppercase tracking-tighter">
                 HOTEL VOUCHER
@@ -152,7 +143,6 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
 
         <form onSubmit={handleSubmit} className="p-10 space-y-8 overflow-y-auto max-h-[85vh]">
           
-          {/* Top Control Section */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">DATE</label>
@@ -261,22 +251,14 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-amber-600 uppercase tracking-widest ml-1">SERVICE FEE ({formData.currency})</label>
-                  <input type="number" step="0.01" className="w-full bg-amber-50/50 dark:bg-amber-900/10 border-none rounded-2xl p-4 text-sm font-black text-amber-600 outline-none ring-1 ring-amber-100" value={formData.serviceFee} onChange={e => setFormData({...formData, serviceFee: Number(e.target.value)})} />
-                </div>
-                <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">REVENUE ACCOUNT</label>
-                   <select required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-bold outline-none ring-1 ring-slate-100" value={formData.incomeAccountId} onChange={e => setFormData({...formData, incomeAccountId: e.target.value})}>
-                     {incomeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                   </select>
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CONFIRMATION / PNR / REF</label>
                 <input className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-black uppercase outline-none ring-1 ring-slate-100" placeholder="e.g. 125983" value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">REMARKS</label>
+                <textarea className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-medium outline-none ring-1 ring-slate-100 h-24 resize-none" placeholder="Notes for this booking..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
             </div>
           </div>

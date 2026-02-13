@@ -95,6 +95,35 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     return 'Room Only';
   };
 
+  const handlePrint = () => {
+    if (!viewingVoucher) return;
+    
+    let paxName = '';
+    const customer = accounts.find(a => a.id === viewingVoucher.customerId);
+    
+    // Determine the name to use for the file based on voucher type
+    if (viewingVoucher.type === VoucherType.HOTEL) paxName = viewingVoucher.details?.paxName;
+    else if (viewingVoucher.type === VoucherType.VISA) paxName = viewingVoucher.details?.headName;
+    else if (viewingVoucher.type === VoucherType.TRANSPORT) paxName = viewingVoucher.details?.paxName;
+    else if (viewingVoucher.type === VoucherType.TICKET) paxName = viewingVoucher.details?.paxName;
+    else if (viewingVoucher.type === VoucherType.RECEIPT) paxName = customer?.name || '';
+    else if (viewingVoucher.type === VoucherType.PAYMENT) paxName = 'Payment';
+
+    // Sanitize paxName and voucher number for file naming
+    const cleanPax = (paxName || 'Document').replace(/[/\\?%*:|"<>]/g, '-').trim();
+    const cleanVNum = viewingVoucher.voucherNum.replace(/[/\\?%*:|"<>]/g, '-').trim();
+    
+    const originalTitle = document.title;
+    document.title = `${cleanPax}_${cleanVNum}`;
+    
+    window.print();
+    
+    // Restore title after print dialog closes
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 500);
+  };
+
   // --- RENDERING FUNCTIONS FOR INSPECTOR ---
 
   const renderOfficialInvoice = (v: Voucher) => {
@@ -643,7 +672,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
                   ))}
                </div>
                <div className="flex items-center space-x-3">
-                  <button onClick={() => window.print()} className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center space-x-2 hover:scale-105 active:scale-95 transition-all">
+                  <button onClick={handlePrint} className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center space-x-2 hover:scale-105 active:scale-95 transition-all">
                     <span>🖨️</span> <span>Print / PDF</span>
                   </button>
                   <button onClick={() => setViewingVoucher(null)} className="p-3 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-500 hover:text-rose-500 transition-all">✕</button>
