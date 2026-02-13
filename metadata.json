@@ -1,0 +1,5 @@
+{
+  "name": "TravelLedger Pro: Enterprise Accounting",
+  "description": "An IFRS-compliant travel agency accounting system featuring multi-currency support (SAR/PKR), double-entry bookkeeping, and PowerBI-style financial dashboards.",
+  "requestFramePermissions": []
+}
