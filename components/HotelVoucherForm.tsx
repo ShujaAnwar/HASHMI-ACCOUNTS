@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
+import { AccountingService } from '../services/AccountingService';
 
 interface HotelVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -34,7 +35,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     currency: initialData?.currency || Currency.PKR,
     roe: initialData?.roe || 1,
     voucherNum: (isClone || !initialData?.voucherNum) 
-      ? `HV-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}` 
+      ? AccountingService.generateUniqueVNum('HV')
       : initialData.voucherNum,
     customerId: initialData?.customerId || '',
     vendorId: initialData?.vendorId || '',
@@ -111,9 +112,8 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.customerId || !formData.vendorId) return alert("Select Customer and Vendor");
+    if (!formData.customerId || !formData.vendorId) return alert("Please select both a Customer and a Vendor to post this voucher.");
     
-    // Explicitly exclude id if it's a clone to force new insertion
     onSave({
       ...formData,
       type: VoucherType.HOTEL,
@@ -181,14 +181,14 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CUSTOMER (DR)</label>
                   <select required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
-                    <option value="">Payer...</option>
+                    <option value="">Select Customer...</option>
                     {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VENDOR (CR)</label>
                   <select required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.vendorId} onChange={e => setFormData({...formData, vendorId: e.target.value})}>
-                    <option value="">Payee...</option>
+                    <option value="">Select Vendor...</option>
                     {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>

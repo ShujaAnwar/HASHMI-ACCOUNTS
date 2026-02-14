@@ -85,6 +85,7 @@ CREATE TABLE public.ledger_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
     voucher_id UUID REFERENCES public.vouchers(id) ON DELETE CASCADE,
+    voucher_num VARCHAR(50), -- Added missing column
     date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     debit NUMERIC(15,2) DEFAULT 0.00,
     credit NUMERIC(15,2) DEFAULT 0.00,

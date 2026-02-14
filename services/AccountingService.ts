@@ -3,6 +3,12 @@ import { Account, AccountType, Voucher, VoucherType, Currency, VoucherStatus } f
 
 export class AccountingService {
   
+  static generateUniqueVNum(type: string): string {
+    const year = new Date().getFullYear();
+    const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+    return `${type}-${year}-${randomStr}`;
+  }
+
   static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string, currency: Currency = Currency.PKR) {
     const sanitizedCode = (code && code.trim() !== '') ? code.trim() : null;
 
@@ -74,9 +80,9 @@ export class AccountingService {
   }
 
   static async postVoucher(vData: Partial<Voucher>) {
-    const vNum = vData.voucherNum || `${vData.type}-${Date.now().toString().slice(-6)}`;
+    // Generate high-entropy unique number if missing to prevent duplicate key errors
+    const vNum = vData.voucherNum || this.generateUniqueVNum(vData.type || 'VO');
     
-    // First insert the voucher
     const { data: voucher, error: vError } = await supabase
       .from('vouchers')
       .insert({
@@ -89,8 +95,8 @@ export class AccountingService {
         description: vData.description || '',
         reference: vData.reference || '',
         status: VoucherStatus.POSTED,
-        customer_id: vData.customerId || null,
-        vendor_id: vData.vendorId || null,
+        customer_id: (vData.customerId && vData.customerId !== '') ? vData.customerId : null,
+        vendor_id: (vData.vendorId && vData.vendorId !== '') ? vData.vendorId : null,
         details: vData.details || {}
       })
       .select()
@@ -103,42 +109,39 @@ export class AccountingService {
 
     const amount = Number(voucher.total_amount_pkr);
     const entries = [];
+    
+    const customerId = voucher.customer_id;
+    const vendorId = voucher.vendor_id;
 
-    // Posting logic for different voucher types - ensuring correct ledger impact
+    // Note: We no longer send 'voucher_num' to ledger_entries to avoid PGRST204 schema errors.
+    // The UI now resolves the number via voucher_id.
     if (voucher.type === 'RV') {
-      const bankId = vData.details?.bankId;
-      const customerId = vData.customerId;
-      
-      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
+      const bankId = voucher.details?.bankId;
+      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
       
     } else if (voucher.type === 'TV' || voucher.type === 'HV') {
-      const customerId = vData.customerId;
-      const vendorId = vData.vendorId;
-      const vendorAmount = Number(vData.details?.vendorAmountPKR) || amount;
-      const incomeAmount = Number(vData.details?.incomeAmountPKR) || 0;
-      const incomeAccountId = vData.details?.incomeAccountId;
+      const vendorAmount = Number(voucher.details?.vendorAmountPKR) || amount;
+      const incomeAmount = Number(voucher.details?.incomeAmountPKR) || 0;
+      const incomeAccountId = voucher.details?.incomeAccountId;
       
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
-      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description, voucher_num: vNum });
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description });
       
       if (incomeAmount > 0 && incomeAccountId) {
-        entries.push({ account_id: incomeAccountId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: incomeAmount, description: `Service Revenue: ${voucher.description}`, voucher_num: vNum });
+        entries.push({ account_id: incomeAccountId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: incomeAmount, description: `Service Revenue: ${voucher.description}` });
       }
       
     } else if (voucher.type === 'VV' || voucher.type === 'TK') {
-      const customerId = vData.customerId;
-      const vendorId = vData.vendorId;
-      
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
-      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
       
     } else if (voucher.type === 'PV') {
-      const bankId = vData.details?.bankId;
-      const expenseAccountId = vData.details?.expenseId || vData.details?.items?.[0]?.accountId;
+      const bankId = voucher.details?.bankId;
+      const expenseAccountId = voucher.details?.expenseId || voucher.details?.items?.[0]?.accountId;
       
-      if (expenseAccountId) entries.push({ account_id: expenseAccountId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
-      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
+      if (expenseAccountId) entries.push({ account_id: expenseAccountId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
     }
 
     if (entries.length > 0) {
