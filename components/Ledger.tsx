@@ -120,7 +120,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     
     setIsExporting(true);
     const element = pdfRef.current;
-    const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `Wide_Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     
     const opt = {
       margin: 0,
@@ -133,9 +133,9 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
         backgroundColor: '#ffffff',
         logging: false,
         scrollY: 0,
-        windowWidth: 1600 
+        windowWidth: 1600 // High-width capture for ultra-wide format
       },
-      jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' },
+      jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }, // Upgraded to A3 for maximum width
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
@@ -259,11 +259,12 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
           </div>
 
           <div className="flex justify-center items-start py-4 bg-slate-100/50 dark:bg-slate-950/50 rounded-[3rem] overflow-x-auto min-h-screen">
+            {/* Expanded Container for A3 Landscape (420mm) */}
             <div 
               ref={pdfRef} 
               className="bg-white px-[20mm] py-20 text-[#0f172a] font-inter w-[420mm] mx-auto flex flex-col box-border shadow-none transition-transform min-h-fit overflow-visible items-center text-center"
             >
-              {/* Header */}
+              {/* Header - Perfectly Centered on Expanded Width */}
               <div className="w-full mb-12 border-b-2 border-slate-100 pb-12 flex-shrink-0 flex flex-col items-center">
                  <h1 className="text-[64px] font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-6">{config.companyName}</h1>
                  <div className="flex items-center justify-center text-[15px] font-bold text-slate-500 tracking-[0.15em] uppercase w-full">
@@ -273,7 +274,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </div>
               </div>
 
-              {/* Title Section */}
+              {/* Title Section - Perfectly Centered */}
               <div className="w-full mb-12 flex-shrink-0 flex flex-col items-center">
                  <h2 className="text-[38px] font-black uppercase text-[#0f172a] tracking-tight mb-6">
                    {type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT
@@ -286,20 +287,20 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </div>
               </div>
 
-              {/* Table Body - Switched to table-auto for PDF compatibility */}
+              {/* Table Body - Maximized Narration Space in A3 Wide */}
               <div className="w-full flex-1 overflow-visible mb-16 flex justify-center px-4">
-                <table className="w-full text-left border-collapse border border-slate-200 table-auto page-break-inside-auto">
+                <table className="w-full text-left border-collapse border border-slate-200 table-fixed page-break-inside-auto">
                     <thead className="bg-[#0f172a] text-white text-[11px] uppercase font-black tracking-widest">
                       <tr>
-                        <th className="px-4 py-6 border-r border-slate-700 text-center min-w-[100px]">DATE</th>
-                        <th className="px-4 py-6 border-r border-slate-700 text-blue-400 text-center min-w-[140px]">REF #</th>
-                        <th className="px-3 py-6 border-r border-slate-700 text-center min-w-[60px]">TYPE</th>
-                        <th className="px-8 py-6 border-r border-slate-700 text-center">TRANSACTION NARRATION</th>
-                        <th className="px-3 py-6 border-r border-slate-700 text-right min-w-[120px]">RATE(SAR)</th>
-                        <th className="px-3 py-6 border-r border-slate-700 text-center min-w-[60px]">ROE</th>
-                        <th className="px-4 py-6 border-r border-slate-700 text-right min-w-[140px]">DEBIT</th>
-                        <th className="px-4 py-6 border-r border-slate-700 text-right min-w-[140px]">CREDIT</th>
-                        <th className="px-4 py-6 text-right min-w-[160px]">BALANCE</th>
+                        <th className="px-4 py-6 border-r border-slate-700 w-[100px] text-center">DATE</th>
+                        <th className="px-4 py-6 border-r border-slate-700 w-[140px] text-blue-400 text-center">REF #</th>
+                        <th className="px-3 py-6 border-r border-slate-700 w-[60px] text-center">TYPE</th>
+                        <th className="px-8 py-6 border-r border-slate-700 w-auto text-center">TRANSACTION NARRATION</th>
+                        <th className="px-3 py-6 border-r border-slate-700 w-[120px] text-right">RATE(SAR)</th>
+                        <th className="px-3 py-6 border-r border-slate-700 w-[60px] text-center">ROE</th>
+                        <th className="px-4 py-6 border-r border-slate-700 w-[140px] text-right">DEBIT</th>
+                        <th className="px-4 py-6 border-r border-slate-700 w-[140px] text-right">CREDIT</th>
+                        <th className="px-4 py-6 text-right w-[160px]">BALANCE</th>
                       </tr>
                     </thead>
                     <tbody className="text-[12px] font-medium text-slate-700">
@@ -320,11 +321,16 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                             <td className="px-4 py-4 whitespace-nowrap text-slate-500 font-bold text-center">
                               {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap font-black text-blue-600 text-center">
-                              {displayVNum}
+                            <td className="px-4 py-4 whitespace-nowrap font-black text-blue-600 truncate text-center">
+                              <span className="no-print">
+                                {voucher ? (
+                                  <button onClick={() => onEditVoucher(voucher)} className="hover:underline text-left focus:outline-none transition-all">{displayVNum}</button>
+                                ) : displayVNum}
+                              </span>
+                              <span className="print-only">{displayVNum}</span>
                             </td>
                             <td className="px-3 py-4 text-center uppercase font-bold text-slate-400">{displayType}</td>
-                            <td className="px-8 py-4 text-slate-600 italic text-[12px] leading-relaxed font-medium text-center">
+                            <td className="px-8 py-4 text-slate-600 italic text-[12px] leading-relaxed break-words font-medium text-center">
                               {displayDescription}
                             </td>
                             <td className="px-3 py-4 text-right font-bold text-slate-600">
@@ -363,7 +369,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </table>
               </div>
 
-              {/* Financial Position Summary */}
+              {/* Ultra-Wide Financial Summary Block */}
               <div className="w-full mt-10 bg-[#f8fbff] p-16 rounded-[4rem] border border-slate-100 flex flex-col items-center flex-shrink-0 box-border break-inside-avoid shadow-none overflow-visible px-28">
                  <h3 className="text-[18px] font-black text-[#0f172a] uppercase tracking-[0.6em] mb-14 border-b border-slate-100 pb-5 w-full text-center">FINANCIAL POSITION SUMMARY</h3>
                  
@@ -393,6 +399,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </div>
               </div>
               
+              {/* Ultra-Wide Footer Area */}
               <div className="w-full mt-28 flex justify-between items-center px-32 pt-24 border-t border-slate-50 opacity-30">
                   <div className="text-[15px] font-black uppercase tracking-[0.4em] border-t border-slate-300 pt-6 px-24 text-center">Authorized System Signatory</div>
                   <div className="text-[15px] font-black uppercase tracking-[0.4em] border-t border-slate-300 pt-6 px-24 text-center">Corporate Office Stamp</div>
@@ -441,8 +448,8 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 <div className="flex items-center space-x-4">
                   <input type="number" step="0.01" className="flex-1 bg-white dark:bg-slate-800 rounded-xl p-4 font-bold text-lg" value={formData.openingBalance} onChange={e => setFormData({...formData, openingBalance: Number(e.target.value)})} />
                   <div className="flex bg-slate-200 dark:bg-slate-700 p-1 rounded-xl shadow-inner">
-                    <button type="button" onClick={() => setFormData({...formData, balanceType: 'dr'})} className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.balanceType === 'dr' ? 'bg-white dark:bg-slate-600 text-blue-600 shadow-sm' : 'text-slate-50'}`}>DR</button>
-                    <button type="button" onClick={() => setFormData({...formData, balanceType: 'cr'})} className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.balanceType === 'cr' ? 'bg-white dark:bg-slate-600 text-rose-500 shadow-sm' : 'text-slate-50'}`}>CR</button>
+                    <button type="button" onClick={() => setFormData({...formData, isDr: true})} className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.isDr ? 'bg-white dark:bg-slate-600 text-blue-600 shadow-sm' : 'text-slate-50'}`}>DR</button>
+                    <button type="button" onClick={() => setFormData({...formData, isDr: false})} className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${!formData.isDr ? 'bg-white dark:bg-slate-600 text-rose-500 shadow-sm' : 'text-slate-50'}`}>CR</button>
                   </div>
                 </div>
               </div>
