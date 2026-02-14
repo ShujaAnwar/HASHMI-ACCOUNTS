@@ -123,17 +123,17 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     
     const opt = {
-      margin: 10,
+      margin: [10, 0, 10, 0], // top, left, bottom, right
       filename: fileName,
       image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { 
-        scale: 2, 
+        scale: 3, 
         useCORS: true, 
         letterRendering: true, 
         backgroundColor: '#ffffff',
         logging: false,
         scrollY: 0,
-        windowWidth: 1024
+        windowWidth: 1024 // Capture at standard width
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
@@ -261,11 +261,11 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
           <div className="flex justify-center py-4 bg-slate-100/50 dark:bg-slate-950/50 rounded-[3rem] overflow-x-auto min-h-screen">
             <div 
               ref={pdfRef} 
-              className="bg-white px-16 py-12 text-[#0f172a] font-inter w-[210mm] flex flex-col box-border shadow-2xl scale-100 lg:scale-[1.05] origin-top transition-transform min-h-fit overflow-visible"
+              className="bg-white px-10 py-12 text-[#0f172a] font-inter w-[210mm] flex flex-col box-border shadow-2xl scale-100 lg:scale-[1.05] origin-top transition-transform min-h-fit overflow-visible"
             >
               {/* Header */}
-              <div className="mb-4 border-b-2 border-slate-100 pb-2 flex-shrink-0">
-                 <h1 className="text-5xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-1">{config.companyName}</h1>
+              <div className="mb-6 border-b-2 border-slate-100 pb-3 flex-shrink-0">
+                 <h1 className="text-5xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-2">{config.companyName}</h1>
                  <div className="flex items-center text-[10px] font-bold text-slate-500 tracking-wide uppercase">
                    <span>CONTACT: {config.companyCell}</span>
                    <span className="mx-3 opacity-40">|</span>
@@ -274,8 +274,8 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
               </div>
 
               {/* Title Section */}
-              <div className="mb-4 flex-shrink-0">
-                 <h2 className="text-2xl font-black uppercase text-[#0f172a] tracking-tight mb-2">
+              <div className="mb-6 flex-shrink-0">
+                 <h2 className="text-2xl font-black uppercase text-[#0f172a] tracking-tight mb-3">
                    {type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT
                  </h2>
                  <div className="flex justify-between items-end">
@@ -288,20 +288,20 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </div>
               </div>
 
-              {/* Table Body */}
+              {/* Table Body - Fixed Layout for Alignment */}
               <div className="flex-1 overflow-visible">
-                <table className="w-full text-left border-collapse border border-slate-200 table-fixed page-break-inside-auto">
+                <table className="w-full text-left border-collapse border border-slate-200 table-fixed">
                     <thead className="bg-[#0f172a] text-white text-[9px] uppercase font-black tracking-wider">
                       <tr>
-                        <th className="px-2 py-2.5 border-r border-slate-700 w-[65px]">DATE</th>
-                        <th className="px-2 py-2.5 border-r border-slate-700 w-[85px] text-blue-400">REF #</th>
-                        <th className="px-2 py-2.5 border-r border-slate-700 w-[30px] text-center">TYPE</th>
-                        <th className="px-2 py-2.5 border-r border-slate-700 w-auto">NARRATION</th>
-                        <th className="px-2 py-2.5 border-r border-slate-700 w-[75px] text-right">RATE/UNIT (SAR)</th>
-                        <th className="px-2 py-2.5 border-r border-slate-700 w-[30px] text-center">ROE</th>
-                        <th className="px-2 py-2.5 border-r border-slate-700 w-[75px] text-right">DEBIT</th>
-                        <th className="px-2 py-2.5 border-r border-slate-700 w-[75px] text-right">CREDIT</th>
-                        <th className="px-2 py-2.5 text-right w-[90px]">BALANCE</th>
+                        <th className="px-2 py-3 border-r border-slate-700 w-[70px]">DATE</th>
+                        <th className="px-2 py-3 border-r border-slate-700 w-[95px] text-blue-400">REF #</th>
+                        <th className="px-2 py-3 border-r border-slate-700 w-[35px] text-center">TYPE</th>
+                        <th className="px-2 py-3 border-r border-slate-700 w-auto">NARRATION</th>
+                        <th className="px-2 py-3 border-r border-slate-700 w-[80px] text-right">RATE/UNIT (SAR)</th>
+                        <th className="px-2 py-3 border-r border-slate-700 w-[35px] text-center">ROE</th>
+                        <th className="px-2 py-3 border-r border-slate-700 w-[85px] text-right">DEBIT</th>
+                        <th className="px-2 py-3 border-r border-slate-700 w-[85px] text-right">CREDIT</th>
+                        <th className="px-2 py-3 text-right w-[100px]">BALANCE</th>
                       </tr>
                     </thead>
                     <tbody className="text-[9.5px] font-medium text-slate-700">
@@ -319,10 +319,10 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
 
                         return (
                           <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/20'} break-inside-avoid`}>
-                            <td className="px-2 py-1.5 whitespace-nowrap text-slate-500 font-bold">
+                            <td className="px-2 py-2 whitespace-nowrap text-slate-500 font-bold">
                               {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
                             </td>
-                            <td className="px-2 py-1.5 whitespace-nowrap font-black text-blue-600 truncate">
+                            <td className="px-2 py-2 whitespace-nowrap font-black text-blue-600 truncate">
                               <span className="no-print">
                                 {voucher ? (
                                   <button onClick={() => onEditVoucher(voucher)} className="hover:underline text-left focus:outline-none transition-all">{displayVNum}</button>
@@ -330,21 +330,21 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                               </span>
                               <span className="print-only">{displayVNum}</span>
                             </td>
-                            <td className="px-2 py-1.5 text-center uppercase font-bold text-slate-400">{displayType}</td>
-                            <td className="px-2 py-1.5 text-slate-500 italic text-[9px] leading-tight break-words font-medium">
+                            <td className="px-2 py-2 text-center uppercase font-bold text-slate-400">{displayType}</td>
+                            <td className="px-2 py-2 text-slate-500 italic text-[9.5px] leading-tight break-words font-medium">
                               {displayDescription}
                             </td>
-                            <td className="px-2 py-1.5 text-right font-bold text-slate-600">
+                            <td className="px-2 py-2 text-right font-bold text-slate-600">
                               {sarRateVal > 0 ? sarRateVal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
                             </td>
-                            <td className="px-2 py-1.5 text-center text-slate-400 font-bold">{displayROE}</td>
-                            <td className="px-2 py-1.5 text-right text-emerald-600 font-black">
+                            <td className="px-2 py-2 text-center text-slate-400 font-bold">{displayROE}</td>
+                            <td className="px-2 py-2 text-right text-emerald-600 font-black">
                               {entry.debit > 0 ? getConvertedVal(entry.debit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-rose-600 font-black">
+                            <td className="px-2 py-2 text-right text-rose-600 font-black">
                               {entry.credit > 0 ? getConvertedVal(entry.credit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
                             </td>
-                            <td className="px-2 py-1.5 text-right font-black text-slate-900 whitespace-nowrap">
+                            <td className="px-2 py-2 text-right font-black text-slate-900 whitespace-nowrap">
                               {Math.abs(getConvertedVal(entry.balanceAfter)).toLocaleString(undefined, { minimumFractionDigits: 0 })} 
                               <span className="ml-1 text-[8px] opacity-60 uppercase font-black">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
                             </td>
@@ -355,27 +355,27 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </table>
               </div>
 
-              {/* Robust Financial Summary Block - Improved to avoid overlapping */}
-              <div className="mt-12 bg-[#f8fbff] p-10 rounded-[2.5rem] border border-slate-100 flex flex-col flex-shrink-0 box-border break-inside-avoid shadow-sm min-h-[160px] overflow-visible">
+              {/* Exact Re-style of Financial Summary - Fixed Collision Issue */}
+              <div className="mt-10 bg-[#f8fbff] p-10 rounded-[2.5rem] border border-slate-100 flex flex-col flex-shrink-0 box-border break-inside-avoid shadow-sm min-h-[140px] overflow-visible">
                  <h3 className="text-[14px] font-black text-[#0f172a] uppercase tracking-tighter mb-10">FINANCIAL SUMMARY</h3>
-                 <div className="grid grid-cols-3 gap-6 items-end w-full">
-                    {/* Left Column */}
-                    <div className="space-y-2">
-                      <p className="text-[13px] text-slate-500 font-bold">Total Transactions: <span className="text-[#0f172a] font-black ml-2">{totalTransactions}</span></p>
-                      <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Credits: <span className="text-rose-600 font-black ml-2">Rs. {getConvertedVal(totalCredits).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                 <div className="flex justify-between items-end w-full">
+                    {/* Left & Middle stats in one group */}
+                    <div className="flex gap-12">
+                        <div className="space-y-1.5">
+                            <p className="text-[13px] text-slate-500 font-bold">Total Transactions: <span className="text-[#0f172a] font-black ml-2">{totalTransactions}</span></p>
+                            <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Credits: <span className="text-rose-600 font-black ml-2">Rs. {getConvertedVal(totalCredits).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                        </div>
+                        <div className="flex flex-col justify-end">
+                            <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Debits: <span className="text-emerald-600 font-black ml-2">Rs. {getConvertedVal(totalDebits).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                        </div>
                     </div>
                     
-                    {/* Middle Column */}
-                    <div className="flex flex-col">
-                      <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Debits: <span className="text-emerald-600 font-black ml-2">Rs. {getConvertedVal(totalDebits).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
-                    </div>
-                    
-                    {/* Right Column - Large Net Balance with Correct "NET" alignment */}
-                    <div className="text-right flex flex-col items-end">
-                       <div className="flex flex-col items-end">
-                          <p className="text-slate-400 text-[10px] uppercase tracking-widest font-black mb-1 mr-14">NET</p>
+                    {/* Right Column - Large Net Balance - Explicitly distanced */}
+                    <div className="text-right flex flex-col items-end min-w-[280px]">
+                       <div className="flex flex-col items-end relative">
+                          <p className="text-slate-400 text-[10px] uppercase tracking-widest font-black absolute -top-4 right-14">NET</p>
                           <div className="flex items-baseline whitespace-nowrap">
-                             <p className="text-[42px] font-black text-[#0f172a] leading-none tracking-tighter">
+                             <p className="text-[44px] font-black text-[#0f172a] leading-none tracking-tighter">
                                Rs. {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })}
                              </p>
                              <span className="ml-3 font-black uppercase text-3xl text-slate-600 leading-none">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
