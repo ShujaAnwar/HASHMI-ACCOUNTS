@@ -123,17 +123,17 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     
     const opt = {
-      margin: 10,
+      margin: 0,
       filename: fileName,
       image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { 
-        scale: 2, 
+        scale: 3, 
         useCORS: true, 
         letterRendering: true, 
         backgroundColor: '#ffffff',
         logging: false,
         scrollY: 0,
-        windowWidth: 800 // Adjusted for A4 width
+        windowWidth: 1024
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
@@ -261,45 +261,45 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
           <div className="flex justify-center items-start py-4 bg-slate-100/50 dark:bg-slate-950/50 rounded-[3rem] overflow-x-auto min-h-screen">
             <div 
               ref={pdfRef} 
-              className="bg-white px-16 py-12 text-[#0f172a] font-inter w-[210mm] mx-auto flex flex-col box-border shadow-2xl transition-transform min-h-fit overflow-visible"
+              className="bg-white px-[15mm] py-12 text-[#0f172a] font-inter w-[210mm] mx-auto flex flex-col box-border shadow-2xl transition-transform min-h-fit overflow-visible"
             >
-              {/* Header - Centered with substantial padding to ensure balance */}
-              <div className="mb-8 border-b-2 border-slate-100 pb-6 flex-shrink-0 text-center">
-                 <h1 className="text-5xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-3">{config.companyName}</h1>
-                 <div className="flex items-center justify-center text-[11px] font-bold text-slate-500 tracking-wide uppercase">
+              {/* Header - Perfectly Centered */}
+              <div className="mb-10 border-b-2 border-slate-100 pb-8 flex-shrink-0 text-center">
+                 <h1 className="text-[54px] font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-4">{config.companyName}</h1>
+                 <div className="flex items-center justify-center text-[12px] font-bold text-slate-500 tracking-[0.1em] uppercase">
                    <span>CONTACT: {config.companyCell}</span>
-                   <span className="mx-4 opacity-30">|</span>
+                   <span className="mx-6 opacity-30">|</span>
                    <span>EMAIL: {config.companyEmail}</span>
                  </div>
               </div>
 
-              {/* Title Section - Centered */}
-              <div className="mb-8 flex-shrink-0 text-center">
-                 <h2 className="text-[26px] font-black uppercase text-[#0f172a] tracking-tight mb-4">
+              {/* Title Section - Perfectly Centered */}
+              <div className="mb-10 flex-shrink-0 text-center">
+                 <h2 className="text-[32px] font-black uppercase text-[#0f172a] tracking-tight mb-4">
                    {type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT
                  </h2>
-                 <div className="flex flex-col items-center space-y-1">
-                    <p className="text-[16px] font-black text-slate-800 uppercase tracking-tight">PARTY: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] opacity-80">
+                 <div className="flex flex-col items-center space-y-2">
+                    <p className="text-[18px] font-black text-slate-800 uppercase tracking-tight">PARTY: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
+                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-[0.25em] opacity-80">
                       GENERATED ON: {new Date().toLocaleString('en-US', { hour12: true })}
                     </p>
                  </div>
               </div>
 
-              {/* Table Body - Center-aligned by 100% width of px-16 container */}
+              {/* Table Body - Centered by container padding */}
               <div className="flex-1 overflow-visible">
                 <table className="w-full text-left border-collapse border border-slate-200 table-fixed page-break-inside-auto">
                     <thead className="bg-[#0f172a] text-white text-[9px] uppercase font-black tracking-wider">
                       <tr>
-                        <th className="px-2 py-3 border-r border-slate-700 w-[70px]">DATE</th>
-                        <th className="px-2 py-3 border-r border-slate-700 w-[95px] text-blue-400">REF #</th>
-                        <th className="px-2 py-3 border-r border-slate-700 w-[35px] text-center">TYPE</th>
-                        <th className="px-2 py-3 border-r border-slate-700 w-auto">NARRATION</th>
-                        <th className="px-2 py-3 border-r border-slate-700 w-[80px] text-right">RATE/UNIT (SAR)</th>
-                        <th className="px-2 py-3 border-r border-slate-700 w-[35px] text-center">ROE</th>
-                        <th className="px-2 py-3 border-r border-slate-700 w-[85px] text-right">DEBIT</th>
-                        <th className="px-2 py-3 border-r border-slate-700 w-[85px] text-right">CREDIT</th>
-                        <th className="px-2 py-3 text-right w-[100px]">BALANCE</th>
+                        <th className="px-2 py-4 border-r border-slate-700 w-[70px]">DATE</th>
+                        <th className="px-2 py-4 border-r border-slate-700 w-[95px] text-blue-400">REF #</th>
+                        <th className="px-2 py-4 border-r border-slate-700 w-[35px] text-center">TYPE</th>
+                        <th className="px-2 py-4 border-r border-slate-700 w-auto">NARRATION</th>
+                        <th className="px-2 py-4 border-r border-slate-700 w-[80px] text-right">RATE/UNIT (SAR)</th>
+                        <th className="px-2 py-4 border-r border-slate-700 w-[35px] text-center">ROE</th>
+                        <th className="px-2 py-4 border-r border-slate-700 w-[85px] text-right">DEBIT</th>
+                        <th className="px-2 py-4 border-r border-slate-700 w-[85px] text-right">CREDIT</th>
+                        <th className="px-2 py-4 text-right w-[100px]">BALANCE</th>
                       </tr>
                     </thead>
                     <tbody className="text-[9.5px] font-medium text-slate-700">
@@ -352,14 +352,14 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                     </tbody>
                     <tfoot className="bg-slate-50 text-slate-900 font-black text-[10px] uppercase">
                       <tr>
-                        <td colSpan={6} className="px-2 py-3 text-right border border-slate-200">TOTAL FOR PERIOD:</td>
-                        <td className="px-2 py-3 text-right border border-slate-200 text-emerald-600">
+                        <td colSpan={6} className="px-2 py-4 text-right border border-slate-200">TOTAL FOR PERIOD:</td>
+                        <td className="px-2 py-4 text-right border border-slate-200 text-emerald-600 bg-emerald-50/30">
                           {getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { minimumFractionDigits: 0 })}
                         </td>
-                        <td className="px-2 py-3 text-right border border-slate-200 text-rose-600">
+                        <td className="px-2 py-4 text-right border border-slate-200 text-rose-600 bg-rose-50/30">
                           {getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { minimumFractionDigits: 0 })}
                         </td>
-                        <td className="px-2 py-3 text-right border border-slate-200 bg-slate-100">
+                        <td className="px-2 py-4 text-right border border-slate-200 bg-slate-100">
                            {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })}
                            <span className="ml-1 text-[8px] opacity-60">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
                         </td>
@@ -368,41 +368,41 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </table>
               </div>
 
-              {/* Robust Financial Summary Block - Centered Layout */}
-              <div className="mt-14 bg-[#f8fbff] p-10 rounded-[2.5rem] border border-slate-100 flex flex-col flex-shrink-0 box-border break-inside-avoid shadow-sm min-h-[180px] overflow-visible">
-                 <h3 className="text-[14px] font-black text-[#0f172a] uppercase tracking-[0.2em] mb-12 text-center border-b border-slate-100 pb-3">FINANCIAL SUMMARY</h3>
+              {/* Financial Summary Block - Professional, Centered, No Overlap */}
+              <div className="mt-16 bg-[#f8fbff] p-12 rounded-[3rem] border border-slate-100 flex flex-col flex-shrink-0 box-border break-inside-avoid shadow-sm min-h-[200px] overflow-visible">
+                 <h3 className="text-[16px] font-black text-[#0f172a] uppercase tracking-[0.25em] mb-14 text-center border-b border-slate-100 pb-4">FINANCIAL SUMMARY</h3>
                  
-                 <div className="flex justify-between items-end w-full px-4">
+                 <div className="flex justify-between items-end w-full px-6">
                     {/* Left Column (Transactions & Balances) */}
-                    <div className="flex gap-16">
-                        <div className="space-y-3">
-                            <p className="text-[13px] text-slate-500 font-bold uppercase tracking-tight">Transactions: <span className="text-[#0f172a] font-black ml-3">{totalTransactions}</span></p>
-                            <p className="text-[13px] text-slate-500 font-bold uppercase tracking-tight whitespace-nowrap">Total Credits: <span className="text-rose-600 font-black ml-3">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                    <div className="flex gap-20">
+                        <div className="space-y-4">
+                            <p className="text-[14px] text-slate-500 font-bold uppercase tracking-tight">Transactions: <span className="text-[#0f172a] font-black ml-4">{totalTransactions}</span></p>
+                            <p className="text-[14px] text-slate-500 font-bold uppercase tracking-tight whitespace-nowrap">Total Credits: <span className="text-rose-600 font-black ml-4">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
                         </div>
                         <div className="flex flex-col justify-end">
-                            <p className="text-[13px] text-slate-500 font-bold uppercase tracking-tight whitespace-nowrap">Total Debits: <span className="text-emerald-600 font-black ml-3">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                            <p className="text-[14px] text-slate-500 font-bold uppercase tracking-tight whitespace-nowrap">Total Debits: <span className="text-emerald-600 font-black ml-4">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
                         </div>
                     </div>
                     
-                    {/* Right Column - Prominent Net Balance */}
-                    <div className="text-right flex flex-col items-end min-w-[300px]">
+                    {/* Right Column - Large, Centered Content Net Balance */}
+                    <div className="text-right flex flex-col items-end min-w-[320px]">
                        <div className="relative inline-flex flex-col items-end">
-                          <p className="text-slate-400 text-[10px] uppercase tracking-[0.3em] font-black absolute -top-6 right-16">NET BALANCE</p>
-                          <div className="flex items-baseline whitespace-nowrap pt-2">
-                             <p className="text-[48px] font-black text-[#0f172a] leading-none tracking-tighter">
+                          <p className="text-slate-400 text-[11px] uppercase tracking-[0.4em] font-black absolute -top-8 right-16">NET BALANCE</p>
+                          <div className="flex items-baseline whitespace-nowrap pt-3">
+                             <p className="text-[52px] font-black text-[#0f172a] leading-none tracking-tighter">
                                Rs. {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })}
                              </p>
-                             <span className="ml-4 font-black uppercase text-3xl text-slate-500 leading-none">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
+                             <span className="ml-5 font-black uppercase text-4xl text-slate-500 leading-none">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
                           </div>
                        </div>
                     </div>
                  </div>
               </div>
               
-              {/* Footer Stamp/Signature Area for professional look */}
-              <div className="mt-12 flex justify-between items-center px-10 pt-12 border-t border-slate-50 opacity-40">
-                  <div className="text-[9px] font-bold uppercase tracking-widest">Authorized Signatory</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest">Office Stamp</div>
+              {/* Footer Signature Area */}
+              <div className="mt-16 flex justify-between items-center px-12 pt-16 border-t border-slate-50 opacity-30">
+                  <div className="text-[10px] font-bold uppercase tracking-widest border-t border-slate-300 pt-2 px-8">Authorized Signatory</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest border-t border-slate-300 pt-2 px-8">Office Stamp</div>
               </div>
             </div>
           </div>
