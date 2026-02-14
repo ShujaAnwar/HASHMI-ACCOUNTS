@@ -7,10 +7,10 @@ interface ControlPanelProps {
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
-  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [config, setConfig] = useState<(AppConfig & { fontSize?: number }) | null>(null);
   const [saveStatus, setSaveStatus] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'branding' | 'financial' | 'disaster'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'financial' | 'disaster' | 'diagnostics'>('branding');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,12 +104,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
   return (
     <div className="max-w-6xl space-y-8 animate-in fade-in duration-700 pb-20">
       <div className="flex space-x-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm w-fit overflow-x-auto no-print">
-        {['branding', 'financial', 'disaster'].map(t => (
+        {['branding', 'financial', 'disaster', 'diagnostics'].map(t => (
           <button 
             key={t} 
             type="button"
             onClick={() => setActiveTab(t as any)} 
-            className={`px-6 py-3 rounded-xl font-bold text-xs transition-all uppercase ${activeTab === t ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}
+            className={`px-6 py-3 rounded-xl font-bold text-xs transition-all uppercase whitespace-nowrap ${activeTab === t ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-blue-500'}`}
           >
             {t}
           </button>
@@ -119,7 +119,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
       <form onSubmit={handleUpdate} className="space-y-8">
         {activeTab === 'branding' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-6">
               <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border shadow-xl text-center border-slate-100 dark:border-slate-800">
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-widest">Master Brand Asset</p>
                 <div 
@@ -141,6 +141,24 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
                    <input type="range" min="20" max="200" className="w-full accent-blue-600" value={config.logoSize} onChange={e => setConfig({...config, logoSize: Number(e.target.value)})} />
                 </div>
               </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border shadow-xl border-slate-100 dark:border-slate-800">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-4 tracking-widest text-center">Interface Scaling</p>
+                <div className="space-y-4">
+                   <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-500">
+                      <span>Font Size</span>
+                      <span className="bg-blue-600 text-white px-3 py-1 rounded-full">{config.fontSize}px</span>
+                   </div>
+                   <input 
+                      type="range" 
+                      min="12" 
+                      max="24" 
+                      className="w-full accent-blue-600" 
+                      value={config.fontSize} 
+                      onChange={e => setConfig({...config, fontSize: Number(e.target.value)})} 
+                   />
+                </div>
+              </div>
             </div>
 
             <div className="lg:col-span-2 space-y-6">
@@ -149,27 +167,27 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Company Name</label>
-                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 font-black uppercase text-sm shadow-inner" value={config.companyName} onChange={e => setConfig({...config, companyName: e.target.value.toUpperCase()})} />
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 font-black uppercase text-sm shadow-inner outline-none" value={config.companyName} onChange={e => setConfig({...config, companyName: e.target.value.toUpperCase()})} />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Subtitle</label>
-                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner" value={config.appSubtitle} onChange={e => setConfig({...config, appSubtitle: e.target.value})} />
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner outline-none" value={config.appSubtitle} onChange={e => setConfig({...config, appSubtitle: e.target.value})} />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cell Number</label>
-                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner" value={config.companyCell} onChange={e => setConfig({...config, companyCell: e.target.value})} />
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner outline-none" value={config.companyCell} onChange={e => setConfig({...config, companyCell: e.target.value})} />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Phone Number</label>
-                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner" value={config.companyPhone} onChange={e => setConfig({...config, companyPhone: e.target.value})} />
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner outline-none" value={config.companyPhone} onChange={e => setConfig({...config, companyPhone: e.target.value})} />
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Email Address</label>
-                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner" value={config.companyEmail} onChange={e => setConfig({...config, companyEmail: e.target.value})} />
+                    <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner outline-none" value={config.companyEmail} onChange={e => setConfig({...config, companyEmail: e.target.value})} />
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Corporate Address</label>
-                    <textarea className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 h-24 font-medium text-sm shadow-inner resize-none" value={config.companyAddress} onChange={e => setConfig({...config, companyAddress: e.target.value})} />
+                    <textarea className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 h-24 font-medium text-sm shadow-inner resize-none outline-none" value={config.companyAddress} onChange={e => setConfig({...config, companyAddress: e.target.value})} />
                   </div>
                 </div>
               </div>
@@ -189,7 +207,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
                   value={config.defaultROE} 
                   onChange={e => setConfig({...config, defaultROE: Number(e.target.value)})} 
                 />
-                <p className="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">Global Value for SAR/PKR Vouchers</p>
               </div>
            </div>
         )}
@@ -204,7 +221,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
               <button 
                 type="button" 
                 onClick={handleBackup} 
-                className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all"
               >
                 Download Full Backup
               </button>
@@ -217,12 +234,51 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
               <button 
                 type="button" 
                 onClick={() => restoreInputRef.current?.click()} 
-                className="w-full py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-600/20 uppercase text-xs tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="w-full py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-600/20 uppercase text-xs tracking-[0.2em] transition-all"
               >
                 Upload JSON Backup
               </button>
               <input type="file" hidden ref={restoreInputRef} accept=".json" onChange={handleRestore} />
             </div>
+          </div>
+        )}
+
+        {activeTab === 'diagnostics' && (
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-6 border border-slate-100 dark:border-slate-800">
+             <div className="flex items-center space-x-4 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg">🛠️</div>
+                <div>
+                   <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">System Diagnostics</h3>
+                   <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Fix "Column Not Found" Errors</p>
+                </div>
+             </div>
+             
+             <div className="bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-500 p-6 rounded-r-2xl">
+                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                   If you encounter an error like <b>"Could not find the 'currency' column"</b>, it means your Supabase Database is out of sync.
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+                   To fix this, go to your <b>Supabase SQL Editor</b>, create a new query, paste the code below, and click <b>Run</b>. Then refresh this page.
+                </p>
+             </div>
+
+             <div className="relative group">
+                <pre className="bg-slate-900 text-slate-300 p-8 rounded-3xl text-[11px] font-mono overflow-x-auto border border-white/5">
+{`-- FIX: Add missing column and reload cache
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR';
+NOTIFY pgrst, 'reload schema';`}
+                </pre>
+                <button 
+                   type="button"
+                   onClick={() => {
+                      navigator.clipboard.writeText("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR';\nNOTIFY pgrst, 'reload schema';");
+                      triggerNotification("SQL Copied to Clipboard");
+                   }}
+                   className="absolute top-4 right-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest backdrop-blur-md transition-all"
+                >
+                   Copy SQL
+                </button>
+             </div>
           </div>
         )}
 
