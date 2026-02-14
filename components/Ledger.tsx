@@ -215,21 +215,28 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
             <button onClick={() => window.print()} className="px-10 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[10px] font-black uppercase shadow-lg hover:scale-105 transition-all">Print Ledger</button>
           </div>
 
-          <div className="bg-white p-14 text-black font-inter voucher-page shadow-2xl rounded-[1rem] border border-slate-100 min-h-[11in]">
-            <div className="mb-12 border-b-2 border-slate-50 pb-8">
-               <h1 className="text-5xl font-bold tracking-tighter uppercase leading-none text-slate-800">{config.companyName}</h1>
-               <p className="text-[14px] text-slate-500 mt-2 font-medium">{config.companyAddress}</p>
-               <p className="text-[14px] text-slate-500 font-medium">Contact: {config.companyCell} | Email: {config.companyEmail}</p>
+          <div className="bg-white p-14 text-slate-900 font-inter voucher-page shadow-2xl rounded-[1rem] border border-slate-100 min-h-[11in]">
+            {/* Exact Header Match */}
+            <div className="mb-14">
+               <h1 className="text-5xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-2">{config.companyName}</h1>
+               <div className="flex items-center text-[13px] font-medium text-slate-500 tracking-wide">
+                 <span>Contact: {config.companyCell}</span>
+                 <span className="mx-2">|</span>
+                 <span>Email: {config.companyEmail}</span>
+               </div>
             </div>
 
+            {/* Statement Header */}
             <div className="mb-10">
-               <h2 className="text-3xl font-bold uppercase text-slate-800 tracking-tight">{type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT</h2>
-               <p className="text-[18px] font-bold text-slate-700 mt-3">Party: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
-               <p className="text-[13px] text-slate-400 font-medium mt-1">Generated on: {new Date().toLocaleString()}</p>
+               <h2 className="text-3xl font-black uppercase text-[#0f172a] tracking-tight">{type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT</h2>
+               <div className="mt-4 space-y-1">
+                 <p className="text-[18px] font-black text-slate-800">Party: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
+                 <p className="text-[13px] text-slate-400 font-medium">Generated on: {new Date().toLocaleString()}</p>
+               </div>
             </div>
 
             <table className="w-full text-left border-collapse border border-slate-200">
-                <thead className="bg-[#0f172a] text-white text-[11px] uppercase font-bold tracking-wider">
+                <thead className="bg-[#0f172a] text-white text-[11px] uppercase font-black tracking-wider">
                   <tr>
                     <th className="px-4 py-3 border-r border-slate-700 w-24">Date</th>
                     <th className="px-4 py-3 border-r border-slate-700 w-32">Ref #</th>
@@ -254,16 +261,16 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                         <td className="px-4 py-3 whitespace-nowrap text-slate-500">{entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <button onClick={() => handleVoucherClick(entry.voucherId, displayVNum)} className="text-blue-600 font-bold hover:underline no-print">{displayVNum}</button>
-                          <span className="print-only font-bold">{displayVNum}</span>
+                          <span className="print-only font-bold text-blue-600">{displayVNum}</span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap uppercase">{displayType}</td>
                         <td className="px-4 py-3 text-slate-500 italic text-[11px] leading-relaxed break-words">
                           {displayDescription}
                         </td>
                         <td className="px-4 py-3 text-center text-slate-400">{displayROE}</td>
-                        <td className="px-4 py-3 text-right text-emerald-600 font-bold">{entry.debit > 0 ? getConvertedVal(entry.debit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}</td>
-                        <td className="px-4 py-3 text-right text-rose-600 font-bold">{entry.credit > 0 ? getConvertedVal(entry.credit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}</td>
-                        <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                        <td className="px-4 py-3 text-right text-emerald-600 font-black">{entry.debit > 0 ? getConvertedVal(entry.debit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}</td>
+                        <td className="px-4 py-3 text-right text-rose-600 font-black">{entry.credit > 0 ? getConvertedVal(entry.credit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}</td>
+                        <td className="px-4 py-3 text-right font-black text-slate-900 whitespace-nowrap">
                           {Math.abs(getConvertedVal(entry.balanceAfter)).toLocaleString(undefined, { minimumFractionDigits: 0 })} 
                           <span className="ml-1 text-[10px] opacity-40 uppercase">{entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}</span>
                         </td>
@@ -273,17 +280,21 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </tbody>
             </table>
 
-            <div className="mt-12 bg-[#f8fafc] p-10 rounded-2xl border border-slate-100 relative min-h-[160px]">
-               <h3 className="text-[18px] font-bold text-slate-800 uppercase tracking-tight mb-6">FINANCIAL SUMMARY</h3>
-               <div className="space-y-2">
-                 <p className="text-[14px] text-slate-500">Total Transactions: {selectedAccount.ledger.filter(e => e.voucherId).length}</p>
-                 <p className="text-[14px] text-slate-500">Total Debits: Rs. <span className="text-emerald-600 font-bold">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
-                 <p className="text-[14px] text-slate-500">Total Credits: Rs. <span className="text-rose-600 font-bold">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+            {/* Exactly Styled Summary Box */}
+            <div className="mt-14 bg-[#f8fbff] p-12 rounded-[2.5rem] border border-slate-100 flex justify-between items-center min-h-[200px]">
+               <div className="space-y-6">
+                 <h3 className="text-[18px] font-black text-slate-900 uppercase tracking-tight mb-2">FINANCIAL SUMMARY</h3>
+                 <div className="space-y-3">
+                   <p className="text-[14px] text-slate-500 font-medium">Total Transactions: <span className="text-slate-800 font-bold">{selectedAccount.ledger.filter(e => e.voucherId).length}</span></p>
+                   <p className="text-[14px] text-slate-500 font-medium">Total Debits: Rs. <span className="text-emerald-600 font-black">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                   <p className="text-[14px] text-slate-500 font-medium">Total Credits: Rs. <span className="text-rose-600 font-black">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                 </div>
                </div>
-               <div className="absolute right-10 bottom-10 text-right">
-                  <p className="text-3xl font-bold text-slate-900">
-                    Net Balance: Rs. {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })} 
-                    <span className="ml-2 font-medium uppercase">{selectedAccount.balance >= 0 ? 'Dr' : 'Cr'}</span>
+               <div className="text-right">
+                  <p className="text-4xl font-black text-slate-900 flex items-center justify-end">
+                    <span className="text-slate-800 mr-4 text-3xl">Net Balance: Rs.</span>
+                    {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })} 
+                    <span className="ml-3 font-black uppercase text-2xl">{selectedAccount.balance >= 0 ? 'Dr' : 'Cr'}</span>
                   </p>
                </div>
             </div>
@@ -307,13 +318,17 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-2 px-1">Contact No</label>
-                  <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 text-sm font-bold outline-none" value={formData.cell} onChange={e => setFormData({...formData, cell: e.target.value})} />
+                  <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 text-sm font-bold outline-none" placeholder="CELL #" value={formData.cell} onChange={e => setFormData({...formData, cell: e.target.value})} />
                 </div>
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-2 px-1">Head Currency (Mandatory)</label>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-2 px-1">Location / City</label>
+                  <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 text-sm font-bold outline-none uppercase" placeholder="CITY" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-2 px-1">Head Currency</label>
                   <select required className="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 text-sm font-bold outline-none cursor-pointer" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value as Currency})}>
                     <option value={Currency.PKR}>PKR (Domestic)</option>
                     <option value={Currency.SAR}>SAR (Saudi Riyal)</option>
