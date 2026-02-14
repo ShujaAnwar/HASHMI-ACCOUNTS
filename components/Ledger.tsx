@@ -123,17 +123,17 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     
     const opt = {
-      margin: [10, 0, 10, 0], // top, left, bottom, right
+      margin: 10,
       filename: fileName,
       image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { 
-        scale: 3, 
+        scale: 2, 
         useCORS: true, 
         letterRendering: true, 
         backgroundColor: '#ffffff',
         logging: false,
         scrollY: 0,
-        windowWidth: 1024 // Capture at standard width
+        windowWidth: 1024
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
@@ -168,9 +168,8 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
 
   if (!config) return null;
 
-  const totalCredits = selectedAccount?.ledger.reduce((s, e) => s + e.credit, 0) || 0;
-  const totalDebits = selectedAccount?.ledger.reduce((s, e) => s + e.debit, 0) || 0;
-  const totalTransactions = selectedAccount?.ledger.filter(e => e.voucherId).length || 0;
+  const totalVisibleDebit = ledgerWithRunningBalance.reduce((sum, entry) => sum + entry.debit, 0);
+  const totalVisibleCredit = ledgerWithRunningBalance.reduce((sum, entry) => sum + entry.credit, 0);
 
   return (
     <div className="space-y-6">
@@ -258,10 +257,10 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
             </button>
           </div>
 
-          <div className="flex justify-center py-4 bg-slate-100/50 dark:bg-slate-950/50 rounded-[3rem] overflow-x-auto min-h-screen">
+          <div className="flex justify-center items-start py-4 bg-slate-100/50 dark:bg-slate-950/50 rounded-[3rem] overflow-x-auto min-h-screen">
             <div 
               ref={pdfRef} 
-              className="bg-white px-10 py-12 text-[#0f172a] font-inter w-[210mm] flex flex-col box-border shadow-2xl scale-100 lg:scale-[1.05] origin-top transition-transform min-h-fit overflow-visible"
+              className="bg-white px-10 py-12 text-[#0f172a] font-inter w-[210mm] mx-auto flex flex-col box-border shadow-2xl transition-transform min-h-fit overflow-visible"
             >
               {/* Header */}
               <div className="mb-6 border-b-2 border-slate-100 pb-3 flex-shrink-0">
@@ -352,27 +351,42 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                         );
                       })}
                     </tbody>
+                    <tfoot className="bg-slate-50 text-slate-900 font-black text-[10px] uppercase">
+                      <tr>
+                        <td colSpan={6} className="px-2 py-3 text-right border border-slate-200">TOTAL FOR PERIOD:</td>
+                        <td className="px-2 py-3 text-right border border-slate-200 text-emerald-600">
+                          {getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-2 py-3 text-right border border-slate-200 text-rose-600">
+                          {getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-2 py-3 text-right border border-slate-200 bg-slate-100">
+                           {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                           <span className="ml-1 text-[8px] opacity-60">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
+                        </td>
+                      </tr>
+                    </tfoot>
                 </table>
               </div>
 
-              {/* Exact Re-style of Financial Summary - Fixed Collision Issue */}
-              <div className="mt-10 bg-[#f8fbff] p-10 rounded-[2.5rem] border border-slate-100 flex flex-col flex-shrink-0 box-border break-inside-avoid shadow-sm min-h-[140px] overflow-visible">
+              {/* Exact Re-style of Financial Summary - Preventing Overlap */}
+              <div className="mt-12 bg-[#f8fbff] p-10 rounded-[2.5rem] border border-slate-100 flex flex-col flex-shrink-0 box-border break-inside-avoid shadow-sm min-h-[160px] overflow-visible">
                  <h3 className="text-[14px] font-black text-[#0f172a] uppercase tracking-tighter mb-10">FINANCIAL SUMMARY</h3>
-                 <div className="flex justify-between items-end w-full">
-                    {/* Left & Middle stats in one group */}
-                    <div className="flex gap-12">
-                        <div className="space-y-1.5">
-                            <p className="text-[13px] text-slate-500 font-bold">Total Transactions: <span className="text-[#0f172a] font-black ml-2">{totalTransactions}</span></p>
-                            <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Credits: <span className="text-rose-600 font-black ml-2">Rs. {getConvertedVal(totalCredits).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
-                        </div>
-                        <div className="flex flex-col justify-end">
-                            <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Debits: <span className="text-emerald-600 font-black ml-2">Rs. {getConvertedVal(totalDebits).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
-                        </div>
+                 <div className="grid grid-cols-12 gap-6 items-end w-full">
+                    {/* Left Column (Transactions & Credits) */}
+                    <div className="col-span-4 space-y-2.5">
+                      <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Transactions: <span className="text-[#0f172a] font-black ml-2">{ledgerWithRunningBalance.filter(e => e.voucherId).length}</span></p>
+                      <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Credits: <span className="text-rose-600 font-black ml-2">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
                     </div>
                     
-                    {/* Right Column - Large Net Balance - Explicitly distanced */}
-                    <div className="text-right flex flex-col items-end min-w-[280px]">
-                       <div className="flex flex-col items-end relative">
+                    {/* Middle Column (Debits) */}
+                    <div className="col-span-3 flex flex-col pb-0.5">
+                      <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Debits: <span className="text-emerald-600 font-black ml-2">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                    </div>
+                    
+                    {/* Right Column (Net Balance) */}
+                    <div className="col-span-5 text-right flex flex-col items-end">
+                       <div className="relative flex flex-col items-end">
                           <p className="text-slate-400 text-[10px] uppercase tracking-widest font-black absolute -top-4 right-14">NET</p>
                           <div className="flex items-baseline whitespace-nowrap">
                              <p className="text-[44px] font-black text-[#0f172a] leading-none tracking-tighter">
