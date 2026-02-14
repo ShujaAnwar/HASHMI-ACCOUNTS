@@ -38,6 +38,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
   const [inspectorView, setInspectorView] = useState<'OFFICIAL' | 'PKR' | 'SAR' | 'SERVICE'>('OFFICIAL');
   const [voucherToEdit, setVoucherToEdit] = useState<Voucher | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -80,9 +81,23 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
   };
 
   const handleSave = async (data: any) => {
-    if (formMode === 'EDIT' && voucherToEdit) await AccountingService.updateVoucher(voucherToEdit.id, data);
-    else await AccountingService.postVoucher(data);
-    setShowForm(false); setVoucherToEdit(null); setRefreshKey(prev => prev + 1);
+    setIsSaving(true);
+    try {
+      if (formMode === 'EDIT' && voucherToEdit) {
+        await AccountingService.updateVoucher(voucherToEdit.id, data);
+      } else {
+        await AccountingService.postVoucher(data);
+      }
+      setShowForm(false);
+      setVoucherToEdit(null);
+      setRefreshKey(prev => prev + 1);
+      // Success feedback could be added here
+    } catch (error: any) {
+      console.error("Voucher Save Error:", error);
+      alert(`Failed to save voucher: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const filteredVouchers = useMemo(() => {
@@ -108,7 +123,6 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
         const ngt = v.details.numNights || '0';
         const loc = v.details.city || 'N/A';
         const countrySuffix = (loc.toLowerCase().includes('makkah') || loc.toLowerCase().includes('madinah') || loc.toLowerCase().includes('jeddah')) ? '-KSA' : '';
-        // Exact format requested: PAX NAME | HOTEL NAME |Checkin: YYYY-MM-DD | Checkout: YYYY-MM-DD | R/B: 6 | Nights:9 | MAKKAH -KSA
         return `${pax.toUpperCase()} | ${hotel.toUpperCase()} |Checkin: ${ci} | Checkout: ${co} | R/B: ${rb} | Nights:${ngt} | ${loc.toUpperCase()} ${countrySuffix}`;
       case VoucherType.TRANSPORT:
         const tPax = v.details.paxName || '-';
@@ -614,8 +628,12 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
             </button>
           ))}
         </div>
-        <button onClick={() => { setFormMode('CREATE'); setShowForm(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95">
-          + New Voucher
+        <button 
+          disabled={isSaving}
+          onClick={() => { setFormMode('CREATE'); setShowForm(true); }} 
+          className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 disabled:opacity-50"
+        >
+          {isSaving ? 'Saving...' : '+ New Voucher'}
         </button>
       </div>
 

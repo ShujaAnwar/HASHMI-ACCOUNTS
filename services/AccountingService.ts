@@ -23,7 +23,6 @@ export class AccountingService {
     if (accError) throw accError;
 
     if (openingBalance > 0) {
-      // 1 - Automatic opening balance with contra-entry to General Reserve Fund (IFRS Compliance)
       const description = 'Opening Balance (Initial Measurement)';
       
       await supabase.from('ledger_entries').insert({
@@ -34,7 +33,6 @@ export class AccountingService {
         credit: isDr ? 0 : openingBalance,
       });
 
-      // Find General Reserve Fund (3001)
       const { data: reserve } = await supabase.from('accounts').select('id').eq('code', '3001').single();
       if (reserve) {
         await supabase.from('ledger_entries').insert({
@@ -63,11 +61,6 @@ export class AccountingService {
       })
       .eq('id', id);
     if (error) throw error;
-
-    // Handle opening balance updates if changed (simplified logic)
-    if (updates.openingBalance !== undefined) {
-       // Logic to find and update existing opening balance entries would go here
-    }
   }
 
   static async deleteAccount(id: string) {
@@ -82,6 +75,8 @@ export class AccountingService {
 
   static async postVoucher(vData: Partial<Voucher>) {
     const vNum = vData.voucherNum || `${vData.type}-${Date.now().toString().slice(-6)}`;
+    
+    // First insert the voucher
     const { data: voucher, error: vError } = await supabase
       .from('vouchers')
       .insert({
@@ -89,48 +84,69 @@ export class AccountingService {
         voucher_num: vNum,
         date: vData.date || new Date().toISOString(),
         currency: vData.currency,
-        roe: vData.roe,
-        total_amount_pkr: vData.totalAmountPKR,
-        description: vData.description,
-        reference: vData.reference,
+        roe: Number(vData.roe || 1),
+        total_amount_pkr: Number(vData.totalAmountPKR || 0),
+        description: vData.description || '',
+        reference: vData.reference || '',
         status: VoucherStatus.POSTED,
-        customer_id: vData.customerId,
-        vendor_id: vData.vendorId,
-        details: vData.details
+        customer_id: vData.customerId || null,
+        vendor_id: vData.vendorId || null,
+        details: vData.details || {}
       })
       .select()
       .single();
 
-    if (vError) throw vError;
+    if (vError) {
+      console.error("Voucher Insertion Error:", vError);
+      throw vError;
+    }
 
     const amount = Number(voucher.total_amount_pkr);
     const entries = [];
 
-    // Posting logic for different voucher types
+    // Posting logic for different voucher types - ensuring correct ledger impact
     if (voucher.type === 'RV') {
-      entries.push({ account_id: vData.details.bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
-      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
+      const bankId = vData.details?.bankId;
+      const customerId = vData.customerId;
+      
+      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
+      
     } else if (voucher.type === 'TV' || voucher.type === 'HV') {
+      const customerId = vData.customerId;
+      const vendorId = vData.vendorId;
       const vendorAmount = Number(vData.details?.vendorAmountPKR) || amount;
       const incomeAmount = Number(vData.details?.incomeAmountPKR) || 0;
+      const incomeAccountId = vData.details?.incomeAccountId;
       
-      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
-      entries.push({ account_id: voucher.vendor_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description, voucher_num: vNum });
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
+      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description, voucher_num: vNum });
       
-      if (incomeAmount > 0 && vData.details?.incomeAccountId) {
-        entries.push({ account_id: vData.details.incomeAccountId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: incomeAmount, description: `Service Revenue: ${voucher.description}`, voucher_num: vNum });
+      if (incomeAmount > 0 && incomeAccountId) {
+        entries.push({ account_id: incomeAccountId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: incomeAmount, description: `Service Revenue: ${voucher.description}`, voucher_num: vNum });
       }
-    } else if (['VV', 'TK'].includes(voucher.type)) {
-      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
-      entries.push({ account_id: voucher.vendor_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
+      
+    } else if (voucher.type === 'VV' || voucher.type === 'TK') {
+      const customerId = vData.customerId;
+      const vendorId = vData.vendorId;
+      
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
+      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
+      
     } else if (voucher.type === 'PV') {
-      entries.push({ account_id: vData.details.expenseId || vData.details.items?.[0]?.accountId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
-      entries.push({ account_id: vData.details.bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
+      const bankId = vData.details?.bankId;
+      const expenseAccountId = vData.details?.expenseId || vData.details?.items?.[0]?.accountId;
+      
+      if (expenseAccountId) entries.push({ account_id: expenseAccountId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
+      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
     }
 
     if (entries.length > 0) {
       const { error: jError } = await supabase.from('ledger_entries').insert(entries);
-      if (jError) throw jError;
+      if (jError) {
+        console.error("Ledger Posting Error:", jError);
+        throw jError;
+      }
     }
 
     return voucher;
