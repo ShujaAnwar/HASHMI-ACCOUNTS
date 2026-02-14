@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
@@ -6,6 +7,7 @@ import PaymentVoucherForm from './PaymentVoucherForm';
 import ReceiptVoucherForm from './ReceiptVoucherForm';
 import TransportVoucherForm from './TransportVoucherForm';
 import VisaVoucherForm from './VisaVoucherForm';
+// Removed duplicate import of HotelVoucherForm
 import HotelVoucherForm from './HotelVoucherForm';
 import TicketVoucherForm from './TicketVoucherForm';
 
@@ -172,7 +174,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     const customer = accounts.find(a => a.id === v.customerId);
     const invoiceNum = v.voucherNum.split('-').pop();
     return (
-      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page text-sm">
+      <div ref={voucherRef} className="bg-white p-12 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
         <div className="flex justify-between items-start mb-8">
           <div>
             {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="logo" className="mb-4" />}
@@ -254,13 +256,12 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           <p className="mt-8 not-italic">On behalf of <span className="text-[#e11d48]">{config?.companyName} {config?.appSubtitle}</span></p>
         </div>
 
-        <div className="mt-20">
+        <div className="mt-auto pt-10">
           <h3 className="text-[14px] font-black border-b-2 border-slate-900 pb-2 mb-4 tracking-tight uppercase">Acknowledgement</h3>
           <ol className="text-[10px] space-y-1 font-bold text-slate-700 uppercase leading-relaxed">
-            <li>1. ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT. NO OBJECTIONS ACCEPTED AFTERWARD.</li>
+            <li>1. ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li>
             <li>2. IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li>
-            <li>3. ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li>
-            <li>4. ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li>
+            <li>3. ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY.</li>
           </ol>
         </div>
       </div>
@@ -271,7 +272,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     const customer = accounts.find(a => a.id === v.customerId);
     const invoiceNum = v.voucherNum.split('-').pop();
     return (
-      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page text-sm">
+      <div ref={voucherRef} className="bg-white p-12 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
         <div className="flex justify-between items-start mb-6">
           <div className="flex flex-col items-center">
             {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="logo" />}
@@ -329,8 +330,6 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
               <th className="p-2 border border-slate-400">CHECK OUT</th>
               <th className="p-2 border border-slate-400">NIGHT(s)</th>
               <th className="p-2 border border-slate-400">ROOM(s)</th>
-              <th className="p-2 border border-slate-400">RATE/R/N</th>
-              <th className="p-2 border border-slate-400">HCN</th>
               <th className="p-2 border border-slate-400">TOTAL</th>
             </tr>
           </thead>
@@ -342,51 +341,21 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
               <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
               <td className="p-3 border border-slate-300 text-center">{v.details?.numNights}</td>
               <td className="p-3 border border-slate-300 text-center">{v.details?.numRooms}</td>
-              <td className="p-3 border border-slate-300 text-right">{v.details?.unitRate?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              <td className="p-3 border border-slate-300"></td>
               <td className="p-3 border border-slate-300 font-black text-right">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
             </tr>
           </tbody>
         </table>
 
-        <div className="mb-10">
-          <h3 className="text-[16px] font-black text-slate-900 mb-4 uppercase">Bank Details</h3>
-          <table className="w-full border-collapse border border-slate-300">
-            <thead className="bg-[#bdc3c7] text-[10px] uppercase font-black tracking-widest text-slate-700 text-center">
-              <tr>
-                <th className="p-2 border border-slate-300">Sr. #</th>
-                <th className="p-2 border border-slate-300">Bank Name</th>
-                <th className="p-2 border border-slate-300">Account Name</th>
-                <th className="p-2 border border-slate-300">Account Number</th>
-                <th className="p-2 border border-slate-300">Bank Address</th>
-              </tr>
-            </thead>
-            <tbody>
-              {config?.banks?.map((bank, bi) => (
-                <tr key={bank.id} className="text-center text-[10px] font-bold">
-                  <td className="p-2 border border-slate-300">{bi + 1}</td>
-                  <td className="p-2 border border-slate-300 uppercase">{bank.name}</td>
-                  <td className="p-2 border border-slate-300 uppercase">{config.companyName}</td>
-                  <td className="p-2 border border-slate-300 font-mono">{bank.accountNumber}</td>
-                  <td className="p-2 border border-slate-300 text-[9px] uppercase">{bank.address}</td>
-                </tr>
-              )) || <tr><td colSpan={5} className="p-4 text-center text-slate-400 italic">No bank accounts configured</td></tr>}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="text-[11px] font-bold leading-relaxed space-y-2 mb-10 text-slate-700 uppercase">
+        <div className="mt-auto pt-10 text-[11px] font-bold leading-relaxed space-y-2 text-slate-700 uppercase">
            <p className="underline font-black text-slate-900 mb-2 tracking-widest">Notes</p>
            <ul className="list-disc pl-5 space-y-1">
-             <li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT. NO OBJECTIONS ACCEPTED AFTERWARD.</li>
-             <li>IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li>
-             <li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li>
-             <li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY</li>
+             <li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li>
+             <li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY.</li>
            </ul>
         </div>
 
-        <p className="text-[12px] font-medium text-slate-600 mt-12 pt-8 border-t border-slate-100">
-          <span className="font-black text-slate-900">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately.if you need any further clarification, please do not hesitate to <span className="font-bold text-slate-900">contact us.</span>
+        <p className="text-[12px] font-medium text-slate-600 mt-8 pt-4 border-t border-slate-100">
+          <span className="font-black text-slate-900">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately.
         </p>
       </div>
     );
@@ -397,7 +366,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     const totalSAR = v.details?.totalSelectedCurrency || (v.totalAmountPKR / (v.roe || 1));
     const invoiceNum = v.voucherNum.split('-').pop();
     return (
-      <div className="bg-white p-12 text-black font-inter min-h-[11in] voucher-page text-sm">
+      <div ref={voucherRef} className="bg-white p-12 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
         <div className="flex justify-center mb-10">
           {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="logo" />}
         </div>
@@ -407,15 +376,12 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           <div className="text-right flex justify-end space-x-3"><span>HVI #:</span> <span className="font-black">{invoiceNum}</span></div>
           <div className="flex space-x-3"><span>Subject:</span> <span className="font-black">Definite Invoice</span></div>
           <div className="text-right flex justify-end space-x-3"><span>Date:</span> <span className="font-black">{new Date(v.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
-          <div className="flex space-x-3"><span>Confirmation #:</span> <span className="font-black">{v.reference || 'N/A'}</span></div>
-          <div className="text-right flex justify-end space-x-3"><span>Phone No:</span> <span className="font-black">{config?.companyCell}</span></div>
         </div>
 
         <p className="text-center text-[#e11d48] font-bold mb-8 text-[12px] tracking-wide">{config?.companyName} {config?.appSubtitle}</p>
 
         <div className="flex justify-between items-center mb-6 text-[12px] font-bold">
           <p className="uppercase">Guest Name: <span className="font-black">{v.details?.paxName}</span></p>
-          <p className="uppercase">Option Date: <span className="font-black">30, Nov -0001</span></p>
         </div>
 
         <table className="w-full text-center mb-10 border-collapse border border-slate-300 shadow-sm">
@@ -423,11 +389,9 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
             <tr>
               <th className="p-3 border-r border-slate-400">Hotel</th>
               <th className="p-3 border-r border-slate-400">Room</th>
-              <th className="p-3 border-r border-slate-400">Meal</th>
               <th className="p-3 border-r border-slate-400">Checkin</th>
               <th className="p-3 border-r border-slate-400">Checkout</th>
               <th className="p-3 border-r border-slate-400">Rooms / Nights</th>
-              <th className="p-3 border-r border-slate-400">Rate</th>
               <th className="p-3">Total(SAR)</th>
             </tr>
           </thead>
@@ -435,55 +399,27 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
             <tr className="bg-white">
               <td className="p-4 border border-slate-300">{v.details?.hotelName}</td>
               <td className="p-4 border border-slate-300">{v.details?.roomType}</td>
-              <td className="p-4 border border-slate-300">{formatMeals(v.details?.meals)}</td>
               <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
               <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
               <td className="p-4 border border-slate-300">{v.details?.numRooms} / {v.details?.numNights}</td>
-              <td className="p-4 border border-slate-300 text-right">{v.details?.unitRate?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
               <td className="p-4 border border-slate-300 font-black text-right">{totalSAR.toLocaleString(undefined, { minimumFractionDigits: 0 })}</td>
             </tr>
             <tr className="bg-slate-50 font-black">
-              <td colSpan={7} className="p-2 text-right uppercase">Total:</td>
+              <td colSpan={5} className="p-2 text-right uppercase">Total:</td>
               <td className="p-2 text-right">SAR {totalSAR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
             </tr>
           </tbody>
         </table>
 
-        <div className="mb-10 overflow-hidden rounded-lg">
-          <div className="bg-[#0b7ea1] text-white py-2 px-6 text-center font-black uppercase text-[12px] tracking-widest">
+        <div className="mt-auto pt-10">
+          <div className="bg-[#0b7ea1] text-white py-2 px-6 text-center font-black uppercase text-[12px] tracking-widest rounded-t-lg">
             TERMS AND CONDITIONS
           </div>
-          <ul className="text-[10px] font-bold text-slate-700 p-6 space-y-2 uppercase border border-t-0 border-slate-300 bg-slate-50/50">
-            <li>▪ Above rates are net and non commission-able quoted in SAR.</li>
-            <li>▪ Once you Re-Confirm this booking it will be:</li>
-            <li className="ml-4">• Non Cancellation</li>
-            <li className="ml-4">• Non Refundable</li>
-            <li className="ml-4">• Non Amendable</li>
+          <ul className="text-[10px] font-bold text-slate-700 p-6 space-y-2 uppercase border border-t-0 border-slate-300 bg-slate-50/50 rounded-b-lg">
+            <li>▪ Above rates are net and non commission-able.</li>
+            <li>▪ Once you Re-Confirm this booking it will be Non Cancellation.</li>
             <li>▪ Check in after 16:00 hour and check out at 12:00 hour.</li>
-            <li>▪ Triple or occupancy will be through extra bed # standard room is not available.</li>
           </ul>
-        </div>
-
-        <div className="mt-auto">
-          <p className="font-black text-[11px] mb-2 text-blue-900 uppercase">Bank Account Details with Account Title <span className="text-[#e11d48]">{config?.companyName} {config?.appSubtitle}</span></p>
-          <table className="w-full border-collapse border border-slate-300 text-[10px] font-black uppercase text-center">
-            <thead className="bg-[#0b7ea1] text-white">
-              <tr>
-                <th className="p-2 border border-slate-400">Bank Name</th>
-                <th className="p-2 border border-slate-400">Bank Address</th>
-                <th className="p-2">Bank Accounts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {config?.banks?.map(bank => (
-                <tr key={bank.id}>
-                  <td className="p-2 border border-slate-300 uppercase">{bank.name}</td>
-                  <td className="p-2 border border-slate-300 uppercase">{bank.address}</td>
-                  <td className="p-2 border border-slate-300 font-mono">{bank.accountNumber}</td>
-                </tr>
-              )) || <tr><td colSpan={3} className="p-6 border border-slate-300 italic text-slate-400 uppercase">No bank info</td></tr>}
-            </tbody>
-          </table>
         </div>
       </div>
     );
@@ -494,9 +430,9 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     const toDateStr = v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-';
     
     return (
-      <div ref={voucherRef} className="bg-white p-10 text-slate-900 font-inter min-h-[297mm] w-[210mm] voucher-page flex flex-col shadow-none border border-slate-100">
+      <div ref={voucherRef} className="bg-white p-8 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
         
-        {/* Compact Header - Replicating Image Exactly */}
+        {/* Compact Header */}
         <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100">
           <div className="w-40">
              {config?.companyLogo ? (
@@ -514,7 +450,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           <div className="w-44 text-right pr-6">
              <div className="space-y-0.5">
                 <p className="text-[10px] font-black text-slate-400 uppercase flex justify-end gap-3">
-                  CELL: <span className="text-[#0f172a]">{config?.companyCell}</span>
+                  CELL: <span className="text-[#0f172a] font-bold">{config?.companyCell}</span>
                 </p>
                 <p className="text-[10px] font-black text-slate-400 uppercase flex justify-end gap-3">
                   PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone}</span>
@@ -524,13 +460,13 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
         </div>
 
         {/* Reference Line */}
-        <div className="mb-8">
+        <div className="mb-6">
           <p className="text-[15px] font-black text-[#0f172a]">Hotel Voucher: {v.voucherNum}</p>
         </div>
 
-        {/* Details Grid - Compact spacing with matched styling */}
-        <div className="grid grid-cols-2 gap-x-24 gap-y-6 mb-8">
-          <div className="space-y-6">
+        {/* Details Grid */}
+        <div className="grid grid-cols-2 gap-x-24 gap-y-4 mb-6">
+          <div className="space-y-4">
             <div className="space-y-0.5">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">HOTEL NAME</p>
               <p className="text-[18px] font-black uppercase text-[#0f172a] leading-tight">
@@ -545,7 +481,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
             </div>
           </div>
           
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="space-y-0.5">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN</p>
               <p className="text-[16px] font-black text-[#0f172a]">{fromDateStr}</p>
@@ -557,8 +493,8 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           </div>
         </div>
 
-        {/* Lead/Nights bar - Matched screenshot layout */}
-        <div className="grid grid-cols-2 gap-x-24 pt-4 border-t border-slate-100 mb-8">
+        {/* Lead/Nights bar */}
+        <div className="grid grid-cols-2 gap-x-24 pt-4 border-t border-slate-100 mb-6">
            <div className="space-y-0.5">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">LEAD GUEST</p>
               <p className="text-[16px] font-black uppercase text-[#0f172a]">{v.details?.paxName || 'N/A'}</p>
@@ -571,8 +507,8 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
            </div>
         </div>
 
-        {/* Table - Replicating Navy Header and Compact Rows */}
-        <div className="mb-8">
+        {/* Table */}
+        <div className="mb-6">
           <table className="w-full border-collapse">
             <thead>
               <tr className="text-[10px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
@@ -597,35 +533,20 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           </table>
         </div>
 
-        {/* Policies - Compact and Clean */}
-        <div className="mb-6">
+        {/* Policies - Updated to match screenshot exactly */}
+        <div className="mb-4">
           <h4 className="text-[13px] font-black text-[#0f172a] uppercase tracking-tighter mb-4 border-b border-slate-100 pb-2">Check-in/Check-out Timings & Policies</h4>
-          <ul className="text-[11px] font-medium text-slate-600 space-y-1.5 leading-relaxed">
-            <li className="flex items-start">
-              <span className="text-slate-400 font-black mr-3">•</span> 
-              <span>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-slate-400 font-black mr-3">•</span> 
-              <span>Rooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-slate-400 font-black mr-3">•</span> 
-              <span>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-slate-400 font-black mr-3">•</span> 
-              <span>The usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-slate-400 font-black mr-3">•</span> 
-              <span>For any specific queries related to a particular hotel, kindly reach out to local support team for further assistance</span>
-            </li>
+          <ul className="text-[11px] font-medium text-slate-600 space-y-1.5 leading-relaxed list-disc ml-5">
+            <li>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.</li>
+            <li>Rooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.</li>
+            <li>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.</li>
+            <li>The usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.</li>
+            <li>For any specific queries related to a particular hotel, kindly reach out to local support team for further assistance</li>
           </ul>
         </div>
 
-        {/* Booking Notes - Boxed precisely like the screenshot */}
-        <div className="mt-auto pt-6 border-t border-slate-100">
+        {/* Booking Notes - Updated narrative and locked to bottom */}
+        <div className="mt-auto pt-4 pb-2 border-t border-slate-100">
           <div className="border border-slate-200 p-4 rounded-md bg-slate-50/50">
             <p className="text-[12px] font-medium text-slate-700 leading-relaxed italic">
               <span className="font-black text-[#0f172a] not-italic">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to contact us.
