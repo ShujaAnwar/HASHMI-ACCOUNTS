@@ -115,11 +115,6 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     });
   }, [selectedAccount]);
 
-  const handleVoucherClick = (vId: string | null, vNum: string) => {
-    const voucher = vouchers.find(v => v.id === vId || (vNum !== '-' && v.voucherNum === vNum));
-    if (voucher) onEditVoucher(voucher);
-  };
-
   const handleDownloadPDF = async () => {
     if (!pdfRef.current || !selectedAccount) return;
     
@@ -131,7 +126,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
       margin: 0,
       filename: fileName,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 3, useCORS: true, letterRendering: true },
+      html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
@@ -140,7 +135,6 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
       await html2pdf().set(opt).from(element).save();
     } catch (err) {
       console.error("PDF Export Error:", err);
-      alert("Failed to generate PDF. Please try again.");
     } finally {
       setIsExporting(false);
     }
@@ -250,98 +244,99 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
             </button>
           </div>
 
-          <div ref={pdfRef} className="bg-white p-10 text-slate-900 font-inter min-h-[297mm] w-[210mm] voucher-page shadow-none flex flex-col mx-auto">
-            <div className="mb-8 border-b-2 border-slate-100 pb-4">
-               <h1 className="text-6xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-2">{config.companyName}</h1>
-               <div className="flex items-center text-[12px] font-bold text-slate-500 tracking-wide uppercase">
+          <div ref={pdfRef} className="bg-white p-8 text-[#0f172a] font-inter h-[295mm] w-[210mm] overflow-hidden voucher-page shadow-none flex flex-col mx-auto">
+            <div className="mb-4 border-b-2 border-slate-100 pb-2">
+               <h1 className="text-5xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-1">{config.companyName}</h1>
+               <div className="flex items-center text-[10px] font-bold text-slate-500 tracking-wide uppercase">
                  <span>CONTACT: {config.companyCell}</span>
-                 <span className="mx-4 opacity-40">|</span>
+                 <span className="mx-3 opacity-40">|</span>
                  <span>EMAIL: {config.companyEmail}</span>
                </div>
             </div>
 
-            <div className="mb-6">
-               <h2 className="text-3xl font-black uppercase text-[#0f172a] tracking-tight mb-4">
+            <div className="mb-4">
+               <h2 className="text-2xl font-black uppercase text-[#0f172a] tracking-tight mb-2">
                  {type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT
                </h2>
-               <div className="space-y-1">
-                 <p className="text-[18px] font-black text-slate-800">Party: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
-                 <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest opacity-80">
-                   GENERATED ON: {new Date().toLocaleString('en-US', { 
-                     month: 'numeric', day: 'numeric', year: 'numeric', 
-                     hour: 'numeric', minute: 'numeric', second: 'numeric', 
-                     hour12: true 
-                   })}
-                 </p>
+               <div className="flex justify-between items-end">
+                 <div>
+                    <p className="text-[14px] font-black text-slate-800 uppercase">Party: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest opacity-80 mt-1">
+                      GENERATED ON: {new Date().toLocaleString('en-US', { hour12: true })}
+                    </p>
+                 </div>
                </div>
             </div>
 
-            <div className="flex-1">
-              <table className="w-full text-left border-collapse border border-slate-200">
-                  <thead className="bg-[#0f172a] text-white text-[10px] uppercase font-black tracking-wider">
+            <div className="flex-1 overflow-hidden">
+              <table className="w-full text-left border-collapse border border-slate-200 table-fixed">
+                  <thead className="bg-[#0f172a] text-white text-[9px] uppercase font-black tracking-wider">
                     <tr>
-                      <th className="px-3 py-3 border-r border-slate-700 w-24">DATE</th>
-                      <th className="px-3 py-3 border-r border-slate-700 w-36 text-blue-400">REF #</th>
-                      <th className="px-3 py-3 border-r border-slate-700 w-16">TYPE</th>
-                      <th className="px-3 py-3 border-r border-slate-700 w-auto">NARRATION</th>
-                      <th className="px-3 py-3 border-r border-slate-700 w-12 text-center">ROE</th>
-                      <th className="px-3 py-3 border-r border-slate-700 w-24 text-right">DEBIT</th>
-                      <th className="px-3 py-3 border-r border-slate-700 w-24 text-right">CREDIT</th>
-                      <th className="px-3 py-3 text-right w-32">BALANCE</th>
+                      <th className="px-2 py-2.5 border-r border-slate-700 w-[70px]">DATE</th>
+                      <th className="px-2 py-2.5 border-r border-slate-700 w-[95px] text-blue-400">REF #</th>
+                      <th className="px-2 py-2.5 border-r border-slate-700 w-[35px] text-center">TYPE</th>
+                      <th className="px-2 py-2.5 border-r border-slate-700 w-auto">NARRATION</th>
+                      <th className="px-2 py-2.5 border-r border-slate-700 w-[35px] text-center">ROE</th>
+                      <th className="px-2 py-2.5 border-r border-slate-700 w-[85px] text-right">DEBIT</th>
+                      <th className="px-2 py-2.5 border-r border-slate-700 w-[85px] text-right">CREDIT</th>
+                      <th className="px-2 py-2.5 text-right w-[100px]">BALANCE</th>
                     </tr>
                   </thead>
-                  <tbody className="text-[11px] font-medium text-slate-700">
-                    {ledgerWithRunningBalance.map((entry, i) => {
+                  <tbody className="text-[9.5px] font-medium text-slate-700">
+                    {ledgerWithRunningBalance.slice(0, 22).map((entry, i) => {
                       const voucher = vouchers.find(v => v.id === entry.voucherId || (entry.voucherNum !== '-' && v.voucherNum === entry.voucherNum));
                       const displayVNum = voucher?.voucherNum || entry.voucherNum || '-';
                       const displayDescription = getNarrativeForLedger(entry, voucher);
-                      const displayType = voucher?.type || (entry.description?.includes('Opening') ? 'Opening' : '-');
+                      const displayType = voucher?.type || (entry.description?.includes('Opening') ? 'OP' : '-');
                       const displayROE = voucher?.roe || (viewCurrency === Currency.PKR ? '-' : currentROE);
 
                       return (
-                        <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/10'}`}>
-                          <td className="px-3 py-3 whitespace-nowrap text-slate-500 font-bold">
+                        <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/20'}`}>
+                          <td className="px-2 py-1.5 whitespace-nowrap text-slate-500 font-bold">
                             {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
                           </td>
-                          <td className="px-3 py-3 whitespace-nowrap font-black text-blue-600">
+                          <td className="px-2 py-1.5 whitespace-nowrap font-black text-blue-600 truncate">
                             {displayVNum}
                           </td>
-                          <td className="px-3 py-3 whitespace-nowrap uppercase font-bold text-slate-500">{displayType}</td>
-                          <td className="px-3 py-3 text-slate-500 italic text-[10px] leading-tight break-words font-medium">
+                          <td className="px-2 py-1.5 text-center uppercase font-bold text-slate-400">{displayType}</td>
+                          <td className="px-2 py-1.5 text-slate-500 italic text-[9px] leading-tight break-words font-medium">
                             {displayDescription}
                           </td>
-                          <td className="px-3 py-3 text-center text-slate-400 font-bold">{displayROE}</td>
-                          <td className="px-3 py-3 text-right text-emerald-600 font-black">
+                          <td className="px-2 py-1.5 text-center text-slate-400 font-bold">{displayROE}</td>
+                          <td className="px-2 py-1.5 text-right text-emerald-600 font-black">
                             {entry.debit > 0 ? getConvertedVal(entry.debit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
                           </td>
-                          <td className="px-3 py-3 text-right text-rose-600 font-black">
+                          <td className="px-2 py-1.5 text-right text-rose-600 font-black">
                             {entry.credit > 0 ? getConvertedVal(entry.credit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
                           </td>
-                          <td className="px-3 py-3 text-right font-black text-slate-900 whitespace-nowrap">
+                          <td className="px-2 py-1.5 text-right font-black text-slate-900 whitespace-nowrap">
                             {Math.abs(getConvertedVal(entry.balanceAfter)).toLocaleString(undefined, { minimumFractionDigits: 0 })} 
-                            <span className="ml-1 text-[9px] opacity-60 uppercase font-black">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
+                            <span className="ml-1 text-[8px] opacity-60 uppercase font-black">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
               </table>
+              {ledgerWithRunningBalance.length > 22 && (
+                <p className="text-[8px] text-center text-slate-300 mt-2 uppercase font-black tracking-widest italic">... showing first 22 transactions for single page compliance ...</p>
+              )}
             </div>
 
-            <div className="mt-8 bg-[#f8fbff] p-10 rounded-[2rem] border border-slate-100 flex flex-col md:flex-row justify-between items-center">
-               <div className="space-y-4 text-center md:text-left">
-                 <h3 className="text-[16px] font-black text-slate-900 uppercase tracking-tighter mb-2">FINANCIAL SUMMARY</h3>
-                 <div className="space-y-2">
-                   <p className="text-[13px] text-slate-500 font-bold">Total Transactions: <span className="text-slate-800 font-black ml-2">{selectedAccount.ledger.filter(e => e.voucherId).length}</span></p>
-                   <p className="text-[13px] text-slate-500 font-bold">Total Debits: Rs. <span className="text-emerald-600 font-black ml-2">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
-                   <p className="text-[13px] text-slate-500 font-bold">Total Credits: Rs. <span className="text-rose-600 font-black ml-2">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+            <div className="mt-4 bg-[#f8fbff] p-6 rounded-[1.5rem] border border-slate-100 flex flex-col md:flex-row justify-between items-center">
+               <div className="space-y-1 text-left">
+                 <h3 className="text-[12px] font-black text-slate-900 uppercase tracking-tight">FINANCIAL SUMMARY</h3>
+                 <div className="grid grid-cols-2 gap-x-8 gap-y-0.5">
+                   <p className="text-[11px] text-slate-500 font-bold">Total Transactions: <span className="text-slate-800 font-black ml-1">{selectedAccount.ledger.filter(e => e.voucherId).length}</span></p>
+                   <p className="text-[11px] text-slate-500 font-bold">Total Debits: <span className="text-emerald-600 font-black ml-1">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                   <p className="text-[11px] text-slate-500 font-bold">Total Credits: <span className="text-rose-600 font-black ml-1">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
                  </div>
                </div>
-               <div className="text-center md:text-right mt-6 md:mt-0">
-                  <p className="text-4xl font-black text-slate-900 flex flex-col md:flex-row items-baseline justify-end">
-                    <span className="text-slate-400 md:mr-4 text-[13px] uppercase tracking-[0.2em] font-bold mb-2 md:mb-0">NET BALANCE:</span>
+               <div className="text-right mt-4 md:mt-0">
+                  <p className="text-3xl font-black text-slate-900 flex items-baseline justify-end">
+                    <span className="text-slate-400 mr-4 text-[11px] uppercase tracking-widest font-bold">NET BALANCE:</span>
                     <span className="tracking-tighter">Rs. {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
-                    <span className="ml-2 font-black uppercase text-2xl text-slate-600">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
+                    <span className="ml-2 font-black uppercase text-xl text-slate-600">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
                   </p>
                </div>
             </div>
