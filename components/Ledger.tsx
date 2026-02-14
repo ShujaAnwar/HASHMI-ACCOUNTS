@@ -133,7 +133,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
         backgroundColor: '#ffffff',
         logging: false,
         scrollY: 0,
-        windowWidth: 1024
+        windowWidth: 800 // Adjusted for A4 width
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
@@ -170,6 +170,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
 
   const totalVisibleDebit = ledgerWithRunningBalance.reduce((sum, entry) => sum + entry.debit, 0);
   const totalVisibleCredit = ledgerWithRunningBalance.reduce((sum, entry) => sum + entry.credit, 0);
+  const totalTransactions = ledgerWithRunningBalance.filter(e => e.voucherId).length;
 
   return (
     <div className="space-y-6">
@@ -260,36 +261,34 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
           <div className="flex justify-center items-start py-4 bg-slate-100/50 dark:bg-slate-950/50 rounded-[3rem] overflow-x-auto min-h-screen">
             <div 
               ref={pdfRef} 
-              className="bg-white px-10 py-12 text-[#0f172a] font-inter w-[210mm] mx-auto flex flex-col box-border shadow-2xl transition-transform min-h-fit overflow-visible"
+              className="bg-white px-16 py-12 text-[#0f172a] font-inter w-[210mm] mx-auto flex flex-col box-border shadow-2xl transition-transform min-h-fit overflow-visible"
             >
-              {/* Header */}
-              <div className="mb-6 border-b-2 border-slate-100 pb-3 flex-shrink-0">
-                 <h1 className="text-5xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-2">{config.companyName}</h1>
-                 <div className="flex items-center text-[10px] font-bold text-slate-500 tracking-wide uppercase">
+              {/* Header - Centered with substantial padding to ensure balance */}
+              <div className="mb-8 border-b-2 border-slate-100 pb-6 flex-shrink-0 text-center">
+                 <h1 className="text-5xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-3">{config.companyName}</h1>
+                 <div className="flex items-center justify-center text-[11px] font-bold text-slate-500 tracking-wide uppercase">
                    <span>CONTACT: {config.companyCell}</span>
-                   <span className="mx-3 opacity-40">|</span>
+                   <span className="mx-4 opacity-30">|</span>
                    <span>EMAIL: {config.companyEmail}</span>
                  </div>
               </div>
 
-              {/* Title Section */}
-              <div className="mb-6 flex-shrink-0">
-                 <h2 className="text-2xl font-black uppercase text-[#0f172a] tracking-tight mb-3">
+              {/* Title Section - Centered */}
+              <div className="mb-8 flex-shrink-0 text-center">
+                 <h2 className="text-[26px] font-black uppercase text-[#0f172a] tracking-tight mb-4">
                    {type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT
                  </h2>
-                 <div className="flex justify-between items-end">
-                   <div>
-                      <p className="text-[14px] font-black text-slate-800 uppercase">Party: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest opacity-80 mt-1">
-                        GENERATED ON: {new Date().toLocaleString('en-US', { hour12: true })}
-                      </p>
-                   </div>
+                 <div className="flex flex-col items-center space-y-1">
+                    <p className="text-[16px] font-black text-slate-800 uppercase tracking-tight">PARTY: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] opacity-80">
+                      GENERATED ON: {new Date().toLocaleString('en-US', { hour12: true })}
+                    </p>
                  </div>
               </div>
 
-              {/* Table Body - Fixed Layout for Alignment */}
+              {/* Table Body - Center-aligned by 100% width of px-16 container */}
               <div className="flex-1 overflow-visible">
-                <table className="w-full text-left border-collapse border border-slate-200 table-fixed">
+                <table className="w-full text-left border-collapse border border-slate-200 table-fixed page-break-inside-auto">
                     <thead className="bg-[#0f172a] text-white text-[9px] uppercase font-black tracking-wider">
                       <tr>
                         <th className="px-2 py-3 border-r border-slate-700 w-[70px]">DATE</th>
@@ -369,34 +368,41 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </table>
               </div>
 
-              {/* Exact Re-style of Financial Summary - Preventing Overlap */}
-              <div className="mt-12 bg-[#f8fbff] p-10 rounded-[2.5rem] border border-slate-100 flex flex-col flex-shrink-0 box-border break-inside-avoid shadow-sm min-h-[160px] overflow-visible">
-                 <h3 className="text-[14px] font-black text-[#0f172a] uppercase tracking-tighter mb-10">FINANCIAL SUMMARY</h3>
-                 <div className="grid grid-cols-12 gap-6 items-end w-full">
-                    {/* Left Column (Transactions & Credits) */}
-                    <div className="col-span-4 space-y-2.5">
-                      <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Transactions: <span className="text-[#0f172a] font-black ml-2">{ledgerWithRunningBalance.filter(e => e.voucherId).length}</span></p>
-                      <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Credits: <span className="text-rose-600 font-black ml-2">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+              {/* Robust Financial Summary Block - Centered Layout */}
+              <div className="mt-14 bg-[#f8fbff] p-10 rounded-[2.5rem] border border-slate-100 flex flex-col flex-shrink-0 box-border break-inside-avoid shadow-sm min-h-[180px] overflow-visible">
+                 <h3 className="text-[14px] font-black text-[#0f172a] uppercase tracking-[0.2em] mb-12 text-center border-b border-slate-100 pb-3">FINANCIAL SUMMARY</h3>
+                 
+                 <div className="flex justify-between items-end w-full px-4">
+                    {/* Left Column (Transactions & Balances) */}
+                    <div className="flex gap-16">
+                        <div className="space-y-3">
+                            <p className="text-[13px] text-slate-500 font-bold uppercase tracking-tight">Transactions: <span className="text-[#0f172a] font-black ml-3">{totalTransactions}</span></p>
+                            <p className="text-[13px] text-slate-500 font-bold uppercase tracking-tight whitespace-nowrap">Total Credits: <span className="text-rose-600 font-black ml-3">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                        </div>
+                        <div className="flex flex-col justify-end">
+                            <p className="text-[13px] text-slate-500 font-bold uppercase tracking-tight whitespace-nowrap">Total Debits: <span className="text-emerald-600 font-black ml-3">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                        </div>
                     </div>
                     
-                    {/* Middle Column (Debits) */}
-                    <div className="col-span-3 flex flex-col pb-0.5">
-                      <p className="text-[13px] text-slate-500 font-bold whitespace-nowrap">Total Debits: <span className="text-emerald-600 font-black ml-2">Rs. {getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
-                    </div>
-                    
-                    {/* Right Column (Net Balance) */}
-                    <div className="col-span-5 text-right flex flex-col items-end">
-                       <div className="relative flex flex-col items-end">
-                          <p className="text-slate-400 text-[10px] uppercase tracking-widest font-black absolute -top-4 right-14">NET</p>
-                          <div className="flex items-baseline whitespace-nowrap">
-                             <p className="text-[44px] font-black text-[#0f172a] leading-none tracking-tighter">
+                    {/* Right Column - Prominent Net Balance */}
+                    <div className="text-right flex flex-col items-end min-w-[300px]">
+                       <div className="relative inline-flex flex-col items-end">
+                          <p className="text-slate-400 text-[10px] uppercase tracking-[0.3em] font-black absolute -top-6 right-16">NET BALANCE</p>
+                          <div className="flex items-baseline whitespace-nowrap pt-2">
+                             <p className="text-[48px] font-black text-[#0f172a] leading-none tracking-tighter">
                                Rs. {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })}
                              </p>
-                             <span className="ml-3 font-black uppercase text-3xl text-slate-600 leading-none">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
+                             <span className="ml-4 font-black uppercase text-3xl text-slate-500 leading-none">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
                           </div>
                        </div>
                     </div>
                  </div>
+              </div>
+              
+              {/* Footer Stamp/Signature Area for professional look */}
+              <div className="mt-12 flex justify-between items-center px-10 pt-12 border-t border-slate-50 opacity-40">
+                  <div className="text-[9px] font-bold uppercase tracking-widest">Authorized Signatory</div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest">Office Stamp</div>
               </div>
             </div>
           </div>
