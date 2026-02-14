@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { Account, Voucher, AppConfig, AccountType, Currency, VoucherType, VoucherStatus, DashboardStats } from '../types';
 
@@ -8,11 +9,13 @@ const mapVoucher = (v: any): Voucher => ({
   date: v.date,
   currency: v.currency as Currency,
   roe: Number(v.roe),
+  // Fix: Removed property 'total_amount_pkr' which does not exist on type 'Voucher'
   totalAmountPKR: Number(v.total_amount_pkr),
   description: v.description,
   status: v.status as VoucherStatus,
   reference: v.reference,
   customerId: v.customer_id,
+  // Fix: Removed property 'vendor_id' which does not exist on type 'Voucher'
   vendorId: v.vendor_id,
   details: v.details
 });
@@ -24,11 +27,13 @@ const mapAccount = (a: any): Account => ({
   type: a.type as AccountType,
   cell: a.cell,
   location: a.location,
+  currency: a.currency as Currency,
   balance: Number(a.balance),
   ledger: (a.ledger || []).map((l: any) => ({
     id: l.id,
     date: l.date,
     voucherId: l.voucher_id,
+    voucherNum: l.voucher_num || '-', // Ensure voucherNum mapping
     description: l.description,
     debit: Number(l.debit),
     credit: Number(l.credit),
@@ -83,12 +88,12 @@ export const getConfig = async (): Promise<AppConfig> => {
     if (error || !data) {
       if (error) console.error("Error fetching config:", error);
       return {
-        companyName: "HASHMI BOOKS",
+        companyName: "TRAVELLDGER",
         appSubtitle: "Travels Services",
-        companyAddress: "Karachi, Pakistan",
-        companyPhone: "",
-        companyCell: "",
-        companyEmail: "",
+        companyAddress: "Shah Faisal Town Malir Halt Karachi",
+        companyPhone: "021000000",
+        companyCell: "0334 3666777",
+        companyEmail: "neemtreetravel@gmail.com",
         defaultROE: 74.5,
         logoSize: 80,
         banks: []
@@ -104,18 +109,19 @@ export const getConfig = async (): Promise<AppConfig> => {
       companyEmail: data.company_email,
       companyLogo: data.company_logo,
       logoSize: data.logo_size,
+      // Fix: Removed property 'default_roe' which does not exist on type 'AppConfig'
       defaultROE: Number(data.default_roe),
       banks: data.banks || []
     };
   } catch (err) {
     console.error("System error fetching config:", err);
     return {
-      companyName: "HASHMI BOOKS",
+      companyName: "TRAVELLDGER",
       appSubtitle: "Travels Services",
-      companyAddress: "Karachi, Pakistan",
-      companyPhone: "",
-      companyCell: "",
-      companyEmail: "",
+      companyAddress: "Shah Faisal Town Malir Halt Karachi",
+      companyPhone: "021000000",
+      companyCell: "0334 3666777",
+      companyEmail: "neemtreetravel@gmail.com",
       defaultROE: 74.5,
       logoSize: 80,
       banks: []

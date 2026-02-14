@@ -58,6 +58,7 @@ CREATE TABLE public.accounts (
     type public.account_category NOT NULL,
     cell TEXT,
     location TEXT,
+    currency public.currency_enum NOT NULL DEFAULT 'PKR',
     balance NUMERIC(15,2) DEFAULT 0.00,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -93,7 +94,6 @@ CREATE TABLE public.ledger_entries (
 );
 
 -- 4. TRIGGERS
--- Enhanced to handle UPDATE for account opening balance corrections
 CREATE OR REPLACE FUNCTION public.sync_account_balance()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -127,8 +127,7 @@ SELECT
     COALESCE(SUM(CASE WHEN type = 'CASH_BANK' THEN balance ELSE 0 END), 0) as total_cash_bank
 FROM public.accounts;
 
--- 6. PERMISSIONS & RLS (CRITICAL FIX FOR 42501)
--- Disable Row Level Security on all tables
+-- 6. PERMISSIONS & RLS
 DO $$
 DECLARE
     tbl text;
@@ -139,7 +138,6 @@ BEGIN
     END LOOP;
 END $$;
 
--- Explicitly grant access to anon and authenticated roles
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
@@ -149,12 +147,12 @@ GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
 INSERT INTO public.app_config (id, company_name, app_subtitle) 
 VALUES ('00000000-0000-0000-0000-000000000001', 'HASHMI BOOKS', 'Travels Services') ON CONFLICT DO NOTHING;
 
-INSERT INTO public.accounts (code, name, type) VALUES
-('1001', 'Cash in Hand', 'CASH_BANK'),
-('1010', 'Accounts Receivable Control', 'CUSTOMER'),
-('1020', 'Bank Al-Habib (Main)', 'CASH_BANK'),
-('2001', 'Accounts Payable Control', 'VENDOR'),
-('3001', 'General Reserve Fund', 'EQUITY'),
-('4001', 'Travel Service Revenue', 'REVENUE'),
-('5001', 'General Operating Expenses', 'EXPENSE')
+INSERT INTO public.accounts (code, name, type, currency) VALUES
+('1001', 'Cash in Hand', 'CASH_BANK', 'PKR'),
+('1010', 'Accounts Receivable Control', 'CUSTOMER', 'PKR'),
+('1020', 'Bank Al-Habib (Main)', 'CASH_BANK', 'PKR'),
+('2001', 'Accounts Payable Control', 'VENDOR', 'PKR'),
+('3001', 'General Reserve Fund', 'EQUITY', 'PKR'),
+('4001', 'Travel Service Revenue', 'REVENUE', 'PKR'),
+('5001', 'General Operating Expenses', 'EXPENSE', 'PKR')
 ON CONFLICT (code) DO NOTHING;

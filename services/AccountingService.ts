@@ -1,10 +1,9 @@
-
 import { supabase } from './supabase';
 import { Account, AccountType, Voucher, VoucherType, Currency, VoucherStatus } from '../types';
 
 export class AccountingService {
   
-  static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string) {
+  static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string, currency: Currency = Currency.PKR) {
     const sanitizedCode = (code && code.trim() !== '') ? code.trim() : null;
 
     const { data: account, error: accError } = await supabase
@@ -15,6 +14,7 @@ export class AccountingService {
         cell,
         location,
         code: sanitizedCode,
+        currency: currency,
         balance: 0
       })
       .select()
@@ -23,10 +23,13 @@ export class AccountingService {
     if (accError) throw accError;
 
     if (openingBalance > 0) {
+      // Automatic adjust opening balances with a contra-entry to the General Reserve Fund (IFRS Compliance)
+      const description = 'Opening Balance (Initial Measurement)';
+      
       await supabase.from('ledger_entries').insert({
         account_id: account.id,
         date: new Date().toISOString(),
-        description: 'Opening Balance (Initial Measurement)',
+        description: description,
         debit: isDr ? openingBalance : 0,
         credit: isDr ? 0 : openingBalance,
       });
@@ -54,7 +57,8 @@ export class AccountingService {
         name: updates.name,
         cell: updates.cell,
         location: updates.location,
-        code: sanitizedCode
+        code: sanitizedCode,
+        currency: updates.currency
       })
       .eq('id', id);
     if (error) throw error;
@@ -105,7 +109,6 @@ export class AccountingService {
     }
   }
 
-  // Added deleteAccount to fix ReferenceError in Ledger.tsx
   static async deleteAccount(id: string) {
     const { error } = await supabase.from('accounts').delete().eq('id', id);
     if (error) throw error;
@@ -138,11 +141,12 @@ export class AccountingService {
   }
 
   static async postVoucher(vData: Partial<Voucher>) {
+    const vNum = vData.voucherNum || `${vData.type}-${Date.now().toString().slice(-6)}`;
     const { data: voucher, error: vError } = await supabase
       .from('vouchers')
       .insert({
         type: vData.type,
-        voucher_num: vData.voucherNum || `${vData.type}-${Date.now().toString().slice(-6)}`,
+        voucher_num: vNum,
         date: vData.date || new Date().toISOString(),
         currency: vData.currency,
         roe: vData.roe,
@@ -163,19 +167,15 @@ export class AccountingService {
     const entries = [];
 
     if (voucher.type === 'RV') {
-      entries.push({ account_id: vData.details.bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
-      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
+      entries.push({ account_id: vData.details.bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
+      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
     } else if (voucher.type === 'TV' || voucher.type === 'HV') {
       const vendorAmount = Number(vData.details?.vendorAmountPKR) || amount;
       const incomeAmount = Number(vData.details?.incomeAmountPKR) || 0;
       
-      // Dr Customer (Total Selling Price)
-      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
+      entries.push({ account_id: voucher.vendor_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description, voucher_num: vNum });
       
-      // Cr Vendor (Actual Cost)
-      entries.push({ account_id: voucher.vendor_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description });
-      
-      // Cr Income (Service Fee / Margin)
       if (incomeAmount > 0 && vData.details?.incomeAccountId) {
         entries.push({ 
           account_id: vData.details.incomeAccountId, 
@@ -183,12 +183,13 @@ export class AccountingService {
           date: voucher.date, 
           debit: 0, 
           credit: incomeAmount, 
-          description: `Service Revenue: ${voucher.description}` 
+          description: `Service Revenue: ${voucher.description}`,
+          voucher_num: vNum
         });
       }
     } else if (['VV', 'TK'].includes(voucher.type)) {
-      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
-      entries.push({ account_id: voucher.vendor_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
+      entries.push({ account_id: voucher.customer_id, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
+      entries.push({ account_id: voucher.vendor_id, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
     } else if (voucher.type === 'PV') {
       if (vData.details?.items && Array.isArray(vData.details.items)) {
         vData.details.items.forEach((item: any) => {
@@ -199,13 +200,14 @@ export class AccountingService {
             date: voucher.date, 
             debit: itemAmountPKR, 
             credit: 0, 
-            description: item.description || voucher.description 
+            description: item.description || voucher.description,
+            voucher_num: vNum
           });
         });
       } else {
-        entries.push({ account_id: vData.details.expenseId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
+        entries.push({ account_id: vData.details.expenseId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: vNum });
       }
-      entries.push({ account_id: vData.details.bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
+      entries.push({ account_id: vData.details.bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: vNum });
     }
 
     if (entries.length > 0) {

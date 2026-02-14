@@ -32,6 +32,7 @@ export interface Account {
   type: AccountType;
   cell?: string;
   location?: string;
+  currency: Currency;
   balance: number; // Final recording in PKR
   ledger: LedgerEntry[];
 }
