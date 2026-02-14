@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Account, AccountType, Voucher, Currency, AppConfig, VoucherType } from '../types';
 import { AccountingService } from '../services/AccountingService';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
@@ -20,8 +20,10 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
   const [viewCurrency, setViewCurrency] = useState<Currency>(Currency.PKR);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState<any>({ 
     name: '', cell: '', location: '', code: '', openingBalance: 0, 
@@ -93,8 +95,9 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
       const rb = voucher.details.numRooms || '0';
       const ngt = voucher.details.numNights || '0';
       const loc = voucher.details.city || 'N/A';
-      const countrySuffix = (loc.toLowerCase().includes('makkah') || loc.toLowerCase().includes('madinah') || loc.toLowerCase().includes('jeddah')) ? '-KSA' : '';
-      return `${pax.toUpperCase()} | ${hotel.toUpperCase()} |Checkin: ${ci} | Checkout: ${co} | R/B: ${rb} | Nights:${ngt} | ${loc.toUpperCase()} ${countrySuffix}`;
+      const countrySuffix = (loc.toLowerCase().includes('makkah') || loc.toLowerCase().includes('madinah') || loc.toLowerCase().includes('jeddah')) ? ' -KSA' : '';
+      
+      return `${pax.toUpperCase()} | ${hotel.toUpperCase()} |Checkin: ${ci} | Checkout: ${co} | R/B: ${rb} | Nights:${ngt} | ${loc.toUpperCase()}${countrySuffix}`;
     }
     
     return entry.description && entry.description !== '-' ? entry.description : (voucher.description || '-');
@@ -115,6 +118,32 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
   const handleVoucherClick = (vId: string | null, vNum: string) => {
     const voucher = vouchers.find(v => v.id === vId || (vNum !== '-' && v.voucherNum === vNum));
     if (voucher) onEditVoucher(voucher);
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!pdfRef.current || !selectedAccount) return;
+    
+    setIsExporting(true);
+    const element = pdfRef.current;
+    const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    const opt = {
+      margin: 0,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 3, useCORS: true, letterRendering: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      // @ts-ignore
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -212,92 +241,107 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </div>
               </div>
             </div>
-            <button onClick={() => window.print()} className="px-10 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[10px] font-black uppercase shadow-lg hover:scale-105 transition-all">Export Ledger PDF</button>
+            <button 
+              onClick={handleDownloadPDF} 
+              disabled={isExporting}
+              className="px-10 py-3 bg-[#0f172a] dark:bg-white text-white dark:text-slate-900 rounded-xl text-[10px] font-black uppercase shadow-lg hover:scale-105 transition-all disabled:opacity-50"
+            >
+              {isExporting ? 'Generating PDF...' : 'Export Ledger PDF'}
+            </button>
           </div>
 
-          <div className="bg-white p-14 text-slate-900 font-inter voucher-page shadow-2xl rounded-[1rem] border border-slate-100 min-h-[11in]">
-            {/* Header Redesign to match Screenshot exactly */}
-            <div className="mb-14 border-b-2 border-slate-50 pb-8">
-               <h1 className="text-6xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-3">{config.companyName}</h1>
-               <div className="flex items-center text-[14px] font-bold text-slate-500 tracking-wide uppercase">
-                 <span>Contact: {config.companyCell}</span>
-                 <span className="mx-3 opacity-30">|</span>
-                 <span>Email: {config.companyEmail}</span>
+          <div ref={pdfRef} className="bg-white p-10 text-slate-900 font-inter min-h-[297mm] w-[210mm] voucher-page shadow-none flex flex-col mx-auto">
+            <div className="mb-8 border-b-2 border-slate-100 pb-4">
+               <h1 className="text-6xl font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-2">{config.companyName}</h1>
+               <div className="flex items-center text-[12px] font-bold text-slate-500 tracking-wide uppercase">
+                 <span>CONTACT: {config.companyCell}</span>
+                 <span className="mx-4 opacity-40">|</span>
+                 <span>EMAIL: {config.companyEmail}</span>
                </div>
             </div>
 
-            {/* Statement Info */}
-            <div className="mb-10">
-               <h2 className="text-3xl font-black uppercase text-[#0f172a] tracking-tight mb-6">
+            <div className="mb-6">
+               <h2 className="text-3xl font-black uppercase text-[#0f172a] tracking-tight mb-4">
                  {type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT
                </h2>
-               <div className="space-y-2">
-                 <p className="text-[20px] font-black text-slate-800">Party: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
-                 <p className="text-[12px] text-slate-400 font-bold uppercase tracking-widest opacity-70">Generated on: {new Date().toLocaleString()}</p>
+               <div className="space-y-1">
+                 <p className="text-[18px] font-black text-slate-800">Party: {selectedAccount.name} ({selectedAccount.code || 'N/A'})</p>
+                 <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest opacity-80">
+                   GENERATED ON: {new Date().toLocaleString('en-US', { 
+                     month: 'numeric', day: 'numeric', year: 'numeric', 
+                     hour: 'numeric', minute: 'numeric', second: 'numeric', 
+                     hour12: true 
+                   })}
+                 </p>
                </div>
             </div>
 
-            {/* Table Styling match */}
-            <table className="w-full text-left border-collapse border border-slate-200 shadow-sm">
-                <thead className="bg-[#0f172a] text-white text-[11px] uppercase font-black tracking-wider">
-                  <tr>
-                    <th className="px-4 py-4 border-r border-slate-700 w-24">Date</th>
-                    <th className="px-4 py-4 border-r border-slate-700 w-32">Ref #</th>
-                    <th className="px-4 py-4 border-r border-slate-700 w-16">Type</th>
-                    <th className="px-4 py-4 border-r border-slate-700 w-auto">Narration</th>
-                    <th className="px-4 py-4 border-r border-slate-700 w-16 text-center">ROE</th>
-                    <th className="px-4 py-4 border-r border-slate-700 w-24 text-right">Debit</th>
-                    <th className="px-4 py-4 border-r border-slate-700 w-24 text-right">Credit</th>
-                    <th className="px-4 py-4 text-right w-28">Balance</th>
-                  </tr>
-                </thead>
-                <tbody className="text-[12px] font-medium text-slate-700">
-                  {ledgerWithRunningBalance.map((entry, i) => {
-                    const voucher = vouchers.find(v => v.id === entry.voucherId || (entry.voucherNum !== '-' && v.voucherNum === entry.voucherNum));
-                    const displayVNum = voucher?.voucherNum || entry.voucherNum || '-';
-                    const displayDescription = getNarrativeForLedger(entry, voucher);
-                    const displayType = voucher?.type || (entry.description?.includes('Opening') ? 'Opening' : '-');
-                    const displayROE = voucher?.roe || (viewCurrency === Currency.PKR ? '-' : currentROE);
+            <div className="flex-1">
+              <table className="w-full text-left border-collapse border border-slate-200">
+                  <thead className="bg-[#0f172a] text-white text-[10px] uppercase font-black tracking-wider">
+                    <tr>
+                      <th className="px-3 py-3 border-r border-slate-700 w-24">DATE</th>
+                      <th className="px-3 py-3 border-r border-slate-700 w-36 text-blue-400">REF #</th>
+                      <th className="px-3 py-3 border-r border-slate-700 w-16">TYPE</th>
+                      <th className="px-3 py-3 border-r border-slate-700 w-auto">NARRATION</th>
+                      <th className="px-3 py-3 border-r border-slate-700 w-12 text-center">ROE</th>
+                      <th className="px-3 py-3 border-r border-slate-700 w-24 text-right">DEBIT</th>
+                      <th className="px-3 py-3 border-r border-slate-700 w-24 text-right">CREDIT</th>
+                      <th className="px-3 py-3 text-right w-32">BALANCE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[11px] font-medium text-slate-700">
+                    {ledgerWithRunningBalance.map((entry, i) => {
+                      const voucher = vouchers.find(v => v.id === entry.voucherId || (entry.voucherNum !== '-' && v.voucherNum === entry.voucherNum));
+                      const displayVNum = voucher?.voucherNum || entry.voucherNum || '-';
+                      const displayDescription = getNarrativeForLedger(entry, voucher);
+                      const displayType = voucher?.type || (entry.description?.includes('Opening') ? 'Opening' : '-');
+                      const displayROE = voucher?.roe || (viewCurrency === Currency.PKR ? '-' : currentROE);
 
-                    return (
-                      <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/20'}`}>
-                        <td className="px-4 py-4 whitespace-nowrap text-slate-500 font-bold">{entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}</td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <button onClick={() => handleVoucherClick(entry.voucherId, displayVNum)} className="text-blue-600 font-black hover:underline no-print">{displayVNum}</button>
-                          <span className="print-only font-black text-blue-600">{displayVNum}</span>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap uppercase font-bold text-slate-500">{displayType}</td>
-                        <td className="px-4 py-4 text-slate-500 italic text-[11px] leading-relaxed break-words">
-                          {displayDescription}
-                        </td>
-                        <td className="px-4 py-4 text-center text-slate-400 font-bold">{displayROE}</td>
-                        <td className="px-4 py-4 text-right text-emerald-600 font-black">{entry.debit > 0 ? getConvertedVal(entry.debit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}</td>
-                        <td className="px-4 py-4 text-right text-rose-600 font-black">{entry.credit > 0 ? getConvertedVal(entry.credit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}</td>
-                        <td className="px-4 py-4 text-right font-black text-slate-900 whitespace-nowrap">
-                          {Math.abs(getConvertedVal(entry.balanceAfter)).toLocaleString(undefined, { minimumFractionDigits: 0 })} 
-                          <span className="ml-1 text-[10px] opacity-40 uppercase font-black">{entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-            </table>
+                      return (
+                        <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/10'}`}>
+                          <td className="px-3 py-3 whitespace-nowrap text-slate-500 font-bold">
+                            {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap font-black text-blue-600">
+                            {displayVNum}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap uppercase font-bold text-slate-500">{displayType}</td>
+                          <td className="px-3 py-3 text-slate-500 italic text-[10px] leading-tight break-words font-medium">
+                            {displayDescription}
+                          </td>
+                          <td className="px-3 py-3 text-center text-slate-400 font-bold">{displayROE}</td>
+                          <td className="px-3 py-3 text-right text-emerald-600 font-black">
+                            {entry.debit > 0 ? getConvertedVal(entry.debit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-right text-rose-600 font-black">
+                            {entry.credit > 0 ? getConvertedVal(entry.credit).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-right font-black text-slate-900 whitespace-nowrap">
+                            {Math.abs(getConvertedVal(entry.balanceAfter)).toLocaleString(undefined, { minimumFractionDigits: 0 })} 
+                            <span className="ml-1 text-[9px] opacity-60 uppercase font-black">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+              </table>
+            </div>
 
-            {/* Summary Box match */}
-            <div className="mt-14 bg-summary p-14 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row justify-between items-center min-h-[220px]">
-               <div className="space-y-6 text-center md:text-left">
-                 <h3 className="text-[18px] font-black text-slate-900 uppercase tracking-tighter mb-4">FINANCIAL SUMMARY</h3>
-                 <div className="space-y-3">
-                   <p className="text-[15px] text-slate-500 font-bold">Total Transactions: <span className="text-slate-800 font-black ml-1">{selectedAccount.ledger.filter(e => e.voucherId).length}</span></p>
-                   <p className="text-[15px] text-slate-500 font-bold">Total Debits: Rs. <span className="text-emerald-600 font-black ml-1">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
-                   <p className="text-[15px] text-slate-500 font-bold">Total Credits: Rs. <span className="text-rose-600 font-black ml-1">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+            <div className="mt-8 bg-[#f8fbff] p-10 rounded-[2rem] border border-slate-100 flex flex-col md:flex-row justify-between items-center">
+               <div className="space-y-4 text-center md:text-left">
+                 <h3 className="text-[16px] font-black text-slate-900 uppercase tracking-tighter mb-2">FINANCIAL SUMMARY</h3>
+                 <div className="space-y-2">
+                   <p className="text-[13px] text-slate-500 font-bold">Total Transactions: <span className="text-slate-800 font-black ml-2">{selectedAccount.ledger.filter(e => e.voucherId).length}</span></p>
+                   <p className="text-[13px] text-slate-500 font-bold">Total Debits: Rs. <span className="text-emerald-600 font-black ml-2">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.debit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
+                   <p className="text-[13px] text-slate-500 font-bold">Total Credits: Rs. <span className="text-rose-600 font-black ml-2">{getConvertedVal(selectedAccount.ledger.reduce((s,e) => s+e.credit, 0)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span></p>
                  </div>
                </div>
-               <div className="text-center md:text-right mt-10 md:mt-0">
-                  <p className="text-5xl font-black text-slate-900 flex flex-col md:flex-row items-center justify-end">
-                    <span className="text-slate-400 md:mr-6 text-2xl uppercase tracking-widest font-bold mb-2 md:mb-0">Net Balance:</span>
+               <div className="text-center md:text-right mt-6 md:mt-0">
+                  <p className="text-4xl font-black text-slate-900 flex flex-col md:flex-row items-baseline justify-end">
+                    <span className="text-slate-400 md:mr-4 text-[13px] uppercase tracking-[0.2em] font-bold mb-2 md:mb-0">NET BALANCE:</span>
                     <span className="tracking-tighter">Rs. {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
-                    <span className="ml-4 font-black uppercase text-3xl text-slate-600">{selectedAccount.balance >= 0 ? 'Dr' : 'Cr'}</span>
+                    <span className="ml-2 font-black uppercase text-2xl text-slate-600">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
                   </p>
                </div>
             </div>

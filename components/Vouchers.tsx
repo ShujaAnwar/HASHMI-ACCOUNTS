@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountingService } from '../services/AccountingService';
@@ -39,10 +39,13 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
   const [voucherToEdit, setVoucherToEdit] = useState<Voucher | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [allVouchers, setAllVouchers] = useState<Voucher[]>([]);
+
+  const voucherRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,7 +94,6 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
       setShowForm(false);
       setVoucherToEdit(null);
       setRefreshKey(prev => prev + 1);
-      // Success feedback could be added here
     } catch (error: any) {
       console.error("Voucher Save Error:", error);
       alert(`Failed to save voucher: ${error.message || 'Unknown error'}`);
@@ -107,7 +109,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
   const formatMeals = (meals: any) => {
     if (Array.isArray(meals)) return meals.join(', ');
     if (typeof meals === 'string') return meals;
-    return 'Room Only';
+    return 'NONE';
   };
 
   const getDetailedNarrative = (v: Voucher) => {
@@ -138,9 +140,32 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     }
   };
 
-  const handlePrint = () => {
-    if (!viewingVoucher) return;
-    window.print();
+  const handleDownloadPDF = async () => {
+    if (!viewingVoucher || !voucherRef.current) return;
+    
+    setIsDownloading(true);
+    const element = voucherRef.current;
+    
+    const paxName = viewingVoucher.details?.paxName?.replace(/\s+/g, '_') || 'Guest';
+    const voucherNum = viewingVoucher.voucherNum;
+    const fileName = `HotelVoucher_${voucherNum}_${paxName}.pdf`;
+
+    const opt = {
+      margin: 0,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 1.0 },
+      html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      // @ts-ignore
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const renderOfficialInvoice = (v: Voucher) => {
@@ -435,7 +460,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
             <li className="ml-4">• Non Refundable</li>
             <li className="ml-4">• Non Amendable</li>
             <li>▪ Check in after 16:00 hour and check out at 12:00 hour.</li>
-            <li>▪ Triple or Quad occupancy will be through extra bed # standard room is not available.</li>
+            <li>▪ Triple or occupancy will be through extra bed # standard room is not available.</li>
           </ul>
         </div>
 
@@ -465,123 +490,145 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
   };
 
   const renderServiceVoucher = (v: Voucher) => {
-    const fromDateStr = v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-';
-    const toDateStr = v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-';
-    const invoiceNum = v.voucherNum.split('-').pop();
-
+    const fromDateStr = v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+    const toDateStr = v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+    
     return (
-      <div className="bg-white p-14 text-slate-900 font-inter min-h-[11in] voucher-page border border-slate-200">
-        <div className="flex justify-between items-start mb-12">
-          <div className="flex flex-col">
-            {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize}px` }} alt="logo" className="mb-4" />}
+      <div ref={voucherRef} className="bg-white p-10 text-slate-900 font-inter min-h-[297mm] w-[210mm] voucher-page flex flex-col shadow-none border border-slate-100">
+        
+        {/* Compact Header - Replicating Image Exactly */}
+        <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100">
+          <div className="w-40">
+             {config?.companyLogo ? (
+               <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" className="object-contain" />
+             ) : (
+               <div className="font-black text-2xl tracking-tighter text-[#0f172a]">NEEM TREE</div>
+             )}
           </div>
-          <div className="text-center pt-4 flex-1">
-            <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight leading-none">Hotel Booking Voucher</h1>
-            <p className="text-lg font-bold text-rose-600 mt-1 uppercase tracking-wide">
-              {config?.companyName} {config?.appSubtitle}
+          <div className="text-center flex-1">
+            <h1 className="text-[30px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-1">Hotel Booking Voucher</h1>
+            <p className="text-[20px] font-bold text-[#e11d48] uppercase tracking-wider">
+              {config?.appSubtitle || 'TRAVELS SERVICES'}
             </p>
           </div>
-          <div className="text-right text-[11px] font-semibold text-slate-500 uppercase leading-relaxed max-w-[240px]">
-             <p>{config?.companyAddress}</p>
-             <p>Cell: {config?.companyCell}</p>
-             <p>Phone: {config?.companyPhone}</p>
+          <div className="w-44 text-right pr-6">
+             <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-slate-400 uppercase flex justify-end gap-3">
+                  CELL: <span className="text-[#0f172a]">{config?.companyCell}</span>
+                </p>
+                <p className="text-[10px] font-black text-slate-400 uppercase flex justify-end gap-3">
+                  PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone}</span>
+                </p>
+             </div>
           </div>
         </div>
 
-        <div className="mb-10 text-[14px] font-bold text-slate-800">
-          <p>Hotel Voucher: {invoiceNum}</p>
+        {/* Reference Line */}
+        <div className="mb-8">
+          <p className="text-[15px] font-black text-[#0f172a]">Hotel Voucher: {v.voucherNum}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-y-12 mb-12">
-          <div className="space-y-10">
-            <div>
-              <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-1">HOTEL NAME</p>
-              <p className="text-[16px] font-black uppercase text-slate-800 leading-tight">
-                {v.details?.hotelName}
+        {/* Details Grid - Compact spacing with matched styling */}
+        <div className="grid grid-cols-2 gap-x-24 gap-y-6 mb-8">
+          <div className="space-y-6">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">HOTEL NAME</p>
+              <p className="text-[18px] font-black uppercase text-[#0f172a] leading-tight">
+                {v.details?.hotelName || 'N/A'}
               </p>
             </div>
-            <div>
-              <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-1">CITY / COUNTRY</p>
-              <p className="text-[14px] font-bold uppercase text-slate-700">
-                {v.details?.city} {v.details?.country ? `- ${v.details.country}` : ''}
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CITY / COUNTRY</p>
+              <p className="text-[16px] font-black uppercase text-slate-700">
+                {v.details?.city || 'N/A'} - {v.details?.country?.toUpperCase() || 'SAUDI ARABIA'}
               </p>
             </div>
           </div>
-          <div className="space-y-10 pl-24">
-            <div>
-              <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-1">CHECK-IN</p>
-              <p className="text-[16px] font-black text-slate-800">{fromDateStr}</p>
+          
+          <div className="space-y-6">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN</p>
+              <p className="text-[16px] font-black text-[#0f172a]">{fromDateStr}</p>
             </div>
-            <div>
-              <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-1">CHECK-OUT</p>
-              <p className="text-[16px] font-black text-slate-800">{toDateStr}</p>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CHECK-OUT</p>
+              <p className="text-[16px] font-black text-[#0f172a]">{toDateStr}</p>
             </div>
-          </div>
-          <div className="pt-8 border-t border-slate-100">
-             <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-1">LEAD GUEST</p>
-             <p className="text-[15px] font-black uppercase text-slate-900">{v.details?.paxName}</p>
-          </div>
-          <div className="pt-8 border-t border-slate-100 pl-24">
-             <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-1">ROOM(S) / NIGHT(S)</p>
-             <p className="text-[15px] font-bold text-slate-700">{v.details?.numRooms} / {v.details?.numNights}</p>
           </div>
         </div>
 
-        <div className="mb-12 overflow-x-auto">
+        {/* Lead/Nights bar - Matched screenshot layout */}
+        <div className="grid grid-cols-2 gap-x-24 pt-4 border-t border-slate-100 mb-8">
+           <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">LEAD GUEST</p>
+              <p className="text-[16px] font-black uppercase text-[#0f172a]">{v.details?.paxName || 'N/A'}</p>
+           </div>
+           <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ROOM(S) / NIGHT(S)</p>
+              <p className="text-[16px] font-black text-slate-700">
+                {v.details?.numRooms || 1} / {v.details?.numNights || 1}
+              </p>
+           </div>
+        </div>
+
+        {/* Table - Replicating Navy Header and Compact Rows */}
+        <div className="mb-8">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="text-[11px] font-black uppercase tracking-widest text-slate-900 border-y border-slate-200 bg-slate-50/50">
-                <th className="py-4 px-4 text-left font-black">ROOMS/BEDS</th>
-                <th className="py-4 px-4 text-left font-black">Room Type</th>
-                <th className="py-4 px-4 text-left font-black">Meal</th>
-                <th className="py-4 px-4 text-left font-black">Guest Name</th>
-                <th className="py-4 px-4 text-left font-black">Adult(s)</th>
-                <th className="py-4 px-4 text-left font-black">Children</th>
+              <tr className="text-[10px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
+                <th className="py-3 px-5 text-left border-r border-slate-700">ROOMS/BEDS</th>
+                <th className="py-3 px-5 text-left border-r border-slate-700">ROOM TYPE</th>
+                <th className="py-3 px-5 text-left border-r border-slate-700">MEAL</th>
+                <th className="py-3 px-5 text-left border-r border-slate-700">GUEST NAME</th>
+                <th className="py-3 px-5 text-left border-r border-slate-700">ADULT(S)</th>
+                <th className="py-3 px-5 text-left">CHILDREN</th>
               </tr>
             </thead>
-            <tbody className="text-[12px] font-semibold text-slate-700">
-              <tr className="border-b border-slate-100 bg-slate-50/30">
-                <td className="py-5 px-4">{v.details?.numRooms}</td>
-                <td className="py-5 px-4 uppercase">{v.details?.roomType}</td>
-                <td className="py-5 px-4 uppercase">{formatMeals(v.details?.meals)}</td>
-                <td className="py-5 px-4 uppercase">{v.details?.paxName}</td>
-                <td className="py-5 px-4">{v.details?.adults || 2}</td>
-                <td className="py-5 px-4">{v.details?.children || 0}</td>
+            <tbody className="text-[12px] font-bold text-slate-800">
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <td className="py-3 px-5 border-r border-slate-200">{v.details?.numRooms || 1}</td>
+                <td className="py-3 px-5 border-r border-slate-200 uppercase">{v.details?.roomType || 'TRIPLE'}</td>
+                <td className="py-3 px-5 border-r border-slate-200 uppercase">{formatMeals(v.details?.meals)}</td>
+                <td className="py-3 px-5 border-r border-slate-200 uppercase">{v.details?.paxName || 'N/A'}</td>
+                <td className="py-3 px-5 border-r border-slate-200">{v.details?.adults || 2}</td>
+                <td className="py-3 px-5">{v.details?.children || 0}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div className="mb-12">
-          <h4 className="text-[12px] font-black text-slate-900 uppercase tracking-tighter mb-6">Check-in/Check-out Timings & Policies</h4>
-          <ul className="text-[12px] font-medium text-slate-600 space-y-3 leading-relaxed">
-            <li className="flex items-start space-x-3">
-              <span className="text-slate-900">•</span> 
+        {/* Policies - Compact and Clean */}
+        <div className="mb-6">
+          <h4 className="text-[13px] font-black text-[#0f172a] uppercase tracking-tighter mb-4 border-b border-slate-100 pb-2">Check-in/Check-out Timings & Policies</h4>
+          <ul className="text-[11px] font-medium text-slate-600 space-y-1.5 leading-relaxed">
+            <li className="flex items-start">
+              <span className="text-slate-400 font-black mr-3">•</span> 
               <span>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.</span>
             </li>
-            <li className="flex items-start space-x-3">
-              <span className="text-slate-900">•</span> 
+            <li className="flex items-start">
+              <span className="text-slate-400 font-black mr-3">•</span> 
               <span>Rooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.</span>
             </li>
-            <li className="flex items-start space-x-3">
-              <span className="text-slate-900">•</span> 
+            <li className="flex items-start">
+              <span className="text-slate-400 font-black mr-3">•</span> 
               <span>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.</span>
             </li>
-            <li className="flex items-start space-x-3">
-              <span className="text-slate-900">•</span> 
+            <li className="flex items-start">
+              <span className="text-slate-400 font-black mr-3">•</span> 
               <span>The usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.</span>
             </li>
-            <li className="flex items-start space-x-3">
-              <span className="text-slate-900">•</span> 
+            <li className="flex items-start">
+              <span className="text-slate-400 font-black mr-3">•</span> 
               <span>For any specific queries related to a particular hotel, kindly reach out to local support team for further assistance</span>
             </li>
           </ul>
         </div>
 
-        <div className="mt-auto pt-8 border-t border-slate-200">
-          <div className="border border-slate-200 p-6 rounded-sm">
-            <p className="text-[12px] font-medium text-slate-700 leading-relaxed">
-              <span className="font-bold text-slate-900">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately.if you need any further clarification, please do not hesitate to contact us.
+        {/* Booking Notes - Boxed precisely like the screenshot */}
+        <div className="mt-auto pt-6 border-t border-slate-100">
+          <div className="border border-slate-200 p-4 rounded-md bg-slate-50/50">
+            <p className="text-[12px] font-medium text-slate-700 leading-relaxed italic">
+              <span className="font-black text-[#0f172a] not-italic">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to contact us.
             </p>
           </div>
         </div>
@@ -701,7 +748,14 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
                   ))}
                </div>
                <div className="flex items-center space-x-3">
-                  <button onClick={handlePrint} className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-2 rounded-xl font-black uppercase text-[10px] transition-all flex items-center space-x-2"><span>🖨️</span> <span>Print / PDF</span></button>
+                  <button 
+                    onClick={handleDownloadPDF} 
+                    disabled={isDownloading}
+                    className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-2 rounded-xl font-black uppercase text-[10px] transition-all flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    <span>{isDownloading ? '⏳' : '📥'}</span> 
+                    <span>{isDownloading ? 'Downloading...' : 'Download PDF'}</span>
+                  </button>
                   <button onClick={() => setViewingVoucher(null)} className="p-2 bg-slate-200 dark:bg-slate-700 text-slate-500 rounded-xl">✕</button>
                </div>
             </div>
