@@ -15,25 +15,25 @@ export enum AccountType {
 export interface LedgerEntry {
   id: string;
   date: string;
-  voucherId: string;
+  voucherId: string | null;
   voucherNum: string;
   description: string;
   debit: number;
   credit: number;
   balanceAfter: number;
-  currency: Currency;
-  roe: number;
+  currency?: Currency;
+  roe?: number;
 }
 
 export interface Account {
   id: string;
-  code?: string; // Standard Accounting Code (e.g., 1001)
+  code?: string;
   name: string;
   type: AccountType;
   cell?: string;
   location?: string;
-  currency: Currency;
-  balance: number; // Final recording in PKR
+  currency: Currency; // Mandatory head currency
+  balance: number; // Stored in PKR
   ledger: LedgerEntry[];
 }
 
@@ -62,7 +62,6 @@ export interface Voucher {
   description: string;
   status: VoucherStatus;
   reference?: string;
-  // Dynamic fields based on type
   customerId?: string;
   vendorId?: string;
   details?: any;
@@ -75,10 +74,10 @@ export interface AppConfig {
   companyPhone: string;
   companyCell: string;
   companyEmail: string;
-  companyLogo?: string; // Base64
-  logoSize: number; // Height in pixels
+  companyLogo?: string;
+  logoSize: number;
   defaultROE: number;
-  banks: { id: string; name: string; accountNumber: string }[];
+  banks: { id: string; name: string; accountNumber: string, address: string }[];
 }
 
 export interface DashboardStats {

@@ -38,6 +38,8 @@
             animation: blink 1s infinite cubic-bezier(0.4, 0, 0.6, 1);
         }
 
+        .print-only { display: none; }
+
         @media print {
             .no-print, .no-print * { display: none !important; }
             .print-only { display: block !important; }
@@ -48,11 +50,12 @@
                 print-color-adjust: exact; 
                 margin: 0 !important;
                 padding: 0 !important;
+                font-size: 10pt;
             }
             #root { padding: 0 !important; margin: 0 !important; }
             @page { 
                 size: A4;
-                margin: 10mm; 
+                margin: 5mm; 
             }
             .voucher-page { 
               width: 100% !important;
@@ -62,6 +65,15 @@
               box-shadow: none !important;
               border: none !important;
               background: white !important;
+              transform-origin: top left;
+            }
+            table {
+                width: 100% !important;
+                table-layout: fixed !important;
+                word-wrap: break-word !important;
+            }
+            th, td {
+                padding: 4px !important;
             }
         }
     </style>
