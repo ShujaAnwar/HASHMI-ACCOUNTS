@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell 
@@ -15,19 +16,36 @@ const Dashboard: React.FC = () => {
   });
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  useEffect(() => {
-    const fetchData = async () => {
+  const fetchData = useCallback(async (isBackground = false) => {
+    if (isBackground) setIsRefreshing(true);
+    else setLoading(true);
+    
+    try {
       const [s, v] = await Promise.all([
         getDashboardMetrics(),
         getVouchers()
       ]);
       setStats(s);
       setVouchers(v);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Failed to sync dashboard:", error);
+    } finally {
       setLoading(false);
-    };
-    fetchData();
+      setIsRefreshing(false);
+    }
   }, []);
+
+  // Initial load and polling setup
+  useEffect(() => {
+    fetchData();
+    // Poll every 30 seconds for real-time updates
+    const interval = setInterval(() => fetchData(true), 30000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const pieData = useMemo(() => [
     { name: 'Receivables', value: Math.max(stats.totalReceivables, 0.1), color: '#3B82F6' },
@@ -61,13 +79,39 @@ const Dashboard: React.FC = () => {
   }, [vouchers]);
 
   if (loading) return (
-    <div className="flex justify-center items-center h-64">
-      <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    <div className="flex flex-col justify-center items-center h-96 space-y-4">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Synchronizing Ledger Data...</p>
     </div>
   );
 
   return (
     <div className="space-y-6">
+      {/* Dashboard Header with Refresh Controls */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div>
+          <h2 className="text-2xl font-black font-orbitron text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Intelligence Hub</h2>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-2 flex items-center">
+            Last Synced: {lastUpdated.toLocaleTimeString()} 
+            {isRefreshing && <span className="ml-2 text-blue-500 animate-pulse">(Updating...)</span>}
+          </p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button 
+            onClick={() => fetchData(true)}
+            disabled={isRefreshing}
+            className={`flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-4 py-2 rounded-xl border dark:border-slate-700 transition-all active:scale-95 disabled:opacity-50 group`}
+          >
+            <span className={`text-sm ${isRefreshing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}>🔄</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Sync Ledger</span>
+          </button>
+          <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30">
+            <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-amber-500' : 'bg-blue-500'} animate-blink shadow-[0_0_8px_rgba(59,130,246,0.5)]`}></div>
+            <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 dark:text-blue-400">Live Engine</span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Receivables', value: stats.totalReceivables, color: 'blue', icon: '↗️', light: 'bg-blue-500' },
@@ -76,10 +120,6 @@ const Dashboard: React.FC = () => {
           { label: 'Cash/Bank', value: stats.totalCash, color: 'purple', icon: '🏦', light: 'bg-violet-500' }
         ].map((card, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group">
-            <div className={`absolute top-4 right-4 flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full border dark:border-slate-700`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${card.light} animate-blink shadow-[0_0_8px_rgba(59,130,246,0.5)]`}></div>
-              <span className="text-[8px] font-black uppercase tracking-tighter text-slate-500 dark:text-slate-400">Live</span>
-            </div>
             <div className="flex justify-between items-start mb-4">
               <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
             </div>
