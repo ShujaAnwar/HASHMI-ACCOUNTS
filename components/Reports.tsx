@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
 
@@ -15,6 +15,9 @@ const Reports: React.FC = () => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -31,6 +34,39 @@ const Reports: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  const handleExportPDF = async () => {
+    if (!reportRef.current) return;
+    
+    setIsExporting(true);
+    const element = reportRef.current;
+    const titleMap = { 'TB': 'Trial_Balance', 'PL': 'Profit_Loss', 'BS': 'Balance_Sheet', 'GL': 'General_Ledger' };
+    const sectionName = titleMap[activeSection];
+    const fileName = `${sectionName}_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    const opt = {
+      margin: 10,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        backgroundColor: '#ffffff',
+        logging: false
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      // @ts-ignore
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const filteredVouchers = useMemo(() => {
     const start = new Date(fromDate).getTime();
@@ -121,15 +157,15 @@ const Reports: React.FC = () => {
   }
 
   const ReportHeader = ({ title, subtitle }: { title: string, subtitle: string }) => (
-    <div className="border-b-2 border-slate-900 dark:border-slate-700 pb-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div className="border-b-2 border-slate-900 pb-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
       <div>
         <p className="text-blue-600 font-bold text-[10px] uppercase tracking-[0.3em] mb-1">{config.companyName}</p>
-        <h2 className="text-3xl md:text-4xl font-orbitron font-bold text-slate-900 dark:text-white uppercase tracking-tighter">{title}</h2>
+        <h2 className="text-3xl md:text-4xl font-orbitron font-bold text-slate-900 uppercase tracking-tighter">{title}</h2>
         <p className="text-slate-400 text-[10px] mt-1 font-bold tracking-[0.2em] uppercase">{subtitle}</p>
       </div>
       <div className="text-right">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reporting Date</p>
-        <p className="font-bold text-sm bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg mt-1 inline-block">
+        <p className="font-bold text-sm bg-slate-100 px-3 py-1 rounded-lg mt-1 inline-block text-slate-900">
           As of {new Date().toLocaleDateString()}
         </p>
       </div>
@@ -141,7 +177,14 @@ const Reports: React.FC = () => {
       <div className="no-print bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-end gap-6">
         <div className="flex-1 min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Statement From</label><input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div>
         <div className="flex-1 min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Statement To</label><input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div>
-        <button onClick={() => window.print()} className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-xl font-bold shadow-lg hover:scale-105 transition-all flex items-center space-x-2 border border-white/10"><span>🖨️</span> <span className="uppercase text-xs tracking-widest">Export Report</span></button>
+        <button 
+          onClick={handleExportPDF} 
+          disabled={isExporting}
+          className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-xl font-bold shadow-lg hover:scale-105 transition-all flex items-center space-x-2 border border-white/10 disabled:opacity-50"
+        >
+          <span>{isExporting ? '⏳' : '📥'}</span> 
+          <span className="uppercase text-xs tracking-widest">{isExporting ? 'Generating...' : 'Export Report'}</span>
+        </button>
       </div>
       
       <div className="no-print flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -152,129 +195,130 @@ const Reports: React.FC = () => {
         ))}
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl p-8 md:p-14 border border-slate-100 dark:border-slate-800 min-h-[600px] transition-all relative overflow-hidden">
-        {activeSection === 'TB' && (
-          <div className="animate-in fade-in duration-500">
-            <ReportHeader title="Trial Balance" subtitle="Consolidated Account Headings & Codes" />
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead><tr className="text-slate-400 text-[10px] font-bold uppercase border-b-2 dark:border-slate-800 tracking-widest"><th className="py-5 text-left pl-4">Code</th><th className="py-5 text-left">Account Head</th><th className="py-5 text-right">Debit (PKR)</th><th className="py-5 text-right pr-4">Credit (PKR)</th></tr></thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">{trialBalance.items.map((item, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group"><td className="py-4 pl-4 font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{item.code}</td><td className="py-4 font-bold text-slate-700 dark:text-slate-200 text-sm">{item.name}</td><td className="py-4 text-right font-orbitron font-medium text-emerald-600">{item.dr > 0 ? item.dr.toLocaleString() : '-'}</td><td className="py-4 text-right pr-4 font-orbitron font-medium text-rose-500">{item.cr > 0 ? item.cr.toLocaleString() : '-'}</td></tr>
-                ))}</tbody>
-                <tfoot className="border-t-4 border-slate-900 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50"><tr className="text-xl font-bold"><td colSpan={2} className="py-8 px-6 font-orbitron uppercase text-sm tracking-widest">Verification Totals</td><td className="py-8 px-4 text-right font-orbitron underline decoration-double decoration-blue-500 underline-offset-8">{trialBalance.totalDr.toLocaleString()}</td><td className="py-8 px-6 text-right font-orbitron underline decoration-double decoration-blue-500 underline-offset-8">{trialBalance.totalCr.toLocaleString()}</td></tr></tfoot>
-              </table>
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 min-h-[600px] transition-all relative overflow-hidden">
+        <div ref={reportRef} className="bg-white p-8 md:p-14 text-slate-900">
+          {activeSection === 'TB' && (
+            <div className="animate-in fade-in duration-500">
+              <ReportHeader title="Trial Balance" subtitle="Consolidated Account Headings & Codes" />
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead><tr className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><th className="py-5 text-left pl-4">Code</th><th className="py-5 text-left">Account Head</th><th className="py-5 text-right">Debit (PKR)</th><th className="py-5 text-right pr-4">Credit (PKR)</th></tr></thead>
+                  <tbody className="divide-y divide-slate-50">{trialBalance.items.map((item, i) => (
+                    <tr key={i} className="hover:bg-slate-50 transition-colors group"><td className="py-4 pl-4 font-mono text-xs font-bold text-blue-600">{item.code}</td><td className="py-4 font-bold text-slate-700 text-sm">{item.name}</td><td className="py-4 text-right font-orbitron font-medium text-emerald-600">{item.dr > 0 ? item.dr.toLocaleString() : '-'}</td><td className="py-4 text-right pr-4 font-orbitron font-medium text-rose-500">{item.cr > 0 ? item.cr.toLocaleString() : '-'}</td></tr>
+                  ))}</tbody>
+                  <tfoot className="border-t-4 border-slate-900 bg-slate-50"><tr className="text-xl font-bold"><td colSpan={2} className="py-8 px-6 font-orbitron uppercase text-sm tracking-widest">Verification Totals</td><td className="py-8 px-4 text-right font-orbitron underline decoration-double decoration-blue-500 underline-offset-8">{trialBalance.totalDr.toLocaleString()}</td><td className="py-8 px-6 text-right font-orbitron underline decoration-double decoration-blue-500 underline-offset-8">{trialBalance.totalCr.toLocaleString()}</td></tr></tfoot>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeSection === 'PL' && (
-          <div className="animate-in slide-in-from-right-4 duration-500">
-            <ReportHeader title="Income Statement" subtitle="Operating Revenue & Expense Measurement" />
-            <div className="space-y-12">
-              <div><h4 className="text-emerald-500 font-bold uppercase tracking-[0.2em] mb-4 border-b border-emerald-100 dark:border-emerald-900/30 pb-2 text-[10px]">Operating Revenues</h4><div className="space-y-4">{[{ label: 'Hotel Booking Services', type: VoucherType.HOTEL }, { label: 'Visa Processing Services', type: VoucherType.VISA }, { label: 'Transport / Car Hire Services', type: VoucherType.TRANSPORT }, { label: 'Airline Ticketing Services', type: VoucherType.TICKET }].map(inc => {
-                const val = filteredVouchers.filter(v => v.type === inc.type).reduce((s, v) => s + v.totalAmountPKR, 0);
-                return (<div key={inc.type} className="flex justify-between items-center px-4 hover:bg-slate-50 py-2 rounded-xl transition-all"><span className="text-slate-600 dark:text-slate-400 font-medium text-sm">{inc.label}</span><span className="font-orbitron font-bold text-slate-800 dark:text-white">{val.toLocaleString()}</span></div>);
-              })}<div className="flex justify-between items-center p-5 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100"><span className="font-bold text-emerald-700 dark:text-emerald-400 uppercase text-xs tracking-widest">Gross Post Income</span><span className="font-orbitron font-bold text-2xl text-emerald-600">{profitLoss.income.toLocaleString()}</span></div></div></div>
-              <div><h4 className="text-rose-500 font-bold uppercase tracking-[0.2em] mb-4 border-b border-rose-100 dark:border-rose-900/30 pb-2 text-[10px]">Operating Costs</h4><div className="space-y-4"><div className="flex justify-between items-center px-4 hover:bg-slate-50 py-2 rounded-xl transition-all"><span className="text-slate-600 dark:text-slate-400 font-medium text-sm">General Ledger Expenses</span><span className="font-orbitron font-bold text-slate-800 dark:text-white">{profitLoss.expenses.toLocaleString()}</span></div><div className="flex justify-between items-center p-5 bg-rose-50 dark:bg-rose-900/10 rounded-2xl border border-rose-100"><span className="font-bold text-rose-700 dark:text-rose-400 uppercase text-xs tracking-widest">Total Operating Outflow</span><span className="font-orbitron font-bold text-2xl text-rose-600">{profitLoss.expenses.toLocaleString()}</span></div></div></div>
-              <div className="bg-slate-900 dark:bg-blue-600/10 text-white p-10 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center border border-white/5"><div><h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">IFRS Period Result</h5><p className="text-4xl font-orbitron font-bold uppercase tracking-tighter">Net Profit / (Loss)</p></div><div className="text-right mt-6 md:mt-0"><p className={`text-5xl font-orbitron font-bold ${profitLoss.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{profitLoss.netProfit.toLocaleString()}</p></div></div>
+          {activeSection === 'PL' && (
+            <div className="animate-in slide-in-from-right-4 duration-500">
+              <ReportHeader title="Income Statement" subtitle="Operating Revenue & Expense Measurement" />
+              <div className="space-y-12">
+                <div><h4 className="text-emerald-500 font-bold uppercase tracking-[0.2em] mb-4 border-b border-emerald-100 pb-2 text-[10px]">Operating Revenues</h4><div className="space-y-4">{[{ label: 'Hotel Booking Services', type: VoucherType.HOTEL }, { label: 'Visa Processing Services', type: VoucherType.VISA }, { label: 'Transport / Car Hire Services', type: VoucherType.TRANSPORT }, { label: 'Airline Ticketing Services', type: VoucherType.TICKET }].map(inc => {
+                  const val = filteredVouchers.filter(v => v.type === inc.type).reduce((s, v) => s + v.totalAmountPKR, 0);
+                  return (<div key={inc.type} className="flex justify-between items-center px-4 hover:bg-slate-50 py-2 rounded-xl transition-all"><span className="text-slate-600 font-medium text-sm">{inc.label}</span><span className="font-orbitron font-bold text-slate-800">{val.toLocaleString()}</span></div>);
+                })}<div className="flex justify-between items-center p-5 bg-emerald-50 rounded-2xl border border-emerald-100"><span className="font-bold text-emerald-700 uppercase text-xs tracking-widest">Gross Post Income</span><span className="font-orbitron font-bold text-2xl text-emerald-600">{profitLoss.income.toLocaleString()}</span></div></div></div>
+                <div><h4 className="text-rose-500 font-bold uppercase tracking-[0.2em] mb-4 border-b border-rose-100 pb-2 text-[10px]">Operating Costs</h4><div className="space-y-4"><div className="flex justify-between items-center px-4 hover:bg-slate-50 py-2 rounded-xl transition-all"><span className="text-slate-600 font-medium text-sm">General Ledger Expenses</span><span className="font-orbitron font-bold text-slate-800">{profitLoss.expenses.toLocaleString()}</span></div><div className="flex justify-between items-center p-5 bg-rose-50 rounded-2xl border border-rose-100"><span className="font-bold text-rose-700 uppercase text-xs tracking-widest">Total Operating Outflow</span><span className="font-orbitron font-bold text-2xl text-rose-600">{profitLoss.expenses.toLocaleString()}</span></div></div></div>
+                <div className="bg-slate-900 text-white p-10 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center border border-white/5"><div><h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">IFRS Period Result</h5><p className="text-4xl font-orbitron font-bold uppercase tracking-tighter">Net Profit / (Loss)</p></div><div className="text-right mt-6 md:mt-0"><p className={`text-5xl font-orbitron font-bold ${profitLoss.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{profitLoss.netProfit.toLocaleString()}</p></div></div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeSection === 'BS' && (
-          <div className="animate-in slide-in-from-left-4 duration-500">
-            <ReportHeader title="Balance Sheet" subtitle="Financial Position Measurement" />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-               <div>
-                  <h4 className="text-blue-600 font-bold uppercase tracking-widest border-b-2 border-blue-600 mb-6 pb-2 text-[10px]">Asset Portfolio</h4>
-                  <div className="space-y-4">
-                    {balanceSheet.assets.map(a => (
-                      <div key={a.id} className="flex justify-between items-center border-b dark:border-slate-800 pb-3 hover:bg-slate-50 px-2 rounded transition-all">
-                        <span className="text-slate-600 dark:text-slate-400 font-medium text-sm">{a.name}</span>
-                        <span className="font-orbitron font-bold text-slate-800 dark:text-white">{Math.abs(a.balance).toLocaleString()}</span>
-                      </div>
-                    ))}
-                    <div className="flex justify-between pt-6 border-t-2 border-slate-900 dark:border-slate-100">
-                      <span className="text-xl font-bold uppercase font-orbitron">Total Assets</span>
-                      <span className="text-3xl font-orbitron font-bold text-blue-600">{balanceSheet.totalAssets.toLocaleString()}</span>
-                    </div>
-                  </div>
-               </div>
-               
-               <div className="space-y-8">
-                  <div>
-                    <h4 className="text-rose-600 font-bold uppercase tracking-widest border-b-2 border-rose-600 mb-6 pb-2 text-[10px]">Liabilities</h4>
+          {activeSection === 'BS' && (
+            <div className="animate-in slide-in-from-left-4 duration-500">
+              <ReportHeader title="Balance Sheet" subtitle="Financial Position Measurement" />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div>
+                    <h4 className="text-blue-600 font-bold uppercase tracking-widest border-b-2 border-blue-600 mb-6 pb-2 text-[10px]">Asset Portfolio</h4>
                     <div className="space-y-4">
-                      {balanceSheet.liabilities.map(a => (
-                        <div key={a.id} className="flex justify-between items-center border-b dark:border-slate-800 pb-3 hover:bg-slate-50 px-2 rounded transition-all">
-                          <span className="text-slate-600 dark:text-slate-400 font-medium text-sm">{a.name}</span>
-                          <span className="font-orbitron font-bold text-rose-500">{Math.abs(a.balance).toLocaleString()}</span>
+                      {balanceSheet.assets.map(a => (
+                        <div key={a.id} className="flex justify-between items-center border-b pb-3 hover:bg-slate-50 px-2 rounded transition-all">
+                          <span className="text-slate-600 font-medium text-sm">{a.name}</span>
+                          <span className="font-orbitron font-bold text-slate-800">{Math.abs(a.balance).toLocaleString()}</span>
                         </div>
                       ))}
+                      <div className="flex justify-between pt-6 border-t-2 border-slate-900">
+                        <span className="text-xl font-bold uppercase font-orbitron">Total Assets</span>
+                        <span className="text-3xl font-orbitron font-bold text-blue-600">{balanceSheet.totalAssets.toLocaleString()}</span>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <h4 className="text-slate-900 dark:text-white font-bold uppercase tracking-widest border-b-2 border-slate-900 dark:border-slate-100 mb-6 pb-2 text-[10px]">Equity & Earnings</h4>
-                    <div className="space-y-4">
-                      {balanceSheet.equity.map(a => (
-                        <div key={a.id} className="flex justify-between items-center border-b dark:border-slate-800 pb-3 hover:bg-slate-50 px-2 rounded transition-all">
-                          <span className="text-slate-600 dark:text-slate-400 font-medium text-sm">{a.name}</span>
-                          <span className="font-orbitron font-bold text-slate-800 dark:text-white">{Math.abs(a.balance).toLocaleString()}</span>
+                </div>
+                
+                <div className="space-y-8">
+                    <div>
+                      <h4 className="text-rose-600 font-bold uppercase tracking-widest border-b-2 border-rose-600 mb-6 pb-2 text-[10px]">Liabilities</h4>
+                      <div className="space-y-4">
+                        {balanceSheet.liabilities.map(a => (
+                          <div key={a.id} className="flex justify-between items-center border-b pb-3 hover:bg-slate-50 px-2 rounded transition-all">
+                            <span className="text-slate-600 font-medium text-sm">{a.name}</span>
+                            <span className="font-orbitron font-bold text-rose-500">{Math.abs(a.balance).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-slate-900 font-bold uppercase tracking-widest border-b-2 border-slate-900 mb-6 pb-2 text-[10px]">Equity & Earnings</h4>
+                      <div className="space-y-4">
+                        {balanceSheet.equity.map(a => (
+                          <div key={a.id} className="flex justify-between items-center border-b pb-3 hover:bg-slate-50 px-2 rounded transition-all">
+                            <span className="text-slate-600 font-medium text-sm">{a.name}</span>
+                            <span className="font-orbitron font-bold text-slate-800">{Math.abs(a.balance).toLocaleString()}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between items-center border-b pb-3 hover:bg-slate-50 px-2 rounded transition-all bg-emerald-50/50">
+                          <span className="text-emerald-700 font-bold text-sm italic">Current Period Earnings (Net Profit)</span>
+                          <span className="font-orbitron font-bold text-emerald-600">{balanceSheet.netProfit.toLocaleString()}</span>
                         </div>
-                      ))}
-                      <div className="flex justify-between items-center border-b dark:border-slate-800 pb-3 hover:bg-slate-50 px-2 rounded transition-all bg-emerald-50/50 dark:bg-emerald-900/10">
-                        <span className="text-emerald-700 dark:text-emerald-400 font-bold text-sm italic">Current Period Earnings (Net Profit)</span>
-                        <span className="font-orbitron font-bold text-emerald-600">{balanceSheet.netProfit.toLocaleString()}</span>
-                      </div>
-                      
-                      <div className="flex justify-between pt-6 border-t-2 border-slate-900 dark:border-slate-100">
-                        <span className="text-xl font-bold uppercase font-orbitron">Total L&E</span>
-                        <span className="text-3xl font-orbitron font-bold text-slate-900 dark:text-white">{(balanceSheet.totalLE).toLocaleString()}</span>
+                        
+                        <div className="flex justify-between pt-6 border-t-2 border-slate-900">
+                          <span className="text-xl font-bold uppercase font-orbitron">Total L&E</span>
+                          <span className="text-3xl font-orbitron font-bold text-slate-900">{(balanceSheet.totalLE).toLocaleString()}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-               </div>
+                </div>
+              </div>
+              
+              <div className="mt-12 p-6 rounded-2xl border-2 border-dashed flex items-center justify-center space-x-4 bg-slate-50">
+                <span className={`w-4 h-4 rounded-full ${Math.abs(balanceSheet.totalAssets - balanceSheet.totalLE) < 0.01 ? 'bg-emerald-500 shadow-lg shadow-emerald-500/50' : 'bg-rose-500 shadow-lg shadow-rose-500/50'}`}></span>
+                <p className="font-bold text-xs uppercase tracking-widest text-slate-500">
+                  {Math.abs(balanceSheet.totalAssets - balanceSheet.totalLE) < 0.01 
+                    ? 'System Balance Verified (IFRS Compliant)' 
+                    : `Discrepancy Detected: PKR ${Math.abs(balanceSheet.totalAssets - balanceSheet.totalLE).toLocaleString()}`}
+                </p>
+              </div>
             </div>
-            
-            {/* Balance Check Indicator */}
-            <div className="mt-12 p-6 rounded-2xl border-2 border-dashed flex items-center justify-center space-x-4 bg-slate-50 dark:bg-slate-800/50">
-              <span className={`w-4 h-4 rounded-full ${Math.abs(balanceSheet.totalAssets - balanceSheet.totalLE) < 0.01 ? 'bg-emerald-500 shadow-lg shadow-emerald-500/50' : 'bg-rose-500 shadow-lg shadow-rose-500/50'}`}></span>
-              <p className="font-bold text-xs uppercase tracking-widest text-slate-500">
-                {Math.abs(balanceSheet.totalAssets - balanceSheet.totalLE) < 0.01 
-                  ? 'System Balance Verified (IFRS Compliant)' 
-                  : `Discrepancy Detected: PKR ${Math.abs(balanceSheet.totalAssets - balanceSheet.totalLE).toLocaleString()}`}
-              </p>
-            </div>
-          </div>
-        )}
+          )}
 
-        {activeSection === 'GL' && (
-          <div className="animate-in fade-in duration-500">
-             <ReportHeader title="General Ledger" subtitle="Transactional IFRS Audit History" />
-             <div className="no-print mb-8">
-               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Search Account by Name or Code</label>
-               <select className="w-full lg:w-96 bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 font-bold shadow-inner cursor-pointer" value={selectedLedgerId} onChange={(e) => setSelectedLedgerId(e.target.value)}>
-                 <option value="">Select Ledger...</option>
-                 {accounts.sort((a,b) => (a.code || '').localeCompare(b.code || '')).map(acc => (<option key={acc.id} value={acc.id}>{acc.code ? `${acc.code} - ` : ''}{acc.name}</option>))}
-               </select>
-             </div>
-             {selectedAccount ? (
-               <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                  <div className="bg-slate-50 dark:bg-slate-800/30 p-8 rounded-[2rem] flex flex-col md:flex-row justify-between items-center border border-slate-100 gap-4">
-                    <div className="text-center md:text-left"><p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Audit Profile</p><h5 className="text-2xl font-bold font-orbitron uppercase tracking-tighter">{selectedAccount.name}</h5>{selectedAccount.code && <p className="text-xs font-mono text-slate-400 mt-1 font-bold">Standard COA Code: {selectedAccount.code}</p>}</div>
-                    <div className="text-center md:text-right"><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Ledger Closing Balance</p><p className={`text-4xl font-orbitron font-bold ${selectedAccount.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.abs(selectedAccount.balance).toLocaleString()} <span className="text-sm font-sans font-bold bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded ml-2">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span></p></div>
-                  </div>
-                  <div className="overflow-x-auto"><table className="w-full"><thead className="text-slate-400 text-[10px] font-bold uppercase border-b-2 dark:border-slate-800 tracking-widest"><tr><th className="py-4 text-left">Post Date</th><th className="py-4 text-left">Voucher #</th><th className="py-4 text-left">Narrative</th><th className="py-4 text-right">Debit</th><th className="py-4 text-right">Credit</th><th className="py-4 text-right pr-4">Running</th></tr></thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{selectedAccount.ledger.map((entry, idx) => (<tr key={idx} className="hover:bg-slate-50 transition-all text-sm"><td className="py-4 text-slate-500">{new Date(entry.date).toLocaleDateString()}</td><td className="py-4 font-bold text-blue-600">{entry.voucherNum}</td><td className="py-4 text-slate-700 dark:text-slate-300 italic max-w-xs truncate">{entry.description}</td><td className="py-4 text-right font-medium text-emerald-500">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td><td className="py-4 text-right font-medium text-rose-500">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td><td className="py-4 text-right pr-4 font-bold text-slate-800 dark:text-white">{Math.abs(entry.balanceAfter).toLocaleString()} <span className="text-[10px] opacity-60 font-sans">{entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}</span></td></tr>))}</tbody>
-                  </table></div>
-               </div>
-             ) : (
-               <div className="flex flex-col items-center justify-center py-32 text-slate-400 opacity-20"><span className="text-9xl mb-6">📖</span><p className="text-xl font-bold uppercase tracking-widest font-orbitron">Query Ledger History</p></div>
-             )}
-          </div>
-        )}
+          {activeSection === 'GL' && (
+            <div className="animate-in fade-in duration-500">
+              <ReportHeader title="General Ledger" subtitle="Transactional IFRS Audit History" />
+              <div className="no-print mb-8">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Search Account by Name or Code</label>
+                <select className="w-full lg:w-96 bg-slate-50 border-none rounded-xl p-4 font-bold shadow-inner cursor-pointer" value={selectedLedgerId} onChange={(e) => setSelectedLedgerId(e.target.value)}>
+                  <option value="">Select Ledger...</option>
+                  {accounts.sort((a,b) => (a.code || '').localeCompare(b.code || '')).map(acc => (<option key={acc.id} value={acc.id}>{acc.code ? `${acc.code} - ` : ''}{acc.name}</option>))}
+                </select>
+              </div>
+              {selectedAccount ? (
+                <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-slate-50 p-8 rounded-[2rem] flex flex-col md:flex-row justify-between items-center border border-slate-100 gap-4">
+                      <div className="text-center md:text-left"><p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Audit Profile</p><h5 className="text-2xl font-bold font-orbitron uppercase tracking-tighter text-slate-900">{selectedAccount.name}</h5>{selectedAccount.code && <p className="text-xs font-mono text-slate-400 mt-1 font-bold">Standard COA Code: {selectedAccount.code}</p>}</div>
+                      <div className="text-center md:text-right"><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Ledger Closing Balance</p><p className={`text-4xl font-orbitron font-bold ${selectedAccount.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.abs(selectedAccount.balance).toLocaleString()} <span className="text-sm font-sans font-bold bg-slate-200 px-2 py-0.5 rounded ml-2 text-slate-700">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span></p></div>
+                    </div>
+                    <div className="overflow-x-auto"><table className="w-full"><thead className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><tr><th className="py-4 text-left">Post Date</th><th className="py-4 text-left">Voucher #</th><th className="py-4 text-left">Narrative</th><th className="py-4 text-right">Debit</th><th className="py-4 text-right">Credit</th><th className="py-4 text-right pr-4">Running</th></tr></thead>
+                      <tbody className="divide-y divide-slate-100">{selectedAccount.ledger.map((entry, idx) => (<tr key={idx} className="hover:bg-slate-50 transition-all text-sm"><td className="py-4 text-slate-500">{new Date(entry.date).toLocaleDateString()}</td><td className="py-4 font-bold text-blue-600">{entry.voucherNum}</td><td className="py-4 text-slate-700 italic max-w-xs truncate">{entry.description}</td><td className="py-4 text-right font-medium text-emerald-500">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td><td className="py-4 text-right font-medium text-rose-500">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td><td className="py-4 text-right pr-4 font-bold text-slate-800">{Math.abs(entry.balanceAfter).toLocaleString()} <span className="text-[10px] opacity-60 font-sans">{entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}</span></td></tr>))}</tbody>
+                    </table></div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-32 text-slate-400 opacity-20"><span className="text-9xl mb-6">📖</span><p className="text-xl font-bold uppercase tracking-widest font-orbitron">Query Ledger History</p></div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
