@@ -62,6 +62,51 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     return (Math.max(...codes) + 1).toString();
   }, [allAccountsForCode]);
 
+  const handleEditAccount = (acc: Account) => {
+    setFormMode('EDIT');
+    setAccountToEdit(acc);
+    
+    // Find existing opening balance entry to pre-populate form
+    const obEntry = acc.ledger?.find(e => e.description === 'Opening Balance (Initial Measurement)');
+    
+    setFormData({
+      name: acc.name,
+      cell: acc.cell || '',
+      location: acc.location || '',
+      code: acc.code || '',
+      openingBalance: obEntry ? (obEntry.debit || obEntry.credit) : 0,
+      balanceType: obEntry ? (obEntry.debit > 0 ? 'dr' : 'cr') : (acc.balance >= 0 ? 'dr' : 'cr'),
+      currency: acc.currency || Currency.PKR
+    });
+    setShowAddModal(true);
+  };
+
+  const handleCloneAccount = (acc: Account) => {
+    setFormMode('CREATE');
+    setAccountToEdit(null);
+    setFormData({
+      name: `${acc.name} (CLONE)`,
+      cell: acc.cell || '',
+      location: acc.location || '',
+      code: generateNextCode(type),
+      openingBalance: 0,
+      balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr',
+      currency: acc.currency || Currency.PKR
+    });
+    setShowAddModal(true);
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    if (window.confirm('Permanently delete this account and all ledger history? This cannot be undone.')) {
+      try {
+        await AccountingService.deleteAccount(id);
+        await refreshAccountList();
+      } catch (err: any) {
+        alert(`Error: ${err.message}`);
+      }
+    }
+  };
+
   const filteredAccounts = useMemo(() => {
     if (!searchTerm) return accountList;
     const lowSearch = searchTerm.toLowerCase();
@@ -218,10 +263,11 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
             <table className="w-full text-left table-auto">
               <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-[0.2em] font-black border-b border-slate-100 dark:border-slate-800">
                 <tr>
-                  <th className="px-8 py-5 w-32">G/L Code</th>
-                  <th className="px-8 py-5">Account Designation</th>
-                  <th className="px-8 py-5">Origin/Location</th>
-                  <th className="px-8 py-5 text-right">Balance Position (PKR)</th>
+                  <th className="px-8 py-6 w-32">G/L Code</th>
+                  <th className="px-8 py-6">Account Designation</th>
+                  <th className="px-8 py-6">Origin/Location</th>
+                  <th className="px-8 py-6 text-right">Balance Position (PKR)</th>
+                  <th className="px-8 py-6 text-center">Command</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -231,23 +277,42 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                     className="group hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-all cursor-pointer" 
                     onClick={() => setSelectedAccount(acc)}
                   >
-                    <td className="px-8 py-4.5 font-mono text-[13px] font-bold text-blue-600 group-hover:scale-110 origin-left transition-transform">{acc.code || '-'}</td>
-                    <td className="px-8 py-4.5">
+                    <td className="px-8 py-6 font-mono text-[13px] font-bold text-blue-600 group-hover:scale-110 origin-left transition-transform">{acc.code || '-'}</td>
+                    <td className="px-8 py-6">
                       <p className="font-black text-slate-800 dark:text-white uppercase text-base leading-none tracking-tight">{acc.name}</p>
                       {acc.cell && <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest">{acc.cell}</p>}
                     </td>
-                    <td className="px-8 py-4.5 text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-none tracking-wide">{acc.location || '-'}</td>
-                    <td className="px-8 py-4.5 text-right">
+                    <td className="px-8 py-6 text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-none tracking-wide">{acc.location || '-'}</td>
+                    <td className="px-8 py-6 text-right">
                       <p className="font-orbitron font-black text-lg text-slate-900 dark:text-white tracking-tighter">
                         {Math.abs(acc.balance).toLocaleString()}
                         <span className="text-[11px] font-sans ml-2 opacity-40 uppercase font-black">{acc.balance >= 0 ? 'Dr' : 'Cr'}</span>
                       </p>
                     </td>
+                    <td className="px-8 py-6">
+                      <div className="flex justify-center items-center space-x-2">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleEditAccount(acc); }}
+                          className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs"
+                          title="Edit Profile"
+                        >✏️</button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleCloneAccount(acc); }}
+                          className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-xs"
+                          title="Clone Profile"
+                        >👯</button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDeleteAccount(acc.id); }}
+                          className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-rose-600 hover:text-white transition-all text-xs"
+                          title="Delete Profile"
+                        >🗑️</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
                 {filteredAccounts.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-8 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs italic">
+                    <td colSpan={5} className="px-8 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs italic">
                       No matching account profiles found.
                     </td>
                   </tr>
@@ -467,7 +532,9 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
       {showAddModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 no-print">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl p-6 border border-white/10 animate-in zoom-in-95 duration-200">
-            <h3 className="text-sm font-black font-orbitron text-blue-600 uppercase tracking-tighter mb-4">Register Account Head</h3>
+            <h3 className="text-sm font-black font-orbitron text-blue-600 uppercase tracking-tighter mb-4">
+              {formMode === 'EDIT' ? 'Update' : 'Register'} Account Head
+            </h3>
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-1">
@@ -501,9 +568,12 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                   </div>
                 </div>
               </div>
+              
               <div className="flex space-x-3 pt-4">
                 <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg font-bold uppercase text-[8px] tracking-widest">Discard</button>
-                <button type="submit" disabled={isSubmitting} className="flex-[2] py-2 bg-blue-600 text-white rounded-lg font-bold uppercase text-[8px] tracking-[0.2em] shadow-lg shadow-blue-500/20 active:scale-95 transition-all">Register Head</button>
+                <button type="submit" disabled={isSubmitting} className="flex-[2] py-2 bg-blue-600 text-white rounded-lg font-bold uppercase text-[8px] tracking-[0.2em] shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+                  {formMode === 'EDIT' ? 'Update Head' : 'Register Head'}
+                </button>
               </div>
             </form>
           </div>

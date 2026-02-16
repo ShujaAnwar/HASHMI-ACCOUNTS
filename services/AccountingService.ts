@@ -54,9 +54,19 @@ export class AccountingService {
   }
 
   static async updateAccount(id: string, updates: any) {
+    // 1. Get current account to handle ledger reversals correctly
+    const { data: currentAcc, error: fetchErr } = await supabase
+      .from('accounts')
+      .select('name')
+      .eq('id', id)
+      .single();
+    
+    if (fetchErr || !currentAcc) throw new Error("Account resolution failed");
+
     const sanitizedCode = (updates.code && updates.code.trim() !== '') ? updates.code.trim() : null;
     
-    const { error } = await supabase
+    // 2. Update account header details
+    const { error: updateErr } = await supabase
       .from('accounts')
       .update({
         name: updates.name,
@@ -66,7 +76,47 @@ export class AccountingService {
         currency: updates.currency
       })
       .eq('id', id);
-    if (error) throw error;
+
+    if (updateErr) throw updateErr;
+
+    // 3. Update Opening Balance Ledger Entries
+    const obDesc = 'Opening Balance (Initial Measurement)';
+    const contraPrefix = 'Contra Opening Balance:';
+    
+    // Delete existing entries to re-record fresh ones (simplifies Dr/Cr flip logic)
+    await supabase.from('ledger_entries').delete().eq('account_id', id).eq('description', obDesc);
+    
+    const { data: reserve } = await supabase.from('accounts').select('id').eq('code', '3001').single();
+    if (reserve) {
+      // Find and delete the contra entry associated with this specific account head
+      await supabase.from('ledger_entries')
+        .delete()
+        .eq('account_id', reserve.id)
+        .like('description', `${contraPrefix}%${currentAcc.name}%`);
+    }
+
+    // Re-insert if opening balance is now specified as > 0
+    if (updates.openingBalance > 0) {
+      const isDr = updates.balanceType === 'dr';
+      
+      await supabase.from('ledger_entries').insert({
+        account_id: id,
+        date: new Date().toISOString(),
+        description: obDesc,
+        debit: isDr ? updates.openingBalance : 0,
+        credit: isDr ? 0 : updates.openingBalance,
+      });
+
+      if (reserve) {
+        await supabase.from('ledger_entries').insert({
+          account_id: reserve.id,
+          date: new Date().toISOString(),
+          description: `${contraPrefix} ${updates.name}`,
+          debit: isDr ? 0 : updates.openingBalance,
+          credit: isDr ? updates.openingBalance : 0,
+        });
+      }
+    }
   }
 
   static async deleteAccount(id: string) {
