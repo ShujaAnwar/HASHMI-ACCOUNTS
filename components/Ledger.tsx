@@ -295,14 +295,14 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 <table className="w-full text-left border-collapse table-fixed mx-auto" style={{ pageBreakInside: 'auto' }}>
                     <thead className="bg-[#0f172a] text-white text-[7px] uppercase font-black tracking-wider" style={{ display: 'table-header-group' }}>
                       <tr>
-                        <th className="px-1 py-3 w-[42px] text-center">DATE</th>
-                        <th className="px-1 py-3 w-[62px] text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>REF #</th>
-                        <th className="px-1 py-3 w-[22px] text-center">TYPE</th>
-                        <th className="px-3 py-3">TRANSACTION NARRATION</th>
-                        <th className="px-1 py-3 w-[48px] text-center">RATE(SAR)</th>
-                        <th className="px-1 py-3 w-[24px] text-center">ROE</th>
-                        <th className="px-1 py-3 w-[60px] text-right">DEBIT</th>
-                        <th className="px-1 py-3 w-[60px] text-right">CREDIT</th>
+                        <th className="px-1 py-3 w-[38px] text-center">DATE</th>
+                        <th className="px-1 py-3 w-[58px] text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>REF #</th>
+                        <th className="px-1 py-3 w-[18px] text-center">TYPE</th>
+                        <th className="px-2 py-3">TRANSACTION NARRATION</th>
+                        <th className="px-1 py-3 w-[45px] text-center">RATE(SAR)</th>
+                        <th className="px-1 py-3 w-[20px] text-center">ROE</th>
+                        <th className="px-1 py-3 w-[55px] text-right">DEBIT</th>
+                        <th className="px-1 py-3 w-[55px] text-right">CREDIT</th>
                         <th className="px-2 py-3 w-[82px] text-right">BALANCE</th>
                       </tr>
                     </thead>
@@ -322,9 +322,16 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                               {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
                             </td>
                             <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                              <span className="font-black text-blue-600 text-center" style={{ whiteSpace: 'normal' }}>
+                              <button 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (voucher) onEditVoucher(voucher);
+                                }}
+                                className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-center"
+                                style={{ background: 'none', border: 'none', padding: 0, whiteSpace: 'normal', fontSize: 'inherit' }}
+                              >
                                 {displayVNum}
-                              </span>
+                              </button>
                             </td>
                             <td className="px-1 py-2 text-center uppercase font-bold text-slate-400 text-[6px]">
                               {displayType}
@@ -352,7 +359,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                         );
                       })}
                     </tbody>
-                    <tfoot className="text-[#0f172a] font-black text-[8.5px] uppercase" style={{ display: 'table-header-group' }}>
+                    <tfoot className="text-[#0f172a] font-black text-[8.5px] uppercase" style={{ display: 'table-footer-group' }}>
                       <tr>
                         <td colSpan={6} className="px-4 py-4 text-right font-black tracking-tight border-t-2 border-slate-900">TOTAL FOR PERIOD:</td>
                         <td className="px-1 py-4 text-right text-emerald-700 bg-slate-50/50 border-t-2 border-slate-900">
