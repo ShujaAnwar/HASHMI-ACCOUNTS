@@ -3,33 +3,49 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
-import { getVouchers, getDashboardMetrics } from '../services/db';
+import { getVouchers, getAccounts } from '../services/db';
 import { supabase } from '../services/supabase';
-import { VoucherType, DashboardStats, Voucher } from '../types';
+import { VoucherType, AccountType, Voucher, Account } from '../types';
 
 const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalReceivables: 0,
-    totalPayables: 0,
-    totalIncome: 0,
-    totalCash: 0
-  });
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  // Derived Metrics Calculation (Real-time computed)
+  const stats = useMemo(() => {
+    const totalReceivables = accounts
+      .filter(a => a.type === AccountType.CUSTOMER && a.balance > 0)
+      .reduce((sum, a) => sum + a.balance, 0);
+
+    const totalPayables = accounts
+      .filter(a => a.type === AccountType.VENDOR && a.balance < 0)
+      .reduce((sum, a) => sum + Math.abs(a.balance), 0);
+
+    const totalCash = accounts
+      .filter(a => a.type === AccountType.CASH_BANK)
+      .reduce((sum, a) => sum + a.balance, 0);
+
+    const totalIncome = vouchers
+      .filter(v => [VoucherType.HOTEL, VoucherType.TRANSPORT, VoucherType.VISA, VoucherType.TICKET].includes(v.type))
+      .reduce((sum, v) => sum + v.totalAmountPKR, 0);
+
+    return { totalReceivables, totalPayables, totalCash, totalIncome };
+  }, [accounts, vouchers]);
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (isBackground) setIsRefreshing(true);
     else setLoading(true);
     
     try {
-      const [s, v] = await Promise.all([
-        getDashboardMetrics(),
-        getVouchers()
+      const [v, accs] = await Promise.all([
+        getVouchers(),
+        getAccounts()
       ]);
-      setStats(s);
       setVouchers(v);
+      setAccounts(accs);
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Failed to sync dashboard:", error);
@@ -43,9 +59,9 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     fetchData();
 
-    // Subscribe to real-time changes in accounts and vouchers
+    // Subscribe to real-time changes in ledger and vouchers
     const channel = supabase
-      .channel('dashboard-realtime')
+      .channel('dashboard-realtime-v3')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vouchers' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ledger_entries' }, () => fetchData(true))
@@ -90,19 +106,19 @@ const Dashboard: React.FC = () => {
   if (loading) return (
     <div className="flex flex-col justify-center items-center h-96 space-y-4">
       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Synchronizing Ledger Data...</p>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Computing Analytics...</p>
     </div>
   );
 
   return (
     <div className="space-y-6">
-      {/* Dashboard Header with Refresh Controls */}
+      {/* Dashboard Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-2xl font-black font-orbitron text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Intelligence Hub</h2>
           <div className="flex items-center space-x-2 mt-2">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-              Last Synced: {lastUpdated.toLocaleTimeString()}
+              Data Refresh: {lastUpdated.toLocaleTimeString()}
             </p>
             {isRefreshing && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>}
           </div>
@@ -115,12 +131,13 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Receivables', value: stats.totalReceivables, color: 'blue', icon: '↗️' },
-          { label: 'Total Payables', value: stats.totalPayables, color: 'red', icon: '↘️' },
-          { label: 'Total Revenue', value: stats.totalIncome, color: 'green', icon: '💰' },
-          { label: 'Cash/Bank', value: stats.totalCash, color: 'purple', icon: '🏦' }
+          { label: 'Total Receivables', value: stats.totalReceivables, icon: '↗️' },
+          { label: 'Total Payables', value: stats.totalPayables, icon: '↘️' },
+          { label: 'Total Revenue', value: stats.totalIncome, icon: '💰' },
+          { label: 'Cash/Bank', value: stats.totalCash, icon: '🏦' }
         ].map((card, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group">
             <div className="flex justify-between items-start mb-4">
@@ -128,13 +145,14 @@ const Dashboard: React.FC = () => {
             </div>
             <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{card.label}</h3>
             <p className="text-2xl font-orbitron font-bold mt-1 tracking-tighter uppercase">
-              PKR {card.value.toLocaleString()}
+              PKR {card.value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
             </p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Income Trends Chart */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold">Income Trends</h3>
@@ -156,6 +174,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Exposure Breakdown Chart */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center min-w-0">
           <div className="flex-1 w-full h-72 min-h-[300px] min-w-0">
             <h3 className="text-lg font-bold mb-4">Exposure Breakdown</h3>
