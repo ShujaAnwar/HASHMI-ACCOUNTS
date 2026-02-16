@@ -174,25 +174,31 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
   const totalTransactions = ledgerWithRunningBalance.filter(e => e.voucherId).length;
 
   return (
-    <div className="space-y-4 max-w-full">
+    <div className="space-y-6 max-w-full">
       {!selectedAccount ? (
         <>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 no-print">
-            <div className="relative flex-1 max-w-xs w-full">
-              <input type="text" placeholder="Filter profiles..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 pl-9 outline-none shadow-sm text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-              <span className="absolute left-3 top-2 text-xs opacity-40">🔍</span>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
+            <div className="relative flex-1 max-w-sm w-full">
+              <input 
+                type="text" 
+                placeholder={`Search ${type.toLowerCase()}s...`} 
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 pl-10 outline-none shadow-sm text-sm focus:ring-2 focus:ring-blue-500/20 transition-all" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+              />
+              <span className="absolute left-3.5 top-3.5 text-sm opacity-40">🔍</span>
             </div>
             
-            <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-               <div className="bg-white dark:bg-slate-900 p-1.5 px-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[70px]">
-                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Count</p>
-                  <p className="text-xs font-orbitron font-bold text-blue-600 leading-none mt-0.5">{listStats.count}</p>
+            <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+               <div className="bg-white dark:bg-slate-900 p-2.5 px-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[90px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Heads</p>
+                  <p className="text-lg font-orbitron font-bold text-blue-600 leading-none mt-1">{listStats.count}</p>
                </div>
-               <div className="bg-white dark:bg-slate-900 p-1.5 px-4 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[120px]">
-                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Aggregate Balance</p>
-                  <p className="text-xs font-orbitron font-bold text-slate-800 dark:text-white leading-none mt-0.5">
+               <div className="bg-white dark:bg-slate-900 p-2.5 px-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[160px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aggregated Exposure</p>
+                  <p className="text-lg font-orbitron font-bold text-slate-800 dark:text-white leading-none mt-1">
                     {Math.abs(listStats.totalBalance).toLocaleString()}
-                    <span className="text-[8px] font-sans ml-1 opacity-50 uppercase">{listStats.totalBalance >= 0 ? 'Dr' : 'Cr'}</span>
+                    <span className="text-[10px] font-sans ml-1.5 opacity-50 uppercase font-black">{listStats.totalBalance >= 0 ? 'Dr' : 'Cr'}</span>
                   </p>
                </div>
                <button 
@@ -201,35 +207,51 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                     setFormData({ name: '', cell: '', location: '', code: generateNextCode(type), openingBalance: 0, balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr', currency: Currency.PKR });
                     setShowAddModal(true); 
                   }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-black shadow-lg shadow-blue-500/10 uppercase tracking-widest text-[9px] transition-all active:scale-95 whitespace-nowrap"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 whitespace-nowrap"
                 >
-                  + Create Head
+                  + Create {type === AccountType.CUSTOMER ? 'Customer' : 'Vendor'} Head
                 </button>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm no-print overflow-x-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm no-print overflow-x-auto">
             <table className="w-full text-left table-auto">
-              <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[8px] uppercase tracking-widest font-black border-b border-slate-100 dark:border-slate-800">
+              <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-[0.2em] font-black border-b border-slate-100 dark:border-slate-800">
                 <tr>
-                  <th className="px-4 py-2 w-24">Code</th>
-                  <th className="px-4 py-2">Account Name</th>
-                  <th className="px-4 py-2">Location</th>
-                  <th className="px-4 py-2 text-right">Balance (PKR)</th>
+                  <th className="px-8 py-5 w-32">G/L Code</th>
+                  <th className="px-8 py-5">Account Designation</th>
+                  <th className="px-8 py-5">Origin/Location</th>
+                  <th className="px-8 py-5 text-right">Balance Position (PKR)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredAccounts.map((acc) => (
-                  <tr key={acc.id} className="group hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-all cursor-pointer" onClick={() => setSelectedAccount(acc)}>
-                    <td className="px-4 py-1.5 font-mono text-[10px] font-bold text-blue-600">{acc.code || '-'}</td>
-                    <td className="px-4 py-1.5 font-black text-slate-800 dark:text-white uppercase text-[11px] leading-none">{acc.name}</td>
-                    <td className="px-4 py-1.5 text-[10px] text-slate-400 uppercase leading-none">{acc.location || '-'}</td>
-                    <td className="px-4 py-1.5 text-right font-orbitron font-black text-[11px]">
-                      {Math.abs(acc.balance).toLocaleString()}
-                      <span className="text-[8px] font-sans ml-1 opacity-40 uppercase">{acc.balance >= 0 ? 'Dr' : 'Cr'}</span>
+                  <tr 
+                    key={acc.id} 
+                    className="group hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-all cursor-pointer" 
+                    onClick={() => setSelectedAccount(acc)}
+                  >
+                    <td className="px-8 py-4.5 font-mono text-[13px] font-bold text-blue-600 group-hover:scale-110 origin-left transition-transform">{acc.code || '-'}</td>
+                    <td className="px-8 py-4.5">
+                      <p className="font-black text-slate-800 dark:text-white uppercase text-base leading-none tracking-tight">{acc.name}</p>
+                      {acc.cell && <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest">{acc.cell}</p>}
+                    </td>
+                    <td className="px-8 py-4.5 text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-none tracking-wide">{acc.location || '-'}</td>
+                    <td className="px-8 py-4.5 text-right">
+                      <p className="font-orbitron font-black text-lg text-slate-900 dark:text-white tracking-tighter">
+                        {Math.abs(acc.balance).toLocaleString()}
+                        <span className="text-[11px] font-sans ml-2 opacity-40 uppercase font-black">{acc.balance >= 0 ? 'Dr' : 'Cr'}</span>
+                      </p>
                     </td>
                   </tr>
                 ))}
+                {filteredAccounts.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-8 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs italic">
+                      No matching account profiles found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -368,7 +390,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                         );
                       })}
                     </tbody>
-                    <tfoot className="text-[#0f172a] font-black text-[8.5px] uppercase" style={{ display: 'table-footer-group' }}>
+                    <tfoot className="text-[#0f172a] font-black text-[8.5px] uppercase" style={{ display: 'table-header-group' }}>
                       <tr>
                         <td colSpan={6} className="px-4 py-4 text-right font-black tracking-tight border-t-2 border-slate-900">TOTAL FOR PERIOD:</td>
                         <td className="px-1 py-4 text-right text-emerald-700 bg-slate-50/50 border-t-2 border-slate-900">
