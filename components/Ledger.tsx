@@ -129,7 +129,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
         logging: false,
         letterRendering: true,
         backgroundColor: '#ffffff',
-        width: 793, // Strict 210mm in pixels at 96 DPI
+        width: 793, 
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'] }
@@ -285,19 +285,19 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </p>
               </div>
 
-              {/* Ledger Table - With flow control */}
+              {/* Ledger Table - With Repeating Headers and Wrapping Ref Column */}
               <div className="w-full mb-6">
                 <table className="w-full text-left border-collapse table-fixed mx-auto" style={{ pageBreakInside: 'auto' }}>
                     <thead className="bg-[#0f172a] text-white text-[7px] uppercase font-black tracking-wider" style={{ display: 'table-header-group' }}>
                       <tr>
-                        <th className="px-2 py-3 w-16 text-center">DATE</th>
-                        <th className="px-2 py-3 w-20 text-center">REF #</th>
-                        <th className="px-1 py-3 w-12 text-center">TYPE</th>
+                        <th className="px-2 py-3 w-14 text-center">DATE</th>
+                        <th className="px-2 py-3 w-20 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>REF #</th>
+                        <th className="px-1 py-3 w-8 text-center">TYPE</th>
                         <th className="px-3 py-3">TRANSACTION NARRATION</th>
-                        <th className="px-2 py-3 w-16 text-center">RATE(SAR)</th>
-                        <th className="px-2 py-3 w-12 text-center">ROE</th>
-                        <th className="px-2 py-3 w-22 text-right">DEBIT</th>
-                        <th className="px-2 py-3 w-22 text-right">CREDIT</th>
+                        <th className="px-2 py-3 w-14 text-center">RATE(SAR)</th>
+                        <th className="px-2 py-3 w-8 text-center">ROE</th>
+                        <th className="px-2 py-3 w-20 text-right">DEBIT</th>
+                        <th className="px-2 py-3 w-20 text-right">CREDIT</th>
                         <th className="px-2 py-3 w-28 text-right">BALANCE</th>
                       </tr>
                     </thead>
@@ -316,11 +316,11 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                             <td className="px-2 py-2 text-center font-bold text-slate-400">
                               {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
                             </td>
-                            <td className="px-2 py-2 text-center">
+                            <td className="px-2 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                               <button 
                                 onClick={() => voucher && onEditVoucher(voucher)}
-                                className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer no-print-btn"
-                                style={{ background: 'none', border: 'none', padding: 0 }}
+                                className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer no-print-btn text-center"
+                                style={{ background: 'none', border: 'none', padding: 0, whiteSpace: 'normal' }}
                               >
                                 {displayVNum}
                               </button>
