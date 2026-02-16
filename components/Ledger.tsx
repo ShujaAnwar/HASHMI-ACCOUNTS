@@ -89,12 +89,17 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     if (!voucher || !voucher.details) return entry.description || '-';
     
     if (voucher.type === VoucherType.HOTEL) {
-      const pax = voucher.details.paxName || 'N/A';
-      const hotel = voucher.details.hotelName || 'N/A';
-      const loc = voucher.details.city || 'N/A';
-      const countrySuffix = (loc.toLowerCase().includes('makkah') || loc.toLowerCase().includes('madinah') || loc.toLowerCase().includes('jeddah')) ? ' -KSA' : '';
+      const pax = (voucher.details.paxName || 'N/A').toUpperCase();
+      const hotel = (voucher.details.hotelName || 'N/A').toUpperCase();
+      const ci = voucher.details.fromDate || '-';
+      const co = voucher.details.toDate || '-';
+      const nights = voucher.details.numNights || '0';
+      const mealsRaw = voucher.details.meals;
+      const meals = Array.isArray(mealsRaw) 
+        ? mealsRaw.join(', ') 
+        : (mealsRaw && mealsRaw !== 'NONE' ? mealsRaw : 'N/A');
       
-      return `${pax.toUpperCase()} | ${hotel.toUpperCase()} | ${loc.toUpperCase()}${countrySuffix}`;
+      return `${pax} | ${hotel} | Checkin: ${ci} | Checkout: ${co} | Nights: ${nights} | Meals: ${meals}`;
     }
     
     return entry.description && entry.description !== '-' ? entry.description : (voucher.description || '-');
@@ -285,20 +290,20 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </p>
               </div>
 
-              {/* Ledger Table - With Repeating Headers and Wrapping Ref Column */}
+              {/* Ledger Table - With Repeating Headers and Optimized Column Widths */}
               <div className="w-full mb-6">
                 <table className="w-full text-left border-collapse table-fixed mx-auto" style={{ pageBreakInside: 'auto' }}>
                     <thead className="bg-[#0f172a] text-white text-[7px] uppercase font-black tracking-wider" style={{ display: 'table-header-group' }}>
                       <tr>
-                        <th className="px-2 py-3 w-14 text-center">DATE</th>
-                        <th className="px-2 py-3 w-20 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>REF #</th>
-                        <th className="px-1 py-3 w-8 text-center">TYPE</th>
+                        <th className="px-1 py-3 w-[42px] text-center">DATE</th>
+                        <th className="px-1 py-3 w-[62px] text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>REF #</th>
+                        <th className="px-1 py-3 w-[22px] text-center">TYPE</th>
                         <th className="px-3 py-3">TRANSACTION NARRATION</th>
-                        <th className="px-2 py-3 w-14 text-center">RATE(SAR)</th>
-                        <th className="px-2 py-3 w-8 text-center">ROE</th>
-                        <th className="px-2 py-3 w-20 text-right">DEBIT</th>
-                        <th className="px-2 py-3 w-20 text-right">CREDIT</th>
-                        <th className="px-2 py-3 w-28 text-right">BALANCE</th>
+                        <th className="px-1 py-3 w-[48px] text-center">RATE(SAR)</th>
+                        <th className="px-1 py-3 w-[24px] text-center">ROE</th>
+                        <th className="px-1 py-3 w-[60px] text-right">DEBIT</th>
+                        <th className="px-1 py-3 w-[60px] text-right">CREDIT</th>
+                        <th className="px-2 py-3 w-[82px] text-right">BALANCE</th>
                       </tr>
                     </thead>
                     <tbody className="text-[8px] font-medium text-slate-600">
@@ -313,34 +318,30 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
 
                         return (
                           <tr key={i} className="border-b border-slate-50" style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}>
-                            <td className="px-2 py-2 text-center font-bold text-slate-400">
+                            <td className="px-1 py-2 text-center font-bold text-slate-400">
                               {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
                             </td>
-                            <td className="px-2 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                              <button 
-                                onClick={() => voucher && onEditVoucher(voucher)}
-                                className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer no-print-btn text-center"
-                                style={{ background: 'none', border: 'none', padding: 0, whiteSpace: 'normal' }}
-                              >
+                            <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                              <span className="font-black text-blue-600 text-center" style={{ whiteSpace: 'normal' }}>
                                 {displayVNum}
-                              </button>
+                              </span>
                             </td>
                             <td className="px-1 py-2 text-center uppercase font-bold text-slate-400 text-[6px]">
                               {displayType}
                             </td>
-                            <td className="px-3 py-2 uppercase leading-snug font-bold text-slate-800 text-[6.5px]">
+                            <td className="px-3 py-2 uppercase leading-snug font-bold text-slate-800 text-[6.5px]" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                               {displayDescription}
                             </td>
-                            <td className="px-2 py-2 text-center font-bold text-slate-400">
+                            <td className="px-1 py-2 text-center font-bold text-slate-400">
                               {isSar ? (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
                             </td>
-                            <td className="px-2 py-2 text-center font-bold text-slate-400">
+                            <td className="px-1 py-2 text-center font-bold text-slate-400">
                               {isSar ? itemRoe : '-'}
                             </td>
-                            <td className="px-2 py-2 text-right font-black text-slate-900">
+                            <td className="px-1 py-2 text-right font-black text-slate-900">
                               {entry.debit > 0 ? getConvertedVal(entry.debit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
                             </td>
-                            <td className="px-2 py-2 text-right font-black text-slate-900">
+                            <td className="px-1 py-2 text-right font-black text-slate-900">
                               {entry.credit > 0 ? getConvertedVal(entry.credit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
                             </td>
                             <td className="px-2 py-2 text-right font-black text-slate-900 whitespace-nowrap overflow-visible">
@@ -351,13 +352,13 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                         );
                       })}
                     </tbody>
-                    <tfoot className="text-[#0f172a] font-black text-[8.5px] uppercase" style={{ display: 'table-footer-group' }}>
+                    <tfoot className="text-[#0f172a] font-black text-[8.5px] uppercase" style={{ display: 'table-header-group' }}>
                       <tr>
                         <td colSpan={6} className="px-4 py-4 text-right font-black tracking-tight border-t-2 border-slate-900">TOTAL FOR PERIOD:</td>
-                        <td className="px-2 py-4 text-right text-emerald-700 bg-slate-50/50 border-t-2 border-slate-900">
+                        <td className="px-1 py-4 text-right text-emerald-700 bg-slate-50/50 border-t-2 border-slate-900">
                           {getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </td>
-                        <td className="px-2 py-4 text-right text-rose-700 bg-slate-50/50 border-t-2 border-slate-900">
+                        <td className="px-1 py-4 text-right text-rose-700 bg-slate-50/50 border-t-2 border-slate-900">
                           {getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </td>
                         <td className="px-2 py-4 text-right bg-slate-50 border-t-2 border-slate-900 whitespace-nowrap overflow-visible">
