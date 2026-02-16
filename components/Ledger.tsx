@@ -328,7 +328,16 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                                   if (voucher) onEditVoucher(voucher);
                                 }}
                                 className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-center"
-                                style={{ background: 'none', border: 'none', padding: 0, whiteSpace: 'normal', fontSize: 'inherit' }}
+                                style={{ 
+                                  background: 'none', 
+                                  border: 'none', 
+                                  padding: 0, 
+                                  whiteSpace: 'normal', 
+                                  fontSize: 'inherit',
+                                  wordBreak: 'break-word',
+                                  overflowWrap: 'break-word',
+                                  maxWidth: '100%'
+                                }}
                               >
                                 {displayVNum}
                               </button>
