@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
 import { getVouchers, getDashboardMetrics } from '../services/db';
+import { supabase } from '../services/supabase';
 import { VoucherType, DashboardStats, Voucher } from '../types';
 
 const Dashboard: React.FC = () => {
@@ -39,12 +39,21 @@ const Dashboard: React.FC = () => {
     }
   }, []);
 
-  // Initial load and polling setup
+  // Real-time Subscription and Initial Load
   useEffect(() => {
     fetchData();
-    // Poll every 30 seconds for real-time updates
-    const interval = setInterval(() => fetchData(true), 30000);
-    return () => clearInterval(interval);
+
+    // Subscribe to real-time changes in accounts and vouchers
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vouchers' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ledger_entries' }, () => fetchData(true))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchData]);
 
   const pieData = useMemo(() => [
@@ -91,40 +100,34 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-2xl font-black font-orbitron text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Intelligence Hub</h2>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-2 flex items-center">
-            Last Synced: {lastUpdated.toLocaleTimeString()} 
-            {isRefreshing && <span className="ml-2 text-blue-500 animate-pulse">(Updating...)</span>}
-          </p>
+          <div className="flex items-center space-x-2 mt-2">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
+              Last Synced: {lastUpdated.toLocaleTimeString()}
+            </p>
+            {isRefreshing && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>}
+          </div>
         </div>
         <div className="flex items-center space-x-3">
-          <button 
-            onClick={() => fetchData(true)}
-            disabled={isRefreshing}
-            className={`flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-4 py-2 rounded-xl border dark:border-slate-700 transition-all active:scale-95 disabled:opacity-50 group`}
-          >
-            <span className={`text-sm ${isRefreshing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}>🔄</span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Sync Ledger</span>
-          </button>
           <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30">
-            <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-amber-500' : 'bg-blue-500'} animate-blink shadow-[0_0_8px_rgba(59,130,246,0.5)]`}></div>
-            <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 dark:text-blue-400">Live Engine</span>
+            <div className={`w-2 h-2 rounded-full bg-emerald-500 animate-blink shadow-[0_0_8px_rgba(16,185,129,0.5)]`}></div>
+            <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 dark:text-blue-400">Live Sync Enabled</span>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Receivables', value: stats.totalReceivables, color: 'blue', icon: '↗️', light: 'bg-blue-500' },
-          { label: 'Total Payables', value: stats.totalPayables, color: 'red', icon: '↘️', light: 'bg-rose-500' },
-          { label: 'Total Revenue', value: stats.totalIncome, color: 'green', icon: '💰', light: 'bg-emerald-500' },
-          { label: 'Cash/Bank', value: stats.totalCash, color: 'purple', icon: '🏦', light: 'bg-violet-500' }
+          { label: 'Total Receivables', value: stats.totalReceivables, color: 'blue', icon: '↗️' },
+          { label: 'Total Payables', value: stats.totalPayables, color: 'red', icon: '↘️' },
+          { label: 'Total Revenue', value: stats.totalIncome, color: 'green', icon: '💰' },
+          { label: 'Cash/Bank', value: stats.totalCash, color: 'purple', icon: '🏦' }
         ].map((card, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group">
             <div className="flex justify-between items-start mb-4">
               <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
             </div>
             <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{card.label}</h3>
-            <p className="text-2xl font-orbitron font-bold mt-1 tracking-tighter">
+            <p className="text-2xl font-orbitron font-bold mt-1 tracking-tighter uppercase">
               PKR {card.value.toLocaleString()}
             </p>
           </div>
@@ -134,7 +137,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold">Real-time Income Trends</h3>
+            <h3 className="text-lg font-bold">Income Trends</h3>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last 6 Months</span>
           </div>
           <div className="h-72 w-full min-h-[300px] min-w-0">
@@ -173,7 +176,7 @@ const Dashboard: React.FC = () => {
                 <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-slate-500 truncate">{item.name}</p>
-                  <p className="text-sm font-bold truncate">PKR {item.value.toLocaleString()}</p>
+                  <p className="text-sm font-bold truncate uppercase">PKR {item.value.toLocaleString()}</p>
                 </div>
               </div>
             ))}
