@@ -1,13 +1,29 @@
-
 import { supabase } from './supabase';
 import { Account, AccountType, Voucher, VoucherType, Currency, VoucherStatus } from '../types';
 
 export class AccountingService {
   
-  private static formatAccountName(name: string): string {
+  private static async formatAccountName(name: string): Promise<string> {
     if (!name) return '';
     const trimmed = name.trim();
-    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+    
+    // Fetch current system case setting
+    const { data: config } = await supabase.from('app_config').select('account_name_case').limit(1).maybeSingle();
+    const caseType = config?.account_name_case || 'Sentence Case';
+
+    switch (caseType) {
+      case 'UPPERCASE':
+        return trimmed.toUpperCase();
+      case 'lowercase':
+        return trimmed.toLowerCase();
+      case 'camelCase':
+        return trimmed.toLowerCase()
+          .replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
+      case 'Sentence Case':
+      default:
+        const s = trimmed.toLowerCase();
+        return s.charAt(0).toUpperCase() + s.slice(1);
+    }
   }
 
   static generateUniqueVNum(type: string): string {
@@ -18,7 +34,7 @@ export class AccountingService {
 
   static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string, currency: Currency = Currency.PKR) {
     const sanitizedCode = (code && code.trim() !== '') ? code.trim() : null;
-    const formattedName = this.formatAccountName(name);
+    const formattedName = await this.formatAccountName(name);
 
     const { data: account, error: accError } = await supabase
       .from('accounts')
@@ -71,7 +87,7 @@ export class AccountingService {
     if (fetchErr || !currentAcc) throw new Error("Account resolution failed");
 
     const sanitizedCode = (updates.code && updates.code.trim() !== '') ? updates.code.trim() : null;
-    const formattedName = updates.name ? this.formatAccountName(updates.name) : currentAcc.name;
+    const formattedName = updates.name ? await this.formatAccountName(updates.name) : currentAcc.name;
     
     const { error: updateErr } = await supabase
       .from('accounts')
@@ -143,7 +159,6 @@ export class AccountingService {
         date: vData.date || new Date().toISOString(),
         currency: vData.currency,
         roe: Number(vData.roe || 1),
-        // Fix: Corrected property name to match Voucher interface (totalAmountPKR instead of snake_case total_amount_pkr)
         total_amount_pkr: Number(vData.totalAmountPKR || 0),
         description: vData.description || '',
         reference: vData.reference || '',

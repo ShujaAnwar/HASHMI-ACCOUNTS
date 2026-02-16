@@ -94,6 +94,7 @@ export const getConfig = async (): Promise<AppConfig & { fontSize?: number }> =>
         defaultROE: 74.5,
         logoSize: 80,
         fontSize: 16,
+        accountNameCase: 'Sentence Case',
         banks: []
       };
     }
@@ -109,6 +110,7 @@ export const getConfig = async (): Promise<AppConfig & { fontSize?: number }> =>
       logoSize: data.logo_size,
       fontSize: data.font_size || 16,
       defaultROE: Number(data.default_roe),
+      accountNameCase: data.account_name_case || 'Sentence Case',
       banks: data.banks || []
     };
   } catch (err) {
@@ -122,6 +124,7 @@ export const getConfig = async (): Promise<AppConfig & { fontSize?: number }> =>
       defaultROE: 74.5,
       logoSize: 80,
       fontSize: 16,
+      accountNameCase: 'Sentence Case',
       banks: []
     };
   }
@@ -142,6 +145,7 @@ export const saveConfig = async (config: AppConfig & { fontSize?: number }) => {
       logo_size: config.logoSize,
       font_size: (config as any).fontSize || 16,
       default_roe: config.defaultROE,
+      account_name_case: config.accountNameCase,
       banks: config.banks
     });
   

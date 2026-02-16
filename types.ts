@@ -77,6 +77,7 @@ export interface AppConfig {
   companyLogo?: string;
   logoSize: number;
   defaultROE: number;
+  accountNameCase?: 'Sentence Case' | 'camelCase' | 'UPPERCASE' | 'lowercase';
   banks: { id: string; name: string; accountNumber: string, address: string }[];
 }
 

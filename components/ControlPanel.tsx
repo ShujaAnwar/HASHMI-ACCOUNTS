@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { getConfig, saveConfig, exportFullDatabase, importFullDatabase, getAccounts, getVouchers } from '../services/db';
 import { AppConfig, Account, Voucher } from '../types';
+import { supabase } from '../services/supabase';
 
 interface ControlPanelProps {
   onConfigUpdate?: () => void;
@@ -12,7 +13,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [saveStatus, setSaveStatus] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'branding' | 'financial' | 'disaster' | 'diagnostics'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'financial' | 'security' | 'disaster' | 'diagnostics'>('branding');
+  
+  // Security Tab State
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [securityStatus, setSecurityStatus] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,6 +62,23 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
     } catch (err) {
       console.error("Save failed:", err);
       triggerNotification('Error: Could not save configuration.');
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSecurityStatus(null);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: newUserEmail,
+        password: newUserPassword,
+      });
+      if (error) throw error;
+      setSecurityStatus({ msg: `Successfully created user: ${data.user?.email}`, type: 'success' });
+      setNewUserEmail('');
+      setNewUserPassword('');
+    } catch (err: any) {
+      setSecurityStatus({ msg: err.message || "Failed to create user.", type: 'error' });
     }
   };
 
@@ -119,7 +143,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
   return (
     <div className="max-w-6xl space-y-8 animate-in fade-in duration-700 pb-20">
       <div className="flex space-x-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm w-fit overflow-x-auto no-print">
-        {['branding', 'financial', 'disaster', 'diagnostics'].map(t => (
+        {['branding', 'financial', 'security', 'disaster', 'diagnostics'].map(t => (
           <button 
             key={t} 
             type="button"
@@ -178,7 +202,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
 
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8 border border-slate-100 dark:border-slate-800">
-                <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">Identity Settings</h3>
+                <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">Identity & Formatting</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Company Name</label>
@@ -187,6 +211,19 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
                   <div>
                     <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Subtitle</label>
                     <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner outline-none" value={config.appSubtitle} onChange={e => setConfig({...config, appSubtitle: e.target.value})} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-indigo-600 uppercase mb-2 block tracking-widest">Letter Case Selection (Account Heads)</label>
+                    <select 
+                      className="w-full bg-indigo-50/50 dark:bg-indigo-900/10 border-none rounded-xl p-4 font-bold text-sm shadow-inner appearance-none cursor-pointer outline-none"
+                      value={config.accountNameCase}
+                      onChange={e => setConfig({...config, accountNameCase: e.target.value as any})}
+                    >
+                      <option value="Sentence Case">Sentence Case (e.g. Cash at bank)</option>
+                      <option value="camelCase">Camel Case (e.g. cashAtBank)</option>
+                      <option value="UPPERCASE">UPPERCASE (e.g. CASH AT BANK)</option>
+                      <option value="lowercase">lowercase (e.g. cash at bank)</option>
+                    </select>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cell Number</label>
@@ -222,6 +259,67 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
                   value={config.defaultROE} 
                   onChange={e => setConfig({...config, defaultROE: Number(e.target.value)})} 
                 />
+              </div>
+           </div>
+        )}
+
+        {activeTab === 'security' && (
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8 border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg">🔑</div>
+                  <div>
+                    <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">User Management</h3>
+                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Identity Provisioning</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest ml-4">Authorized Email (User ID)</label>
+                    <input 
+                      type="email" 
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 font-bold text-sm shadow-inner outline-none"
+                      placeholder="user@company.com"
+                      value={newUserEmail}
+                      onChange={e => setNewUserEmail(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest ml-4">Secure Key (Password)</label>
+                    <input 
+                      type="password" 
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 font-bold text-sm shadow-inner outline-none"
+                      placeholder="••••••••"
+                      value={newUserPassword}
+                      onChange={e => setNewUserPassword(e.target.value)}
+                    />
+                  </div>
+                  
+                  {securityStatus && (
+                    <div className={`p-4 rounded-xl text-[10px] font-bold uppercase tracking-tight text-center ${securityStatus.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                      {securityStatus.msg}
+                    </div>
+                  )}
+
+                  <button 
+                    type="button"
+                    onClick={handleCreateUser}
+                    className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-xl uppercase text-[10px] tracking-widest transition-all active:scale-95"
+                  >
+                    Register New Identity
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 text-white rounded-[2.5rem] p-10 flex flex-col justify-center text-center space-y-4 border border-white/5 shadow-2xl">
+                 <div className="text-5xl mb-2">🏛️</div>
+                 <h4 className="text-xl font-orbitron font-black uppercase tracking-widest">Enterprise Guard</h4>
+                 <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                   New users registered here will gain access to the system. 
+                   Ensure you are complying with corporate security policies regarding 
+                   shared credentials and password complexity.
+                 </p>
               </div>
            </div>
         )}
@@ -332,7 +430,7 @@ NOTIFY pgrst, 'reload schema';`}
             type="submit" 
             className="px-12 py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-2xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-[0.3em] text-[10px] font-orbitron"
           >
-            Commit Identity Changes
+            Commit Global Changes
           </button>
         </div>
       </form>
