@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { getConfig, saveConfig, exportFullDatabase, importFullDatabase } from '../services/db';
-import { AppConfig } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { getConfig, saveConfig, exportFullDatabase, importFullDatabase, getAccounts, getVouchers } from '../services/db';
+import { AppConfig, Account, Voucher } from '../types';
 
 interface ControlPanelProps {
   onConfigUpdate?: () => void;
@@ -8,6 +8,8 @@ interface ControlPanelProps {
 
 const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
   const [config, setConfig] = useState<(AppConfig & { fontSize?: number }) | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [saveStatus, setSaveStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'branding' | 'financial' | 'disaster' | 'diagnostics'>('branding');
@@ -16,12 +18,25 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
 
   useEffect(() => {
     const load = async () => {
-      const data = await getConfig();
-      setConfig(data);
+      const [conf, accs, vchs] = await Promise.all([
+        getConfig(),
+        getAccounts(),
+        getVouchers()
+      ]);
+      setConfig(conf);
+      setAccounts(accs);
+      setVouchers(vchs);
       setLoading(false);
     };
     load();
   }, []);
+
+  const integrityStats = useMemo(() => {
+    const totalDr = accounts.reduce((s, a) => s + (a.balance > 0 ? a.balance : 0), 0);
+    const totalCr = accounts.reduce((s, a) => s + (a.balance < 0 ? Math.abs(a.balance) : 0), 0);
+    const diff = totalDr - totalCr;
+    return { totalDr, totalCr, diff };
+  }, [accounts]);
 
   const triggerNotification = (msg: string) => {
     setSaveStatus(msg);
@@ -244,40 +259,67 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
         )}
 
         {activeTab === 'diagnostics' && (
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-6 border border-slate-100 dark:border-slate-800">
-             <div className="flex items-center space-x-4 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg">🛠️</div>
-                <div>
-                   <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">System Diagnostics</h3>
-                   <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Fix "Column Not Found" Errors</p>
+          <div className="space-y-8">
+             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-6 border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center space-x-4 mb-4">
+                   <div className="w-12 h-12 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-lg">⚖️</div>
+                   <div>
+                      <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">Integrity Scanner</h3>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">IFRS Double-Entry Audit</p>
+                   </div>
                 </div>
-             </div>
-             
-             <div className="bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-500 p-6 rounded-r-2xl">
-                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                   If you encounter an error like <b>"Could not find the 'currency' column"</b>, it means your Supabase Database is out of sync.
-                </p>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                   To fix this, go to your <b>Supabase SQL Editor</b>, create a new query, paste the code below, and click <b>Run</b>. Then refresh this page.
-                </p>
+                
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-2">Aggregate Debits</p>
+                    <p className="text-xl font-orbitron font-bold text-emerald-500">{integrityStats.totalDr.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-2">Aggregate Credits</p>
+                    <p className="text-xl font-orbitron font-bold text-rose-500">{integrityStats.totalCr.toLocaleString()}</p>
+                  </div>
+                  <div className={`p-6 rounded-3xl border ${Math.abs(integrityStats.diff) < 0.01 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100' : 'bg-rose-50 dark:bg-rose-900/10 border-rose-100'}`}>
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-2">System Discrepancy</p>
+                    <p className={`text-xl font-orbitron font-bold ${Math.abs(integrityStats.diff) < 0.01 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {integrityStats.diff.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                {Math.abs(integrityStats.diff) > 0.01 && (
+                  <div className="bg-rose-100/50 dark:bg-rose-900/20 p-6 rounded-3xl border border-rose-200 text-sm font-bold text-rose-700 dark:text-rose-400">
+                     ALERT: Your Trial Balance is broken by PKR {Math.abs(integrityStats.diff).toLocaleString()}. 
+                     Please check Account 3001 (Reserve) to see if an Opening Balance entry is missing its counterpart.
+                  </div>
+                )}
              </div>
 
-             <div className="relative group">
-                <pre className="bg-slate-900 text-slate-300 p-8 rounded-3xl text-[11px] font-mono overflow-x-auto border border-white/5">
+             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-6 border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center space-x-4 mb-4">
+                   <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg">🛠️</div>
+                   <div>
+                      <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">System Maintenance</h3>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Manual Schema Reload</p>
+                   </div>
+                </div>
+                
+                <div className="relative group">
+                   <pre className="bg-slate-900 text-slate-300 p-8 rounded-3xl text-[11px] font-mono overflow-x-auto border border-white/5">
 {`-- FIX: Add missing column and reload cache
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR';
 NOTIFY pgrst, 'reload schema';`}
-                </pre>
-                <button 
-                   type="button"
-                   onClick={() => {
-                      navigator.clipboard.writeText("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR';\nNOTIFY pgrst, 'reload schema';");
-                      triggerNotification("SQL Copied to Clipboard");
-                   }}
-                   className="absolute top-4 right-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest backdrop-blur-md transition-all"
-                >
-                   Copy SQL
-                </button>
+                   </pre>
+                   <button 
+                      type="button"
+                      onClick={() => {
+                         navigator.clipboard.writeText("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR';\nNOTIFY pgrst, 'reload schema';");
+                         triggerNotification("SQL Copied to Clipboard");
+                      }}
+                      className="absolute top-4 right-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest backdrop-blur-md transition-all"
+                   >
+                      Copy SQL
+                   </button>
+                </div>
              </div>
           </div>
         )}

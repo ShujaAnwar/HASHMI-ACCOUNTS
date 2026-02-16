@@ -97,12 +97,12 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
   };
 
   const handleDeleteAccount = async (id: string) => {
-    if (window.confirm('Permanently delete this account and all ledger history? This cannot be undone.')) {
+    if (window.confirm('Delete account head? This will purge all transaction history associated with this ID.')) {
       try {
         await AccountingService.deleteAccount(id);
         await refreshAccountList();
       } catch (err: any) {
-        alert(`Error: ${err.message}`);
+        alert(`Deletion Error: ${err.message}`);
       }
     }
   };
@@ -277,33 +277,33 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                     className="group hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-all cursor-pointer" 
                     onClick={() => setSelectedAccount(acc)}
                   >
-                    <td className="px-8 py-6 font-mono text-[13px] font-bold text-blue-600 group-hover:scale-110 origin-left transition-transform">{acc.code || '-'}</td>
-                    <td className="px-8 py-6">
+                    <td className="px-8 py-7 font-mono text-[13px] font-bold text-blue-600 group-hover:scale-110 origin-left transition-transform">{acc.code || '-'}</td>
+                    <td className="px-8 py-7">
                       <p className="font-black text-slate-800 dark:text-white uppercase text-base leading-none tracking-tight">{acc.name}</p>
                       {acc.cell && <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest">{acc.cell}</p>}
                     </td>
-                    <td className="px-8 py-6 text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-none tracking-wide">{acc.location || '-'}</td>
-                    <td className="px-8 py-6 text-right">
+                    <td className="px-8 py-7 text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-none tracking-wide">{acc.location || '-'}</td>
+                    <td className="px-8 py-7 text-right">
                       <p className="font-orbitron font-black text-lg text-slate-900 dark:text-white tracking-tighter">
                         {Math.abs(acc.balance).toLocaleString()}
                         <span className="text-[11px] font-sans ml-2 opacity-40 uppercase font-black">{acc.balance >= 0 ? 'Dr' : 'Cr'}</span>
                       </p>
                     </td>
-                    <td className="px-8 py-6">
+                    <td className="px-8 py-7">
                       <div className="flex justify-center items-center space-x-2">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleEditAccount(acc); }}
-                          className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs"
+                          className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs"
                           title="Edit Profile"
                         >✏️</button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleCloneAccount(acc); }}
-                          className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-xs"
+                          className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-xs"
                           title="Clone Profile"
                         >👯</button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleDeleteAccount(acc.id); }}
-                          className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-rose-600 hover:text-white transition-all text-xs"
+                          className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-rose-600 hover:text-white transition-all text-xs"
                           title="Delete Profile"
                         >🗑️</button>
                       </div>
@@ -377,7 +377,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </p>
               </div>
 
-              {/* Ledger Table - With Repeating Headers and Optimized Column Widths */}
+              {/* Ledger Table */}
               <div className="w-full mb-6">
                 <table className="w-full text-left border-collapse table-fixed mx-auto" style={{ pageBreakInside: 'auto' }}>
                     <thead className="bg-[#0f172a] text-white text-[7px] uppercase font-black tracking-wider" style={{ display: 'table-header-group' }}>
@@ -390,7 +390,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                         <th className="px-1 py-3 w-[20px] text-center">ROE</th>
                         <th className="px-1 py-3 w-[55px] text-right">DEBIT</th>
                         <th className="px-1 py-3 w-[55px] text-right">CREDIT</th>
-                        <th className="px-2 py-3 w-[82px] text-right">BALANCE</th>
+                        <th className="px-2 py-3 w-[100px] text-right">ACCUMULATED BALANCE</th>
                       </tr>
                     </thead>
                     <tbody className="text-[8px] font-medium text-slate-600">
@@ -473,7 +473,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </table>
               </div>
 
-              {/* Summary Block - Always immediate following and avoids split */}
+              {/* Summary Block */}
               <div 
                 className="w-full bg-[#fcfdff] p-8 rounded-[2rem] border border-slate-100 flex flex-col items-center mt-4 mx-auto" 
                 style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
@@ -511,18 +511,6 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                        <span className="font-black uppercase text-lg text-slate-300 leading-none">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
                     </div>
                  </div>
-              </div>
-              
-              {/* Signatories - Final page only */}
-              <div className="w-full mt-16 flex justify-between items-center px-[10mm] pb-8 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
-                  <div className="flex flex-col items-center">
-                    <div className="w-[50mm] h-[0.5px] bg-slate-200 mb-2"></div>
-                    <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">AUTHORIZED SIGNATORY</p>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="w-[50mm] h-[0.5px] bg-slate-200 mb-2"></div>
-                    <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">OFFICE STAMP</p>
-                  </div>
               </div>
             </div>
           </div>

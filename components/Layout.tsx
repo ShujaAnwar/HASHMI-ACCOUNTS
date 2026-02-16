@@ -6,9 +6,10 @@ interface LayoutProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   config: AppConfig;
+  onLogout?: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, config }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, config, onLogout }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
@@ -38,7 +39,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-slate-950 transition-colors duration-300 font-inter">
-      {/* Absolute Top Header - Bismillah Calligraphy (Updated: Small & Green) */}
+      {/* Absolute Top Header - Bismillah Calligraphy */}
       <header className="w-full bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 py-2 flex justify-center items-center z-30 transition-colors duration-300 no-print">
         <h2 className="text-xs md:text-sm font-bold text-emerald-600 dark:text-emerald-400 transition-colors duration-500 tracking-normal animate-in fade-in slide-in-from-top-1 duration-1000" dir="rtl">
           بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
@@ -79,15 +80,27 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
             ))}
           </nav>
 
-          <div className="p-4 border-t dark:border-slate-800 flex items-center justify-between">
-            <button 
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors"
-            >
-              {isDarkMode ? '🌞' : '🌙'}
-            </button>
-            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter text-right">
-              v2.5 Enterprise Edition
+          <div className="p-4 border-t dark:border-slate-800 flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+                <button 
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors"
+                title="Toggle Theme"
+                >
+                {isDarkMode ? '🌞' : '🌙'}
+                </button>
+                {onLogout && (
+                    <button 
+                        onClick={onLogout}
+                        className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                        title="Sign Out"
+                    >
+                        🚪
+                    </button>
+                )}
+            </div>
+            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter text-center">
+              Enterprise v2.5 • {config.companyName}
             </div>
           </div>
         </aside>

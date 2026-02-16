@@ -45,14 +45,15 @@ const Reports: React.FC = () => {
     const fileName = `${sectionName}_${new Date().toISOString().split('T')[0]}.pdf`;
     
     const opt = {
-      margin: 10,
+      margin: [10, 10, 10, 10],
       filename: fileName,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { 
         scale: 2, 
         useCORS: true, 
         backgroundColor: '#ffffff',
-        logging: false
+        logging: false,
+        letterRendering: true
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
@@ -62,7 +63,7 @@ const Reports: React.FC = () => {
       await html2pdf().set(opt).from(element).save();
     } catch (err) {
       console.error("PDF Export Error:", err);
-      alert("Failed to generate PDF. Please try again.");
+      alert("Export failed. Ensure the report has loaded completely.");
     } finally {
       setIsExporting(false);
     }
@@ -86,10 +87,12 @@ const Reports: React.FC = () => {
       const cr = balance < 0 ? Math.abs(balance) : 0;
       totalDr += dr;
       totalCr += cr;
-      return { code: acc.code || 'N/A', name: acc.name, dr, cr };
+      return { id: acc.id, code: acc.code || 'N/A', name: acc.name, dr, cr };
     }).sort((a, b) => (a.code || '').localeCompare(b.code || ''));
     
-    return { items, totalDr, totalCr };
+    const diff = Math.abs(totalDr - totalCr);
+    
+    return { items, totalDr, totalCr, diff };
   }, [accounts]);
 
   const profitLoss = useMemo(() => {
@@ -122,7 +125,6 @@ const Reports: React.FC = () => {
         if (b <= 0) { totalLiabilities += Math.abs(b); liabilityItems.push(a); }
         else { totalAssets += b; assetItems.push(a); }
       } else if (a.type === AccountType.EQUITY) {
-        // Equity accounts are credit-nature (negative in system)
         const equityVal = b < 0 ? Math.abs(b) : -b;
         totalEquity += equityVal;
         equityItems.push(a);
@@ -147,6 +149,30 @@ const Reports: React.FC = () => {
   }, [accounts]);
 
   const selectedAccount = useMemo(() => accounts.find(a => a.id === selectedLedgerId), [accounts, selectedLedgerId]);
+
+  // Calculate Running (Accumulated) Balance for the General Ledger
+  const glLedgerWithAccumulated = useMemo(() => {
+    if (!selectedAccount) return [];
+    
+    // Sort chronologically
+    const sortedEntries = [...selectedAccount.ledger].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    let runningTotal = 0;
+    return sortedEntries.map(entry => {
+      runningTotal += (entry.debit - entry.credit);
+      return {
+        ...entry,
+        accumulatedBalance: runningTotal
+      };
+    });
+  }, [selectedAccount]);
+
+  const navigateToLedger = (id: string) => {
+    setSelectedLedgerId(id);
+    setActiveSection('GL');
+  };
 
   if (loading || !config) {
     return (
@@ -204,9 +230,55 @@ const Reports: React.FC = () => {
                 <table className="w-full">
                   <thead><tr className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><th className="py-5 text-left pl-4">Code</th><th className="py-5 text-left">Account Head</th><th className="py-5 text-right">Debit (PKR)</th><th className="py-5 text-right pr-4">Credit (PKR)</th></tr></thead>
                   <tbody className="divide-y divide-slate-50">{trialBalance.items.map((item, i) => (
-                    <tr key={i} className="hover:bg-slate-50 transition-colors group"><td className="py-4 pl-4 font-mono text-xs font-bold text-blue-600">{item.code}</td><td className="py-4 font-bold text-slate-700 text-sm">{item.name}</td><td className="py-4 text-right font-orbitron font-medium text-emerald-600">{item.dr > 0 ? item.dr.toLocaleString() : '-'}</td><td className="py-4 text-right pr-4 font-orbitron font-medium text-rose-500">{item.cr > 0 ? item.cr.toLocaleString() : '-'}</td></tr>
+                    <tr key={i} className="hover:bg-slate-50 transition-colors group">
+                      <td className="py-4 pl-4 font-mono text-xs font-bold text-blue-600">{item.code}</td>
+                      <td className="py-4 font-bold text-slate-700 text-sm">
+                        <button 
+                          onClick={() => navigateToLedger(item.id)}
+                          className="hover:text-blue-600 hover:underline transition-all text-left"
+                        >
+                          {item.name}
+                        </button>
+                      </td>
+                      <td className="py-4 text-right font-orbitron font-medium">
+                        {item.dr > 0 ? (
+                          <button 
+                            onClick={() => navigateToLedger(item.id)}
+                            className="text-emerald-600 hover:text-emerald-800 hover:underline transition-all"
+                          >
+                            {item.dr.toLocaleString()}
+                          </button>
+                        ) : '-'}
+                      </td>
+                      <td className="py-4 text-right pr-4 font-orbitron font-medium">
+                        {item.cr > 0 ? (
+                          <button 
+                            onClick={() => navigateToLedger(item.id)}
+                            className="text-rose-500 hover:text-rose-700 hover:underline transition-all"
+                          >
+                            {item.cr.toLocaleString()}
+                          </button>
+                        ) : '-'}
+                      </td>
+                    </tr>
                   ))}</tbody>
-                  <tfoot className="border-t-4 border-slate-900 bg-slate-50"><tr className="text-xl font-bold"><td colSpan={2} className="py-8 px-6 font-orbitron uppercase text-sm tracking-widest">Verification Totals</td><td className="py-8 px-4 text-right font-orbitron underline decoration-double decoration-blue-500 underline-offset-8">{trialBalance.totalDr.toLocaleString()}</td><td className="py-8 px-6 text-right font-orbitron underline decoration-double decoration-blue-500 underline-offset-8">{trialBalance.totalCr.toLocaleString()}</td></tr></tfoot>
+                  <tfoot className="border-t-4 border-slate-900 bg-slate-50">
+                    <tr className="text-xl font-bold">
+                      <td colSpan={2} className="py-8 px-6 font-orbitron uppercase text-sm tracking-widest">Verification Totals</td>
+                      <td className="py-8 px-4 text-right font-orbitron underline decoration-double decoration-blue-500 underline-offset-8">{trialBalance.totalDr.toLocaleString()}</td>
+                      <td className="py-8 px-6 text-right font-orbitron underline decoration-double decoration-blue-500 underline-offset-8">{trialBalance.totalCr.toLocaleString()}</td>
+                    </tr>
+                    {trialBalance.diff > 0.01 && (
+                      <tr className="bg-rose-50 animate-pulse">
+                        <td colSpan={4} className="py-4 text-center">
+                           <p className="text-rose-600 font-black uppercase text-[10px] tracking-[0.3em]">
+                             ⚠️ Ledger Out of Balance! Current Discrepancy: PKR {trialBalance.diff.toLocaleString()}
+                           </p>
+                           <p className="text-[9px] text-rose-400 font-bold mt-1">Check Opening Balances (A/C 3001) or multi-currency vouchers.</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tfoot>
                 </table>
               </div>
             </div>
@@ -235,7 +307,7 @@ const Reports: React.FC = () => {
                     <div className="space-y-4">
                       {balanceSheet.assets.map(a => (
                         <div key={a.id} className="flex justify-between items-center border-b pb-3 hover:bg-slate-50 px-2 rounded transition-all">
-                          <span className="text-slate-600 font-medium text-sm">{a.name}</span>
+                          <button onClick={() => navigateToLedger(a.id)} className="text-slate-600 font-medium text-sm hover:text-blue-600 hover:underline">{a.name}</button>
                           <span className="font-orbitron font-bold text-slate-800">{Math.abs(a.balance).toLocaleString()}</span>
                         </div>
                       ))}
@@ -252,7 +324,7 @@ const Reports: React.FC = () => {
                       <div className="space-y-4">
                         {balanceSheet.liabilities.map(a => (
                           <div key={a.id} className="flex justify-between items-center border-b pb-3 hover:bg-slate-50 px-2 rounded transition-all">
-                            <span className="text-slate-600 font-medium text-sm">{a.name}</span>
+                            <button onClick={() => navigateToLedger(a.id)} className="text-slate-600 font-medium text-sm hover:text-blue-600 hover:underline">{a.name}</button>
                             <span className="font-orbitron font-bold text-rose-500">{Math.abs(a.balance).toLocaleString()}</span>
                           </div>
                         ))}
@@ -264,7 +336,7 @@ const Reports: React.FC = () => {
                       <div className="space-y-4">
                         {balanceSheet.equity.map(a => (
                           <div key={a.id} className="flex justify-between items-center border-b pb-3 hover:bg-slate-50 px-2 rounded transition-all">
-                            <span className="text-slate-600 font-medium text-sm">{a.name}</span>
+                            <button onClick={() => navigateToLedger(a.id)} className="text-slate-600 font-medium text-sm hover:text-blue-600 hover:underline">{a.name}</button>
                             <span className="font-orbitron font-bold text-slate-800">{Math.abs(a.balance).toLocaleString()}</span>
                           </div>
                         ))}
@@ -309,8 +381,24 @@ const Reports: React.FC = () => {
                       <div className="text-center md:text-left"><p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Audit Profile</p><h5 className="text-2xl font-bold font-orbitron uppercase tracking-tighter text-slate-900">{selectedAccount.name}</h5>{selectedAccount.code && <p className="text-xs font-mono text-slate-400 mt-1 font-bold">Standard COA Code: {selectedAccount.code}</p>}</div>
                       <div className="text-center md:text-right"><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Ledger Closing Balance</p><p className={`text-4xl font-orbitron font-bold ${selectedAccount.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.abs(selectedAccount.balance).toLocaleString()} <span className="text-sm font-sans font-bold bg-slate-200 px-2 py-0.5 rounded ml-2 text-slate-700">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span></p></div>
                     </div>
-                    <div className="overflow-x-auto"><table className="w-full"><thead className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><tr><th className="py-4 text-left">Post Date</th><th className="py-4 text-left">Voucher #</th><th className="py-4 text-left">Narrative</th><th className="py-4 text-right">Debit</th><th className="py-4 text-right">Credit</th><th className="py-4 text-right pr-4">Running</th></tr></thead>
-                      <tbody className="divide-y divide-slate-100">{selectedAccount.ledger.map((entry, idx) => (<tr key={idx} className="hover:bg-slate-50 transition-all text-sm"><td className="py-4 text-slate-500">{new Date(entry.date).toLocaleDateString()}</td><td className="py-4 font-bold text-blue-600">{entry.voucherNum}</td><td className="py-4 text-slate-700 italic max-w-xs truncate">{entry.description}</td><td className="py-4 text-right font-medium text-emerald-500">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td><td className="py-4 text-right font-medium text-rose-500">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td><td className="py-4 text-right pr-4 font-bold text-slate-800">{Math.abs(entry.balanceAfter).toLocaleString()} <span className="text-[10px] opacity-60 font-sans">{entry.balanceAfter >= 0 ? 'Dr' : 'Cr'}</span></td></tr>))}</tbody>
+                    <div className="overflow-x-auto"><table className="w-full"><thead className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><tr><th className="py-4 text-left">Post Date</th><th className="py-4 text-left">Voucher #</th><th className="py-4 text-left">Narrative</th><th className="py-4 text-right">Debit</th><th className="py-4 text-right">Credit</th><th className="py-4 text-right pr-4">Accumulated Balance</th></tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {glLedgerWithAccumulated.map((entry, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 transition-all text-sm">
+                            <td className="py-4 text-slate-500">{new Date(entry.date).toLocaleDateString()}</td>
+                            <td className="py-4 font-bold text-blue-600">{entry.voucherNum}</td>
+                            <td className="py-4 text-slate-700 italic max-w-xs truncate">{entry.description}</td>
+                            <td className="py-4 text-right font-medium text-emerald-500">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td>
+                            <td className="py-4 text-right font-medium text-rose-500">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td>
+                            <td className="py-4 text-right pr-4 font-bold text-slate-800">
+                              {Math.abs(entry.accumulatedBalance).toLocaleString()} 
+                              <span className="text-[10px] opacity-60 font-sans ml-1">
+                                {entry.accumulatedBalance >= 0 ? 'Dr' : 'Cr'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
                     </table></div>
                 </div>
               ) : (

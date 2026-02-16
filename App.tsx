@@ -9,6 +9,7 @@ import ChartOfAccounts from './components/ChartOfAccounts';
 import LoginForm from './components/LoginForm';
 import { AccountType, AppConfig, Voucher } from './types';
 import { getConfig } from './services/db';
+import { supabase } from './services/supabase';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -22,27 +23,34 @@ const App: React.FC = () => {
   const refreshConfig = useCallback(async () => {
     const freshConfig = await getConfig();
     setConfig(freshConfig);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
+    // Initial data load
     refreshConfig();
-    // Check for existing persistent session
-    const session = localStorage.getItem('tlp_session');
-    if (session === 'active') setIsAuthenticated(true);
+
+    // Check current Supabase Auth Session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+      setLoading(false);
+    });
+
+    // Listen for Auth state changes (Login/Logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, [refreshConfig]);
 
-  const handleLogin = (success: boolean, remember: boolean) => {
-    if (success) {
-      setIsAuthenticated(true);
-      if (remember) {
-        localStorage.setItem('tlp_session', 'active');
-      } else {
-        // If not remembering, we don't set the persistent localStorage key
-        // We could use sessionStorage but for this app context we just set state
-        sessionStorage.setItem('tlp_session_temp', 'active');
-      }
-    }
+  const handleLogin = (success: boolean) => {
+    if (success) setIsAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
   };
 
   const handleEditVoucher = (v: Voucher) => {
@@ -80,7 +88,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center font-orbitron text-white">
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-        <p className="opacity-50 text-[10px] uppercase tracking-[0.5em] font-bold">Connecting Hashmi Books...</p>
+        <p className="opacity-50 text-[10px] uppercase tracking-[0.5em] font-bold tracking-widest">Secure Handshake...</p>
       </div>
     );
   }
@@ -90,7 +98,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} config={config}>
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} config={config} onLogout={handleLogout}>
       <div className="animate-in fade-in duration-500">
         {renderContent()}
       </div>
