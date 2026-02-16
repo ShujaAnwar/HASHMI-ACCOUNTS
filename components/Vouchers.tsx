@@ -67,6 +67,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     if (externalIntent) {
       if (externalIntent.type === 'EDIT') handleEdit(externalIntent.voucher);
       else if (externalIntent.type === 'VIEW') {
+        setActiveType(externalIntent.voucher.type);
         setViewingVoucher(externalIntent.voucher);
         setInspectorView('SERVICE'); 
       }
@@ -74,8 +75,19 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
     }
   }, [externalIntent]);
 
-  const handleEdit = (v: Voucher) => { setFormMode('EDIT'); setVoucherToEdit(v); setShowForm(true); };
-  const handleClone = (v: Voucher) => { setFormMode('CLONE'); setVoucherToEdit(v); setShowForm(true); };
+  const handleEdit = (v: Voucher) => { 
+    setActiveType(v.type); 
+    setFormMode('EDIT'); 
+    setVoucherToEdit(v); 
+    setShowForm(true); 
+  };
+
+  const handleClone = (v: Voucher) => { 
+    setActiveType(v.type); 
+    setFormMode('CLONE'); 
+    setVoucherToEdit(v); 
+    setShowForm(true); 
+  };
   
   const handleDelete = async (id: string) => { 
     if (window.confirm('Delete voucher?')) { 
@@ -639,7 +651,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex justify-center space-x-2">
-                       <button onClick={() => { setViewingVoucher(v); setInspectorView('SERVICE'); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all text-xs">👁️</button>
+                       <button onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all text-xs">👁️</button>
                        <button onClick={() => handleEdit(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs">✏️</button>
                        <button onClick={() => handleClone(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-xs">👯</button>
                        <button onClick={() => handleDelete(v.id)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-rose-600 hover:text-white transition-all text-xs">🗑️</button>
@@ -693,3 +705,4 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
 };
 
 export default Vouchers;
+    

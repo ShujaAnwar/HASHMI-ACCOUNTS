@@ -76,7 +76,7 @@ const App: React.FC = () => {
       case 'vouchers':
         return <Vouchers externalIntent={intent} clearIntent={() => setIntent(null)} />;
       case 'reports':
-        return <Reports />;
+        return <Reports onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} />;
       case 'control':
         return <ControlPanel onConfigUpdate={refreshConfig} />;
       default:

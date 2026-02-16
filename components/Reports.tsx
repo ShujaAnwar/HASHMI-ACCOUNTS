@@ -2,7 +2,12 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
 
-const Reports: React.FC = () => {
+interface ReportsProps {
+  onViewVoucher?: (v: Voucher) => void;
+  onEditVoucher?: (v: Voucher) => void;
+}
+
+const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
   const [activeSection, setActiveSection] = useState<'TB' | 'PL' | 'BS' | 'GL'>('TB');
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
@@ -383,21 +388,35 @@ const Reports: React.FC = () => {
                     </div>
                     <div className="overflow-x-auto"><table className="w-full"><thead className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><tr><th className="py-4 text-left">Post Date</th><th className="py-4 text-left">Voucher #</th><th className="py-4 text-left">Narrative</th><th className="py-4 text-right">Debit</th><th className="py-4 text-right">Credit</th><th className="py-4 text-right pr-4">Accumulated Balance</th></tr></thead>
                       <tbody className="divide-y divide-slate-100">
-                        {glLedgerWithAccumulated.map((entry, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50 transition-all text-sm">
-                            <td className="py-4 text-slate-500">{new Date(entry.date).toLocaleDateString()}</td>
-                            <td className="py-4 font-bold text-blue-600">{entry.voucherNum}</td>
-                            <td className="py-4 text-slate-700 italic max-w-xs truncate">{entry.description}</td>
-                            <td className="py-4 text-right font-medium text-emerald-500">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td>
-                            <td className="py-4 text-right font-medium text-rose-500">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td>
-                            <td className="py-4 text-right pr-4 font-bold text-slate-800">
-                              {Math.abs(entry.accumulatedBalance).toLocaleString()} 
-                              <span className="text-[10px] opacity-60 font-sans ml-1">
-                                {entry.accumulatedBalance >= 0 ? 'Dr' : 'Cr'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {glLedgerWithAccumulated.map((entry, idx) => {
+                          const voucher = vouchers.find(v => v.id === entry.voucherId);
+                          return (
+                            <tr key={idx} className="hover:bg-slate-50 transition-all text-sm">
+                              <td className="py-4 text-slate-500">{new Date(entry.date).toLocaleDateString()}</td>
+                              <td className="py-4">
+                                {voucher ? (
+                                  <button 
+                                    onClick={() => onViewVoucher?.(voucher)}
+                                    className="font-bold text-blue-600 hover:text-blue-800 hover:underline transition-all text-left uppercase"
+                                  >
+                                    {entry.voucherNum}
+                                  </button>
+                                ) : (
+                                  <span className="font-bold text-slate-400">{entry.voucherNum}</span>
+                                )}
+                              </td>
+                              <td className="py-4 text-slate-700 italic max-w-xs truncate">{entry.description}</td>
+                              <td className="py-4 text-right font-medium text-emerald-500">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td>
+                              <td className="py-4 text-right font-medium text-rose-500">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td>
+                              <td className="py-4 text-right pr-4 font-bold text-slate-800">
+                                {Math.abs(entry.accumulatedBalance).toLocaleString()} 
+                                <span className="text-[10px] opacity-60 font-sans ml-1">
+                                  {entry.accumulatedBalance >= 0 ? 'Dr' : 'Cr'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table></div>
                 </div>

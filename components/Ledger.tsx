@@ -409,25 +409,29 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                               {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
                             </td>
                             <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                              <button 
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  if (voucher) onEditVoucher(voucher);
-                                }}
-                                className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-center"
-                                style={{ 
-                                  background: 'none', 
-                                  border: 'none', 
-                                  padding: 0, 
-                                  whiteSpace: 'normal', 
-                                  fontSize: 'inherit',
-                                  wordBreak: 'break-word',
-                                  overflowWrap: 'break-word',
-                                  maxWidth: '100%'
-                                }}
-                              >
-                                {displayVNum}
-                              </button>
+                              {voucher ? (
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    onEditVoucher?.(voucher);
+                                  }}
+                                  className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-center uppercase"
+                                  style={{ 
+                                    background: 'none', 
+                                    border: 'none', 
+                                    padding: 0, 
+                                    whiteSpace: 'normal', 
+                                    fontSize: 'inherit',
+                                    wordBreak: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    maxWidth: '100%'
+                                  }}
+                                >
+                                  {displayVNum}
+                                </button>
+                              ) : (
+                                <span className="font-bold text-slate-400 uppercase">{displayVNum}</span>
+                              )}
                             </td>
                             <td className="px-1 py-2 text-center uppercase font-bold text-slate-400 text-[6px]">
                               {displayType}
