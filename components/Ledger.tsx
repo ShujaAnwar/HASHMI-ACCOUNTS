@@ -66,7 +66,6 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     setFormMode('EDIT');
     setAccountToEdit(acc);
     
-    // Find existing opening balance entry to pre-populate form
     const obEntry = acc.ledger?.find(e => e.description === 'Opening Balance (Initial Measurement)');
     
     setFormData({
@@ -85,7 +84,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     setFormMode('CREATE');
     setAccountToEdit(null);
     setFormData({
-      name: `${acc.name} (CLONE)`,
+      name: `${acc.name} (Clone)`,
       cell: acc.cell || '',
       location: acc.location || '',
       code: generateNextCode(type),
@@ -279,7 +278,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                   >
                     <td className="px-8 py-7 font-mono text-[13px] font-bold text-blue-600 group-hover:scale-110 origin-left transition-transform">{acc.code || '-'}</td>
                     <td className="px-8 py-7">
-                      <p className="font-black text-slate-800 dark:text-white uppercase text-base leading-none tracking-tight">{acc.name}</p>
+                      <p className="font-black text-slate-800 dark:text-white text-base leading-none tracking-tight">{acc.name}</p>
                       {acc.cell && <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest">{acc.cell}</p>}
                     </td>
                     <td className="px-8 py-7 text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-none tracking-wide">{acc.location || '-'}</td>
@@ -352,7 +351,6 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
               className="bg-white text-[#0f172a] font-inter w-[210mm] mx-auto p-[10mm] box-border overflow-visible flex flex-col items-center"
               style={{ minHeight: 'auto', width: '210mm', position: 'relative', margin: '0 auto' }}
             >
-              {/* Report Header - Compact and Tight */}
               <div className="w-full mb-4 flex flex-col items-center text-center">
                  <h1 className="text-[32px] font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-1">
                    {config.companyName || 'HASHMI BOOKS'}
@@ -364,12 +362,11 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </div>
               </div>
 
-              {/* Statement Identification - Compact */}
               <div className="w-full mb-4 border-t border-slate-100 pt-4 flex flex-col items-center text-center">
                  <h2 className="text-[18px] font-black uppercase text-[#0f172a] tracking-tight mb-0.5">
                    {type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT
                  </h2>
-                 <p className="text-[12px] font-black text-slate-700 uppercase tracking-tight leading-none">
+                 <p className="text-[12px] font-black text-slate-700 tracking-tight leading-none uppercase">
                    PARTY: {selectedAccount.name} ({selectedAccount.code || 'N/A'})
                  </p>
                  <p className="text-[7px] text-slate-300 font-bold uppercase tracking-[0.2em] mt-1">
@@ -377,7 +374,6 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                  </p>
               </div>
 
-              {/* Ledger Table */}
               <div className="w-full mb-6">
                 <table className="w-full text-left border-collapse table-fixed mx-auto" style={{ pageBreakInside: 'auto' }}>
                     <thead className="bg-[#0f172a] text-white text-[7px] uppercase font-black tracking-wider" style={{ display: 'table-header-group' }}>
@@ -477,7 +473,6 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </table>
               </div>
 
-              {/* Summary Block */}
               <div 
                 className="w-full bg-[#fcfdff] p-8 rounded-[2rem] border border-slate-100 flex flex-col items-center mt-4 mx-auto" 
                 style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
@@ -505,9 +500,9 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                     </div>
                  </div>
 
-                 <div className="flex flex-col items-center w-full">
-                    <p className="text-slate-400 text-[9px] uppercase tracking-[0.2em] font-bold mb-3 text-center">NET ACCOUNT BALANCE POSITION</p>
-                    <div className="flex items-baseline justify-center space-x-3 text-center">
+                 <div className="flex flex-col items-center w-full text-center">
+                    <p className="text-slate-400 text-[9px] uppercase tracking-[0.2em] font-bold mb-3">NET ACCOUNT BALANCE POSITION</p>
+                    <div className="flex items-baseline justify-center space-x-3">
                        <p className="text-4xl font-black text-[#0f172a] leading-none tracking-tighter uppercase">
                          {viewCurrency === Currency.PKR ? 'Rs. ' : 'SAR '}
                          {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -535,7 +530,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 </div>
                 <div className="col-span-2">
                   <label className="text-[7px] font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Title</label>
-                  <input required className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 font-bold outline-none uppercase text-[10px]" placeholder="ACCOUNT NAME" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <input required className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 font-bold outline-none text-[10px]" placeholder="Account Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                 </div>
               </div>
 
@@ -554,7 +549,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                 <label className="text-[8px] font-black text-blue-600 uppercase tracking-widest block px-1">Opening Balance (PKR)</label>
                 <div className="flex items-center space-x-2">
                   <input type="number" step="0.01" className="flex-1 bg-white dark:bg-slate-800 rounded-lg p-2 font-bold text-xs outline-none" value={formData.openingBalance} onChange={e => setFormData({...formData, openingBalance: Number(e.target.value)})} />
-                  <div className="flex bg-slate-200 dark:bg-slate-700 p-0.5 rounded-lg">
+                  <div className="flex bg-slate-200 dark:bg-slate-700 p-1 rounded-lg">
                     <button type="button" onClick={() => setFormData({...formData, balanceType: 'dr'})} className={`px-2 py-1 rounded-md text-[8px] font-black uppercase transition-all ${formData.balanceType === 'dr' ? 'bg-white dark:bg-slate-600 text-blue-600 shadow-sm' : 'text-slate-500'}`}>DR</button>
                     <button type="button" onClick={() => setFormData({...formData, balanceType: 'cr'})} className={`px-2 py-1 rounded-md text-[8px] font-black uppercase transition-all ${formData.balanceType === 'cr' ? 'bg-white dark:bg-slate-600 text-rose-500 shadow-sm' : 'text-slate-500'}`}>CR</button>
                   </div>

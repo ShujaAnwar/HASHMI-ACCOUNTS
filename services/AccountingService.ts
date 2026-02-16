@@ -1,8 +1,15 @@
+
 import { supabase } from './supabase';
 import { Account, AccountType, Voucher, VoucherType, Currency, VoucherStatus } from '../types';
 
 export class AccountingService {
   
+  private static formatAccountName(name: string): string {
+    if (!name) return '';
+    const trimmed = name.trim();
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  }
+
   static generateUniqueVNum(type: string): string {
     const year = new Date().getFullYear();
     const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -11,11 +18,12 @@ export class AccountingService {
 
   static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string, currency: Currency = Currency.PKR) {
     const sanitizedCode = (code && code.trim() !== '') ? code.trim() : null;
+    const formattedName = this.formatAccountName(name);
 
     const { data: account, error: accError } = await supabase
       .from('accounts')
       .insert({
-        name,
+        name: formattedName,
         type,
         cell,
         location,
@@ -44,7 +52,7 @@ export class AccountingService {
         await supabase.from('ledger_entries').insert({
           account_id: reserve.id,
           date: new Date().toISOString(),
-          description: `Contra Opening Balance: ${name}`,
+          description: `Contra Opening Balance: ${formattedName}`,
           debit: isDr ? 0 : openingBalance,
           credit: isDr ? openingBalance : 0,
         });
@@ -54,7 +62,6 @@ export class AccountingService {
   }
 
   static async updateAccount(id: string, updates: any) {
-    // 1. Get current account to handle ledger reversals correctly
     const { data: currentAcc, error: fetchErr } = await supabase
       .from('accounts')
       .select('name')
@@ -64,12 +71,12 @@ export class AccountingService {
     if (fetchErr || !currentAcc) throw new Error("Account resolution failed");
 
     const sanitizedCode = (updates.code && updates.code.trim() !== '') ? updates.code.trim() : null;
+    const formattedName = updates.name ? this.formatAccountName(updates.name) : currentAcc.name;
     
-    // 2. Update account header details
     const { error: updateErr } = await supabase
       .from('accounts')
       .update({
-        name: updates.name,
+        name: formattedName,
         cell: updates.cell,
         location: updates.location,
         code: sanitizedCode,
@@ -79,23 +86,19 @@ export class AccountingService {
 
     if (updateErr) throw updateErr;
 
-    // 3. Update Opening Balance Ledger Entries
     const obDesc = 'Opening Balance (Initial Measurement)';
     const contraPrefix = 'Contra Opening Balance:';
     
-    // Delete existing entries to re-record fresh ones (simplifies Dr/Cr flip logic)
     await supabase.from('ledger_entries').delete().eq('account_id', id).eq('description', obDesc);
     
     const { data: reserve } = await supabase.from('accounts').select('id').eq('code', '3001').single();
     if (reserve) {
-      // Find and delete the contra entry associated with this specific account head
       await supabase.from('ledger_entries')
         .delete()
         .eq('account_id', reserve.id)
         .like('description', `${contraPrefix}%${currentAcc.name}%`);
     }
 
-    // Re-insert if opening balance is now specified as > 0
     if (updates.openingBalance > 0) {
       const isDr = updates.balanceType === 'dr';
       
@@ -111,7 +114,7 @@ export class AccountingService {
         await supabase.from('ledger_entries').insert({
           account_id: reserve.id,
           date: new Date().toISOString(),
-          description: `${contraPrefix} ${updates.name}`,
+          description: `${contraPrefix} ${formattedName}`,
           debit: isDr ? 0 : updates.openingBalance,
           credit: isDr ? updates.openingBalance : 0,
         });
@@ -130,7 +133,6 @@ export class AccountingService {
   }
 
   static async postVoucher(vData: Partial<Voucher>) {
-    // Generate high-entropy unique number if missing to prevent duplicate key errors
     const vNum = vData.voucherNum || this.generateUniqueVNum(vData.type || 'VO');
     
     const { data: voucher, error: vError } = await supabase
@@ -141,6 +143,7 @@ export class AccountingService {
         date: vData.date || new Date().toISOString(),
         currency: vData.currency,
         roe: Number(vData.roe || 1),
+        // Fix: Corrected property name to match Voucher interface (totalAmountPKR instead of snake_case total_amount_pkr)
         total_amount_pkr: Number(vData.totalAmountPKR || 0),
         description: vData.description || '',
         reference: vData.reference || '',
@@ -163,8 +166,6 @@ export class AccountingService {
     const customerId = voucher.customer_id;
     const vendorId = voucher.vendor_id;
 
-    // Note: We no longer send 'voucher_num' to ledger_entries to avoid PGRST204 schema errors.
-    // The UI now resolves the number via voucher_id.
     if (voucher.type === 'RV') {
       const bankId = voucher.details?.bankId;
       if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
