@@ -223,7 +223,14 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
                 <td className="py-4 px-3 border-r border-slate-300 uppercase">{customer?.name || 'N/A'}</td>
                 <td className="py-4 px-3 border-r border-slate-300">{new Date(v.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</td>
                 <td className="py-4 px-3 border-r border-slate-300">30, Nov -0001</td>
-                <td className="py-4 px-3 uppercase">{v.reference || 'N/A'}</td>
+                <td className="py-4 px-3 uppercase">
+                  {v.reference || 'N/A'}
+                  {v.details?.bookingRef && (
+                    <div className="text-[9px] text-blue-600 mt-1 font-black">
+                      REF: {v.details.bookingRef}
+                    </div>
+                  )}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -246,7 +253,12 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
               <tr>
                 <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.paxName || v.details?.headName || 'N/A'}</td>
                 <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.hotelName || v.details?.airline || 'N/A'}</td>
-                <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.roomType || 'N/A'}</td>
+                <td className="py-6 px-2 border-r border-slate-300 uppercase">
+                  {v.details?.roomType || 'N/A'}
+                  <div className="text-[9px] opacity-60 mt-1 font-bold">
+                    {v.details?.adults || 0} ADT / {v.details?.children || 0} CHD
+                  </div>
+                </td>
                 <td className="py-6 px-2 border-r border-slate-300 uppercase">{formatMeals(v.details?.meals)}</td>
                 <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.city}, {v.details?.country}</td>
                 <td className="py-6 px-2 border-r border-slate-300 leading-normal">
@@ -328,7 +340,14 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
               <td className="p-4 border border-slate-300">{v.details?.hotelName}</td>
               <td className="p-4 border border-slate-300">{v.details?.paxName}</td>
               <td className="p-4 border border-slate-300">{v.details?.city}, {v.details?.country}</td>
-              <td className="p-4 border border-slate-300">{v.reference || 'N/A'}</td>
+              <td className="p-4 border border-slate-300">
+                {v.reference || 'N/A'}
+                {v.details?.bookingRef && (
+                  <div className="text-[9px] text-blue-600 mt-1 font-black">
+                    REF: {v.details.bookingRef}
+                  </div>
+                )}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -347,7 +366,12 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           </thead>
           <tbody className="text-[10px] font-bold uppercase text-slate-800">
             <tr className="bg-white">
-              <td className="p-3 border border-slate-300">{v.details?.roomType}</td>
+              <td className="p-3 border border-slate-300">
+                {v.details?.roomType}
+                <div className="text-[9px] text-slate-500 mt-1">
+                  {v.details?.adults || 0} ADULTS / {v.details?.children || 0} CHILDREN
+                </div>
+              </td>
               <td className="p-3 border border-slate-300">{formatMeals(v.details?.meals)}</td>
               <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
               <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
@@ -388,6 +412,9 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           <div className="text-right flex justify-end space-x-3"><span>HVI #:</span> <span className="font-black">{invoiceNum}</span></div>
           <div className="flex space-x-3"><span>Subject:</span> <span className="font-black">Definite Invoice</span></div>
           <div className="text-right flex justify-end space-x-3"><span>Date:</span> <span className="font-black">{new Date(v.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
+          {v.details?.bookingRef && (
+            <div className="flex space-x-3"><span>Booking Ref:</span> <span className="font-black text-blue-600">{v.details.bookingRef}</span></div>
+          )}
         </div>
 
         <p className="text-center text-[#e11d48] font-bold mb-8 text-[12px] tracking-wide">{config?.companyName} {config?.appSubtitle}</p>
@@ -410,7 +437,12 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           <tbody className="text-[10px] uppercase font-bold text-slate-800">
             <tr className="bg-white">
               <td className="p-4 border border-slate-300">{v.details?.hotelName}</td>
-              <td className="p-4 border border-slate-300">{v.details?.roomType}</td>
+              <td className="p-4 border border-slate-300">
+                {v.details?.roomType}
+                <div className="text-[9px] opacity-60 mt-1">
+                  {v.details?.adults || 0} ADT / {v.details?.children || 0} CHD
+                </div>
+              </td>
               <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
               <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
               <td className="p-4 border border-slate-300">{v.details?.numRooms} / {v.details?.numNights}</td>
@@ -472,8 +504,13 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
         </div>
 
         {/* Reference Line */}
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between items-end">
           <p className="text-[15px] font-black text-[#0f172a]">Hotel Voucher: {v.voucherNum}</p>
+          {v.details?.bookingRef && (
+            <p className="text-[13px] font-black text-blue-600 uppercase tracking-tight">
+              Booking Ref: {v.details.bookingRef}
+            </p>
+          )}
         </div>
 
         {/* Details Grid */}
