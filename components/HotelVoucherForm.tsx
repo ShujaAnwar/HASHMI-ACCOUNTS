@@ -51,6 +51,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     unitRate: initialData?.details?.unitRate || 0,
     fromDate: initialData?.details?.fromDate || '',
     toDate: initialData?.details?.toDate || '',
+    bookingRef: initialData?.details?.bookingRef || '',
     meals: (Array.isArray(initialData?.details?.meals) ? initialData.details.meals : (typeof initialData?.details?.meals === 'string' ? [initialData.details.meals] : [])) as string[],
     adults: initialData?.details?.adults || 2,
     children: initialData?.details?.children || 0
@@ -211,8 +212,8 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOM CONFIGURATION</label>
-                <div className="grid grid-cols-3 gap-4">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOM & GUEST CONFIGURATION</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <select className="bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.roomType} onChange={e => setFormData({...formData, roomType: e.target.value})}>
                     {ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
@@ -221,9 +222,17 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                     <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.numRooms} onChange={e => setFormData({...formData, numRooms: Number(e.target.value)})} />
                   </div>
                   <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100">
-                    <span className="text-[10px] font-black mr-2">NGT:</span>
-                    <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.numNights} onChange={e => setFormData({...formData, numNights: Number(e.target.value)})} />
+                    <span className="text-[10px] font-black mr-2">ADULT:</span>
+                    <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.adults} onChange={e => setFormData({...formData, adults: Number(e.target.value)})} />
                   </div>
+                  <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100">
+                    <span className="text-[10px] font-black mr-2">CHILD:</span>
+                    <input type="number" min="0" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.children} onChange={e => setFormData({...formData, children: Number(e.target.value)})} />
+                  </div>
+                </div>
+                <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100 mt-4">
+                  <span className="text-[10px] font-black mr-2">TOTAL NIGHTS:</span>
+                  <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.numNights} onChange={e => setFormData({...formData, numNights: Number(e.target.value)})} />
                 </div>
               </div>
             </div>
@@ -254,6 +263,11 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CONFIRMATION / PNR / REF</label>
                 <input className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-black uppercase outline-none ring-1 ring-slate-100" placeholder="e.g. 125983" value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">BOOKING REFERENCE NUMBER</label>
+                <input className="w-full bg-blue-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-black uppercase outline-none ring-1 ring-blue-100" placeholder="e.g. BK-99281" value={formData.bookingRef} onChange={e => setFormData({...formData, bookingRef: e.target.value})} />
               </div>
 
               <div className="space-y-2">
