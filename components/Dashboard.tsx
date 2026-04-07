@@ -207,7 +207,11 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
           bookingDate,
           statusColor,
           bgColor,
-          isTodayOrTomorrow
+          isTodayOrTomorrow,
+          paxName: v.details?.paxName || v.details?.headName || 'N/A',
+          hotelName: v.details?.hotelName || v.details?.airline || v.details?.items?.[0]?.vehicle || 'N/A',
+          roomType: v.details?.roomType || v.details?.items?.[0]?.sector || '-',
+          numNights: v.details?.numNights || '-',
         };
       })
       .filter(b => b.isTodayOrTomorrow)
@@ -400,11 +404,12 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
           <table className="w-full text-left table-auto border-collapse">
             <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[9px] uppercase tracking-[0.2em] font-black border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="px-4 py-4">Date</th>
-                <th className="px-4 py-4">Type</th>
-                <th className="px-4 py-4">Customer</th>
+                <th className="px-4 py-4">Check-in</th>
+                <th className="px-4 py-4">Pax Name</th>
+                <th className="px-4 py-4">Service/Hotel</th>
                 <th className="px-4 py-4">Vendor</th>
-                <th className="px-4 py-4">Description</th>
+                <th className="px-4 py-4">Room/Sector</th>
+                <th className="px-4 py-4 text-center">Nights</th>
                 <th className="px-4 py-4 text-right">Amount</th>
               </tr>
             </thead>
@@ -420,24 +425,32 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
                       {booking.bookingDate.toLocaleDateString('en-GB')}
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest border ${
-                        booking.type === VoucherType.HOTEL ? 'border-blue-200 text-blue-600 bg-blue-50/50' :
-                        booking.type === VoucherType.TRANSPORT ? 'border-purple-200 text-purple-600 bg-purple-50/50' :
-                        booking.type === VoucherType.VISA ? 'border-emerald-200 text-emerald-600 bg-emerald-50/50' :
-                        'border-slate-200 text-slate-600 bg-slate-50/50'
-                      }`}>
-                        {booking.type}
-                      </span>
+                      <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase leading-none">{booking.paxName}</p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase leading-none">{booking.customerName}</p>
+                      <div className="flex flex-col">
+                        <span className={`w-fit px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest mb-1 border ${
+                          booking.type === VoucherType.HOTEL ? 'border-blue-200 text-blue-600 bg-blue-50/50' :
+                          booking.type === VoucherType.TRANSPORT ? 'border-purple-200 text-purple-600 bg-purple-50/50' :
+                          booking.type === VoucherType.VISA ? 'border-emerald-200 text-emerald-600 bg-emerald-50/50' :
+                          'border-slate-200 text-slate-600 bg-slate-50/50'
+                        }`}>
+                          {booking.type}
+                        </span>
+                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase line-clamp-1">{booking.hotelName}</p>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-none">{booking.vendorName}</p>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-none">{booking.vendorName}</p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium line-clamp-1 max-w-[200px]">
-                        {booking.description || '-'}
+                      <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium uppercase">
+                        {booking.roomType}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                        {booking.numNights}
                       </p>
                     </td>
                     <td className="px-4 py-4 text-right">
@@ -449,8 +462,8 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
-                    No active bookings found in the system.
+                  <td colSpan={7} className="px-4 py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+                    No active bookings found for today or tomorrow.
                   </td>
                 </tr>
               )}
