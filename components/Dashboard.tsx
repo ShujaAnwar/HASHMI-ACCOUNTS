@@ -46,6 +46,12 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [filters, setFilters] = useState({
+    today: true,
+    tomorrow: true,
+    previous: false,
+    all: false
+  });
 
   // Derived Metrics Calculation (Real-time computed)
   const stats = useMemo(() => {
@@ -188,16 +194,19 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
 
         let statusColor = 'text-slate-600 dark:text-slate-400';
         let bgColor = 'bg-white dark:bg-slate-900';
-        let isTodayOrTomorrow = false;
+        let isToday = isSameDay(bookingDate, today);
+        let isTomorrow = isSameDay(bookingDate, tomorrow);
+        let isPrevious = bookingDate < today;
 
-        if (isSameDay(bookingDate, today)) {
+        if (isToday) {
           statusColor = 'text-emerald-600 dark:text-emerald-400';
           bgColor = 'bg-emerald-50/50 dark:bg-emerald-900/10';
-          isTodayOrTomorrow = true;
-        } else if (isSameDay(bookingDate, tomorrow)) {
+        } else if (isTomorrow) {
           statusColor = 'text-amber-600 dark:text-amber-400';
           bgColor = 'bg-amber-50/50 dark:bg-amber-900/10';
-          isTodayOrTomorrow = true;
+        } else if (isPrevious) {
+          statusColor = 'text-rose-600 dark:text-rose-400';
+          bgColor = 'bg-rose-50/50 dark:bg-rose-900/10';
         }
 
         return {
@@ -207,16 +216,24 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
           bookingDate,
           statusColor,
           bgColor,
-          isTodayOrTomorrow,
+          isToday,
+          isTomorrow,
+          isPrevious,
           paxName: v.details?.paxName || v.details?.headName || 'N/A',
           hotelName: v.details?.hotelName || v.details?.airline || v.details?.items?.[0]?.vehicle || 'N/A',
           roomType: v.details?.roomType || v.details?.items?.[0]?.sector || '-',
           numNights: v.details?.numNights || '-',
         };
       })
-      .filter(b => b.isTodayOrTomorrow)
+      .filter(b => {
+        if (filters.all) return true;
+        if (filters.today && b.isToday) return true;
+        if (filters.tomorrow && b.isTomorrow) return true;
+        if (filters.previous && b.isPrevious) return true;
+        return false;
+      })
       .sort((a, b) => b.bookingDate.getTime() - a.bookingDate.getTime());
-  }, [vouchers, accounts]);
+  }, [vouchers, accounts, filters]);
 
   if (loading) return (
     <div className="flex flex-col justify-center items-center h-96 space-y-4">
@@ -383,20 +400,35 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
 
       {/* Booking Schedule Table */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
             <h3 className="text-lg font-bold">Booking Schedule</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Today & Tomorrow Operations</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Operational Timeline</p>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="text-[9px] font-black uppercase text-slate-400">Today</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              <span className="text-[9px] font-black uppercase text-slate-400">Tomorrow</span>
-            </div>
+          <div className="flex flex-wrap items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+            {[
+              { id: 'today', label: 'Today', color: 'bg-emerald-500' },
+              { id: 'tomorrow', label: 'Tomorrow', color: 'bg-amber-500' },
+              { id: 'previous', label: 'Previous', color: 'bg-rose-500' },
+              { id: 'all', label: 'All Bookings', color: 'bg-blue-500' }
+            ].map(f => (
+              <label key={f.id} className="flex items-center space-x-2 cursor-pointer group">
+                <div className="relative flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={filters[f.id as keyof typeof filters]}
+                    onChange={(e) => setFilters(prev => ({ ...prev, [f.id]: e.target.checked }))}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${f.color}`}></span>
+                  <span className={`text-[10px] font-black uppercase tracking-tight transition-colors ${filters[f.id as keyof typeof filters] ? 'text-slate-900 dark:text-white' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                    {f.label}
+                  </span>
+                </div>
+              </label>
+            ))}
           </div>
         </div>
         
@@ -463,7 +495,7 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
               ) : (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
-                    No active bookings found for today or tomorrow.
+                    No bookings found for the selected filters.
                   </td>
                 </tr>
               )}
