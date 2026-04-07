@@ -66,7 +66,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} />;
       case 'coa':
         return <ChartOfAccounts />;
       case 'customers':
@@ -106,4 +106,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default App;v
