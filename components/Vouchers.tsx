@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountingService } from '../services/AccountingService';
@@ -49,19 +49,28 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
 
   const voucherRef = useRef<HTMLDivElement>(null);
 
+  const fetchVoucherData = useCallback(async () => {
+    const [accs, conf, vchs] = await Promise.all([
+      getAccounts(),
+      getConfig(),
+      getVouchers()
+    ]);
+    setAccounts(accs);
+    setConfig(conf);
+    setAllVouchers(vchs);
+  }, []);
+
   useEffect(() => {
-    const fetchData = async () => {
-      const [accs, conf, vchs] = await Promise.all([
-        getAccounts(),
-        getConfig(),
-        getVouchers()
-      ]);
-      setAccounts(accs);
-      setConfig(conf);
-      setAllVouchers(vchs);
-    };
-    fetchData();
-  }, [refreshKey, showForm]);
+    fetchVoucherData();
+  }, [refreshKey, showForm, fetchVoucherData]);
+
+  // Automatic 5-second sync (User Request)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchVoucherData();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [fetchVoucherData]);
 
   useEffect(() => {
     if (externalIntent) {
