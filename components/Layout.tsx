@@ -87,6 +87,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [isLongPressing, setIsLongPressing] = useState(false);
+  const [secretClickCount, setSecretClickCount] = useState(0);
   const longPressTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -107,17 +108,35 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
     { id: 'vendors', label: 'Vendors', icon: '🏢' },
     { id: 'vouchers', label: 'Vouchers', icon: '📝' },
     { id: 'reports', label: 'Reports', icon: '📈' },
-    { id: 'control', label: 'Control Panel', icon: '⚙️', isProtected: true },
+    ...(isAdminUnlocked ? [{ id: 'control', label: 'Control Panel', icon: '⚙️' }] : []),
   ];
 
-  const startLongPress = useCallback((id: string) => {
-    if (id !== 'control' || isAdminUnlocked) return;
-    setIsLongPressing(true);
-    longPressTimer.current = window.setTimeout(() => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Alt + Shift + C
+      if (e.altKey && e.shiftKey && e.code === 'KeyC') {
+        setShowAdminAuth(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleSecretClick = () => {
+    const newCount = secretClickCount + 1;
+    if (newCount >= 5) {
       setShowAdminAuth(true);
-      setIsLongPressing(false);
-    }, 1500);
-  }, [isAdminUnlocked]);
+      setSecretClickCount(0);
+    } else {
+      setSecretClickCount(newCount);
+      // Reset count after 2 seconds of inactivity
+      setTimeout(() => setSecretClickCount(0), 2000);
+    }
+  };
+
+  const startLongPress = useCallback((id: string) => {
+    // Hidden trigger handles unlocking now
+  }, []);
 
   const cancelLongPress = useCallback(() => {
     if (longPressTimer.current) {
@@ -127,11 +146,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
     setIsLongPressing(false);
   }, []);
 
-  const handleNavClick = (id: string, isProtected?: boolean) => {
-    if (isProtected && !isAdminUnlocked) {
-      alert("System Integrity Alert: This section is restricted to Authorized Administrators only. Long-press on the icon for 2 seconds to initiate identity verification.");
-      return;
-    }
+  const handleNavClick = (id: string) => {
     setActiveTab(id);
   };
 
@@ -177,7 +192,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
                 onMouseLeave={cancelLongPress}
                 onTouchStart={() => startLongPress(item.id)}
                 onTouchEnd={cancelLongPress}
-                onClick={() => handleNavClick(item.id, (item as any).isProtected)}
+                onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
                   activeTab === item.id 
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
@@ -215,7 +230,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
                     </button>
                 )}
             </div>
-            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter text-center">
+            <div 
+              onClick={handleSecretClick}
+              className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter text-center cursor-default select-none active:opacity-50 transition-opacity"
+            >
               Enterprise v2.5 • {config.companyName}
             </div>
           </div>
