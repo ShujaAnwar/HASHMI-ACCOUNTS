@@ -54,6 +54,15 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
     refreshAccountList();
   }, [type, refreshAccountList]);
 
+  // Automatic 5-second sync (User Request)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshAccountList();
+      getVouchers().then(setVouchers);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [refreshAccountList]);
+
   const generateNextCode = useCallback((targetType: AccountType) => {
     const prefix = targetType === AccountType.CUSTOMER ? '11' : '21';
     const existing = allAccountsForCode.filter(a => a.code?.startsWith(prefix));
@@ -383,6 +392,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                         <th className="px-1 py-3 w-[18px] text-center">TYPE</th>
                         <th className="px-2 py-3">TRANSACTION NARRATION</th>
                         <th className="px-1 py-3 w-[45px] text-center">RATE(SAR)</th>
+                        <th className="px-1 py-3 w-[25px] text-center">NIGHTS</th>
                         <th className="px-1 py-3 w-[20px] text-center">ROE</th>
                         <th className="px-1 py-3 w-[55px] text-right">DEBIT</th>
                         <th className="px-1 py-3 w-[55px] text-right">CREDIT</th>
@@ -439,6 +449,9 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                               {isSar ? (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
                             </td>
                             <td className="px-1 py-2 text-center font-bold text-slate-400">
+                              {voucher?.type === VoucherType.HOTEL ? (voucher.details?.numNights || '-') : '-'}
+                            </td>
+                            <td className="px-1 py-2 text-center font-bold text-slate-400">
                               {isSar ? itemRoe : '-'}
                             </td>
                             <td className="px-1 py-2 text-right font-black text-slate-900">
@@ -457,7 +470,7 @@ const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) =
                     </tbody>
                     <tfoot className="text-[#0f172a] font-black text-[8.5px] uppercase" style={{ display: 'table-header-group' }}>
                       <tr>
-                        <td colSpan={6} className="px-4 py-4 text-right font-black tracking-tight border-t-2 border-slate-900">TOTAL FOR PERIOD:</td>
+                        <td colSpan={7} className="px-4 py-4 text-right font-black tracking-tight border-t-2 border-slate-900">TOTAL FOR PERIOD:</td>
                         <td className="px-1 py-4 text-right text-emerald-700 bg-slate-50/50 border-t-2 border-slate-900">
                           {getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </td>
