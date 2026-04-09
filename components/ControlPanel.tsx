@@ -116,17 +116,34 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
   const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setSaveStatus('Reading backup file...');
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const data = JSON.parse(event.target?.result as string);
-        if (data.config) {
-          await importFullDatabase(data);
-          alert("Database restored. Reloading...");
-          window.location.reload();
+        const content = event.target?.result as string;
+        const data = JSON.parse(content);
+        
+        if (!data.accounts || !data.vouchers || !data.config) {
+          throw new Error("Invalid backup file: Missing required data structures.");
         }
-      } catch (err) { 
-        alert("Restore Failed: Invalid backup file format."); 
+
+        setSaveStatus('Restoring database (this may take a moment)...');
+        await importFullDatabase(data);
+        
+        setSaveStatus('Restoration complete! Reloading...');
+        setTimeout(() => {
+          alert("Database restored successfully. The application will now reload.");
+          window.location.reload();
+        }, 500);
+      } catch (err: any) { 
+        console.error("Restore Error:", err);
+        setSaveStatus(`Restore Failed: ${err.message}`);
+        alert(`Restore Failed: ${err.message || "Unknown error occurred during restoration."}`); 
+      } finally {
+        if (restoreInputRef.current) {
+          restoreInputRef.current.value = '';
+        }
       }
     };
     reader.readAsText(file);
