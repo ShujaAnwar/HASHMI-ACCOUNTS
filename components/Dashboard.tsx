@@ -45,7 +45,9 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const dashboardRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState({
     today: true,
     tomorrow: true,
@@ -114,6 +116,14 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [fetchData]);
+
+  // Automatic 5-second sync (User Request)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [fetchData]);
 
   const pieData = useMemo(() => [
@@ -235,6 +245,37 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
       .sort((a, b) => b.bookingDate.getTime() - a.bookingDate.getTime());
   }, [vouchers, accounts, filters]);
 
+  const handleExportPDF = async () => {
+    if (!dashboardRef.current) return;
+    setIsExporting(true);
+    
+    const element = dashboardRef.current;
+    const fileName = `Dashboard_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        letterRendering: true,
+        backgroundColor: '#f8fafc' // slate-50 background for PDF
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    try {
+      // @ts-ignore
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("Dashboard Export Error:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (loading) return (
     <div className="flex flex-col justify-center items-center h-96 space-y-4">
       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -243,7 +284,7 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
   );
 
   return (
-    <div className="space-y-6">
+    <div ref={dashboardRef} className="space-y-6 p-1">
       {/* Dashboard Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
         <div>
@@ -256,6 +297,14 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <button 
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            className="no-print flex items-center space-x-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-900/10"
+          >
+            <span>{isExporting ? '⏳' : '📥'}</span>
+            <span>{isExporting ? 'Exporting...' : 'Export PDF Report'}</span>
+          </button>
           <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30">
             <div className={`w-2 h-2 rounded-full bg-emerald-500 animate-blink shadow-[0_0_8px_rgba(16,185,129,0.5)]`}></div>
             <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 dark:text-blue-400">Live Sync Enabled</span>
