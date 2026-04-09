@@ -1,6 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@^2.45.1';
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://jfcfzicifqhlnshckwuk.supabase.co';
-const supabaseKey = 'sb_publishable_pD_Kdsbmu8EtVDp62sBIAw_flYxFIlP';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://jfcfzicifqhlnshckwuk.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_pD_Kdsbmu8EtVDp62sBIAw_flYxFIlP';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);

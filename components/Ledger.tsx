@@ -161,7 +161,18 @@
     const ledgerWithRunningBalance = useMemo(() => {
       if (!selectedAccount) return [];
       const sortedLedger = [...selectedAccount.ledger].sort((a, b) => {
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        
+        // Prioritize Opening Balance if dates are identical
+        const isObA = a.description?.includes('Opening Balance');
+        const isObB = b.description?.includes('Opening Balance');
+        if (isObA && !isObB) return -1;
+        if (!isObA && isObB) return 1;
+        
+        // Stable tie-breaker
+        return (a.id || '').localeCompare(b.id || '');
       });
       let running = 0;
       return sortedLedger.map(entry => {
@@ -461,7 +472,7 @@
                                 {entry.credit > 0 ? getConvertedVal(entry.credit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
                               </td>
                               <td className="px-2 py-2 text-right font-black text-slate-900">
-                                {Math.abs(getConvertedVal(entry.balanceAfter, itemRoe)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                {Math.abs(getConvertedVal(entry.balanceAfter)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                                 <span className="ml-0.5 text-[8px] opacity-40 uppercase">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
                               </td>
                             </tr>

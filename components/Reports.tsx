@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
 
@@ -24,21 +24,30 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
 
   const reportRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [accs, vchs, conf] = await Promise.all([
-        getAccounts(),
-        getVouchers(),
-        getConfig()
-      ]);
-      setAccounts(accs);
-      setVouchers(vchs);
-      setConfig(conf);
-      setLoading(false);
-    };
-    fetchData();
+  const fetchReportData = useCallback(async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
+    const [accs, vchs, conf] = await Promise.all([
+      getAccounts(),
+      getVouchers(),
+      getConfig()
+    ]);
+    setAccounts(accs);
+    setVouchers(vchs);
+    setConfig(conf);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    fetchReportData();
+  }, [fetchReportData]);
+
+  // Automatic 5-second sync (User Request)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchReportData(true);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [fetchReportData]);
 
   const handleExportPDF = async () => {
     if (!reportRef.current) return;

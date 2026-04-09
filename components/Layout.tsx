@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppConfig } from '../types';
+import { supabase } from '../services/supabase';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,12 +10,84 @@ interface LayoutProps {
   onLogout?: () => void;
 }
 
+const AdminAuthModal: React.FC<{ 
+  onSuccess: () => void; 
+  onClose: () => void 
+}> = ({ onSuccess, onClose }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) throw authError;
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Verification failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] shadow-2xl p-10 border border-white/10 animate-in zoom-in-95 duration-300">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-rose-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-xl shadow-rose-500/20">
+            <span className="text-2xl">🛡️</span>
+          </div>
+          <h3 className="text-xl font-black font-orbitron text-slate-900 dark:text-white uppercase tracking-tighter">Admin Verification</h3>
+          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Elevated Privileges Required</p>
+        </div>
+        
+        <form onSubmit={handleAuth} className="space-y-5">
+          {error && (
+            <p className="text-[10px] font-bold text-rose-500 uppercase text-center bg-rose-50 dark:bg-rose-900/20 p-3 rounded-xl">{error}</p>
+          )}
+          <input 
+            type="email" 
+            placeholder="Admin Email" 
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+          <input 
+            type="password" 
+            placeholder="Secure Key" 
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
+          <div className="flex space-x-3">
+            <button type="button" onClick={onClose} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl uppercase text-[10px]">Cancel</button>
+            <button type="submit" disabled={isLoading} className="flex-[2] py-4 bg-rose-600 text-white font-black rounded-xl shadow-xl uppercase text-[10px] tracking-widest disabled:opacity-50">
+              {isLoading ? 'Verifying...' : 'Authorize'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, config, onLogout }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const [showAdminAuth, setShowAdminAuth] = useState(false);
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const longPressTimer = useRef<number | null>(null);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -34,11 +107,43 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
     { id: 'vendors', label: 'Vendors', icon: '🏢' },
     { id: 'vouchers', label: 'Vouchers', icon: '📝' },
     { id: 'reports', label: 'Reports', icon: '📈' },
-    { id: 'control', label: 'Control Panel', icon: '⚙️' },
+    { id: 'control', label: 'Control Panel', icon: '⚙️', isProtected: true },
   ];
+
+  const startLongPress = useCallback((id: string) => {
+    if (id !== 'control' || isAdminUnlocked) return;
+    setIsLongPressing(true);
+    longPressTimer.current = window.setTimeout(() => {
+      setShowAdminAuth(true);
+      setIsLongPressing(false);
+    }, 1500);
+  }, [isAdminUnlocked]);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    setIsLongPressing(false);
+  }, []);
+
+  const handleNavClick = (id: string, isProtected?: boolean) => {
+    if (isProtected && !isAdminUnlocked) {
+      alert("System Integrity Alert: This section is restricted to Authorized Administrators only. Long-press on the icon for 2 seconds to initiate identity verification.");
+      return;
+    }
+    setActiveTab(id);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-slate-950 transition-colors duration-300 font-inter">
+      {showAdminAuth && (
+        <AdminAuthModal 
+          onSuccess={() => { setIsAdminUnlocked(true); setShowAdminAuth(false); setActiveTab('control'); }}
+          onClose={() => setShowAdminAuth(false)}
+        />
+      )}
+
       {/* Absolute Top Header - Bismillah Calligraphy */}
       <header className="w-full bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 py-2 flex justify-center items-center z-30 transition-colors duration-300 no-print">
         <h2 className="text-xs md:text-sm font-bold text-emerald-600 dark:text-emerald-400 transition-colors duration-500 tracking-normal animate-in fade-in slide-in-from-top-1 duration-1000" dir="rtl">
@@ -67,15 +172,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                onMouseDown={() => startLongPress(item.id)}
+                onMouseUp={cancelLongPress}
+                onMouseLeave={cancelLongPress}
+                onTouchStart={() => startLongPress(item.id)}
+                onTouchEnd={cancelLongPress}
+                onClick={() => handleNavClick(item.id, (item as any).isProtected)}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
                   activeTab === item.id 
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <span className={`text-lg transition-transform ${isLongPressing && item.id === 'control' ? 'scale-125 animate-pulse' : ''}`}>{item.icon}</span>
                 <span className="text-xs font-bold uppercase tracking-widest">{item.label}</span>
+                { (item as any).isProtected && !isAdminUnlocked && (
+                  <span className="absolute right-4 text-[8px] opacity-30 group-hover:opacity-100 transition-opacity">🔒</span>
+                )}
+                { (item as any).isProtected && isAdminUnlocked && (
+                  <span className="absolute right-4 text-[8px] text-emerald-500">🔓</span>
+                )}
               </button>
             ))}
           </nav>

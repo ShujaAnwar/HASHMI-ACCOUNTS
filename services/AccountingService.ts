@@ -54,10 +54,12 @@ export class AccountingService {
 
     if (openingBalance > 0) {
       const description = 'Opening Balance (Initial Measurement)';
+      const obDate = new Date();
+      obDate.setHours(0, 0, 0, 0);
       
       await supabase.from('ledger_entries').insert({
         account_id: account.id,
-        date: new Date().toISOString(),
+        date: obDate.toISOString(),
         description: description,
         debit: isDr ? openingBalance : 0,
         credit: isDr ? 0 : openingBalance,
@@ -117,10 +119,12 @@ export class AccountingService {
 
     if (updates.openingBalance > 0) {
       const isDr = updates.balanceType === 'dr';
+      const obDate = new Date();
+      obDate.setHours(0, 0, 0, 0);
       
       await supabase.from('ledger_entries').insert({
         account_id: id,
-        date: new Date().toISOString(),
+        date: obDate.toISOString(),
         description: obDesc,
         debit: isDr ? updates.openingBalance : 0,
         credit: isDr ? 0 : updates.openingBalance,
