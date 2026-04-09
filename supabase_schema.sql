@@ -33,59 +33,65 @@
         COALESCE(SUM(CASE WHEN type = 'CASH_BANK' THEN balance ELSE 0 END), 0) as total_cash_bank
     FROM public.accounts;
 
-    -- 6. CRITICAL: Account Balance Trigger
-    -- This ensures the 'balance' column in 'accounts' stays in sync with 'ledger_entries'
-    CREATE OR REPLACE FUNCTION public.update_account_balance()
+    -- 6. CRITICAL: Account Balance Sync System
+    -- This ensures the 'balance' column in 'accounts' and 'balance_after' in 'ledger_entries' stay in sync.
+    
+    -- First, drop ALL existing triggers to ensure a clean state and avoid doubling
+    DO $$ 
+    DECLARE 
+        r RECORD;
+    BEGIN
+        FOR r IN (SELECT trigger_name FROM information_schema.triggers WHERE event_object_table = 'ledger_entries' AND trigger_schema = 'public') LOOP
+            EXECUTE 'DROP TRIGGER IF EXISTS ' || quote_ident(r.trigger_name) || ' ON public.ledger_entries';
+        END LOOP;
+    END $$;
+
+    -- 7. RECALCULATE ALL BALANCES (The Source of Truth)
+    CREATE OR REPLACE FUNCTION public.recalculate_all_balances()
+    RETURNS void AS $$
+    BEGIN
+        -- Update head balances from the sum of ledger entries
+        UPDATE public.accounts a
+        SET balance = COALESCE((
+            SELECT SUM(debit - credit)
+            FROM public.ledger_entries
+            WHERE account_id = a.id
+        ), 0);
+
+        -- Update running balances (balance_after) using window functions
+        UPDATE public.ledger_entries le
+        SET balance_after = sub.running_bal
+        FROM (
+            SELECT id, account_id, SUM(debit - credit) OVER (PARTITION BY account_id ORDER BY date ASC, id ASC) as running_bal
+            FROM public.ledger_entries
+        ) sub
+        WHERE le.id = sub.id;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    -- 8. STATEMENT-LEVEL TRIGGER
+    -- This fires ONCE per SQL command, ensuring balances are synced exactly once.
+    -- This prevents doubling issues caused by row-level triggers firing multiple times.
+    CREATE OR REPLACE FUNCTION public.sync_balances_stmt_fn()
     RETURNS TRIGGER AS $$
     BEGIN
-        IF (TG_OP = 'INSERT') THEN
-            UPDATE public.accounts
-            SET balance = balance + (NEW.debit - NEW.credit)
-            WHERE id = NEW.account_id;
-        ELSIF (TG_OP = 'DELETE') THEN
-            UPDATE public.accounts
-            SET balance = balance - (OLD.debit - OLD.credit)
-            WHERE id = OLD.account_id;
-        ELSIF (TG_OP = 'UPDATE') THEN
-            -- Subtract old values
-            UPDATE public.accounts
-            SET balance = balance - (OLD.debit - OLD.credit)
-            WHERE id = OLD.account_id;
-            -- Add new values
-            UPDATE public.accounts
-            SET balance = balance + (NEW.debit - NEW.credit)
-            WHERE id = NEW.account_id;
+        -- CRITICAL: Prevent infinite recursion
+        -- When recalculate_all_balances() updates ledger_entries, it would trigger this again.
+        IF pg_trigger_depth() > 1 THEN
+            RETURN NULL;
         END IF;
+
+        PERFORM public.recalculate_all_balances();
         RETURN NULL;
     END;
     $$ LANGUAGE plpgsql;
 
-    DROP TRIGGER IF EXISTS trg_update_account_balance ON public.ledger_entries;
-    CREATE TRIGGER trg_update_account_balance
+    CREATE TRIGGER trg_sync_balances_stmt
     AFTER INSERT OR UPDATE OR DELETE ON public.ledger_entries
-    FOR EACH ROW EXECUTE FUNCTION public.update_account_balance();
+    FOR EACH STATEMENT EXECUTE FUNCTION public.sync_balances_stmt_fn();
 
-    -- 7. RECALCULATE ALL BALANCES (Run this to fix existing discrepancies)
-    UPDATE public.accounts a
-    SET balance = (
-        SELECT COALESCE(SUM(debit - credit), 0)
-        FROM public.ledger_entries
-        WHERE account_id = a.id
-    );
-
-    -- 8. RPC Function for Application-side recalculation
-    CREATE OR REPLACE FUNCTION public.recalculate_all_balances()
-    RETURNS void AS $$
-    BEGIN
-        UPDATE public.accounts a
-        SET balance = (
-            SELECT COALESCE(SUM(debit - credit), 0)
-            FROM public.ledger_entries
-            WHERE account_id = a.id
-        );
-    END;
-    $$ LANGUAGE plpgsql;
+    -- Run it once to fix current data
+    SELECT public.recalculate_all_balances();
 
     -- 9. CRITICAL: FORCE SCHEMA CACHE RELOAD
-    -- This tells Supabase/PostgREST to refresh its column list
     NOTIFY pgrst, 'reload schema';

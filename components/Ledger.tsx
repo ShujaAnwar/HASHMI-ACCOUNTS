@@ -2,6 +2,7 @@
   import { Account, AccountType, Voucher, Currency, AppConfig, VoucherType } from '../types';
   import { AccountingService } from '../services/AccountingService';
   import { getAccounts, getVouchers, getConfig } from '../services/db';
+  import { supabase } from '../services/supabase';
 
   interface LedgerProps {
     type: AccountType;
@@ -176,8 +177,11 @@
       });
       let running = 0;
       return sortedLedger.map(entry => {
+        // Use database balance_after if available, otherwise calculate on the fly
+        // We prefer database value because it's the "source of truth" for the accumulated balance
+        const dbBalanceAfter = (entry as any).balance_after;
         running += (entry.debit - entry.credit);
-        return { ...entry, balanceAfter: running };
+        return { ...entry, balanceAfter: dbBalanceAfter !== undefined && dbBalanceAfter !== null ? Number(dbBalanceAfter) : running };
       });
     }, [selectedAccount]);
 
@@ -229,6 +233,18 @@
       } catch (err: any) {
         alert(`Error: ${err.message}`);
       } finally { setIsSubmitting(false); }
+    };
+
+    const handleRecalculate = async () => {
+      try {
+        const { error } = await supabase.rpc('recalculate_all_balances');
+        if (error) throw error;
+        await refreshAccountList();
+        alert("Database balances synchronized and recalculated successfully.");
+      } catch (err) {
+        console.error("Recalculation failed:", err);
+        alert("Failed to recalculate balances. Please ensure the SQL script has been run in Supabase.");
+      }
     };
 
     if (!config) return null;
@@ -355,6 +371,13 @@
                   <button onClick={() => setViewCurrency(Currency.PKR)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${viewCurrency === Currency.PKR ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500'}`}>PKR</button>
                   <button onClick={() => setViewCurrency(Currency.SAR)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${viewCurrency === Currency.SAR ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500'}`}>SAR</button>
                 </div>
+                <button 
+                  onClick={handleRecalculate}
+                  className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95"
+                  title="Sync & Recalculate Balances"
+                >
+                  Sync DB
+                </button>
                 <button 
                   onClick={handleDownloadPDF} 
                   disabled={isExporting}
@@ -489,8 +512,10 @@
                             {getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-2 py-4 text-right bg-slate-50 border-t-2 border-slate-900">
-                            {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                            <span className="ml-1 text-[8px] opacity-50">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
+                            {Math.abs(getConvertedVal(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            <span className="ml-1 text-[8px] opacity-50">
+                              {(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance) >= 0 ? 'DR' : 'CR'}
+                            </span>
                           </td>
                         </tr>
                       </tfoot>
@@ -529,9 +554,11 @@
                       <div className="flex items-baseline justify-center space-x-3">
                         <p className="text-4xl font-black text-[#0f172a] leading-none tracking-tighter uppercase">
                           {viewCurrency === Currency.PKR ? 'Rs. ' : 'SAR '}
-                          {Math.abs(getConvertedVal(selectedAccount.balance)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          {Math.abs(getConvertedVal(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </p>
-                        <span className="font-black uppercase text-lg text-slate-300 leading-none">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
+                        <span className="font-black uppercase text-lg text-slate-300 leading-none">
+                          {(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance) >= 0 ? 'DR' : 'CR'}
+                        </span>
                       </div>
                   </div>
                 </div>

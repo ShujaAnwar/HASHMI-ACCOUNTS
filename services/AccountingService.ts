@@ -148,6 +148,8 @@ export class AccountingService {
   }
 
   static async deleteVoucher(id: string) {
+    // Manually delete ledger entries first to ensure no orphans
+    await supabase.from('ledger_entries').delete().eq('voucher_id', id);
     const { error } = await supabase.from('vouchers').delete().eq('id', id);
     if (error) throw error;
   }
@@ -180,38 +182,45 @@ export class AccountingService {
     }
 
     const amount = Number(voucher.total_amount_pkr);
-    const entries = [];
+    const entries: any[] = [];
     
     const customerId = voucher.customer_id;
     const vendorId = voucher.vendor_id;
 
     if (voucher.type === 'RV') {
       const bankId = voucher.details?.bankId;
-      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
+      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: voucher.voucher_num });
       
-    } else if (voucher.type === 'TV' || voucher.type === 'HV') {
+    } else if (voucher.type === 'TV' || voucher.type === 'HV' || voucher.type === 'TRANSPORT' || voucher.type === 'HOTEL') {
       const vendorAmount = Number(voucher.details?.vendorAmountPKR) || amount;
       const incomeAmount = Number(voucher.details?.incomeAmountPKR) || 0;
       const incomeAccountId = voucher.details?.incomeAccountId;
       
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
-      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description });
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
+      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description, voucher_num: voucher.voucher_num });
       
-      if (incomeAmount > 0 && incomeAccountId) {
-        entries.push({ account_id: incomeAccountId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: incomeAmount, description: `Service Revenue: ${voucher.description}` });
+      if (incomeAmount !== 0) {
+        let targetIncomeId = incomeAccountId;
+        if (!targetIncomeId) {
+          const { data: incomeAcc } = await supabase.from('accounts').select('id').eq('type', 'REVENUE').limit(1).maybeSingle();
+          targetIncomeId = incomeAcc?.id;
+        }
+        if (targetIncomeId) {
+          entries.push({ account_id: targetIncomeId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: incomeAmount, description: `Income from ${voucher.voucher_num}`, voucher_num: voucher.voucher_num });
+        }
       }
       
-    } else if (voucher.type === 'VV' || voucher.type === 'TK') {
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
-      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
+    } else if (voucher.type === 'VV' || voucher.type === 'TK' || voucher.type === 'VISA' || voucher.type === 'TICKET') {
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
+      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: voucher.voucher_num });
       
     } else if (voucher.type === 'PV') {
       const bankId = voucher.details?.bankId;
-      const expenseAccountId = voucher.details?.expenseId || voucher.details?.items?.[0]?.accountId;
+      const expenseAccountId = voucher.details?.expenseId || voucher.details?.expenseAccountId || voucher.details?.items?.[0]?.accountId;
       
-      if (expenseAccountId) entries.push({ account_id: expenseAccountId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description });
-      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description });
+      if (expenseAccountId) entries.push({ account_id: expenseAccountId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
+      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: voucher.voucher_num });
     }
 
     if (entries.length > 0) {
