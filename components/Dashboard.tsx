@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { getVouchers, getAccounts } from '../services/db';
 import { supabase } from '../services/supabase';
-import { VoucherType, AccountType, Voucher, Account } from '../types';
+import { VoucherType, AccountType, Voucher, Account, AppConfig } from '../types';
 
 /**
  * Custom hook for smooth animated numbers (Running numbers effect)
@@ -40,7 +40,7 @@ const useAnimatedNumber = (targetValue: number, duration: number = 1000) => {
   return displayValue;
 };
 
-const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?: (v: Voucher) => void }> = ({ onEditVoucher, onViewVoucher }) => {
+const Dashboard: React.FC<{ config: AppConfig; onEditVoucher?: (v: Voucher) => void; onViewVoucher?: (v: Voucher) => void }> = ({ config, onEditVoucher, onViewVoucher }) => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,6 +252,7 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
     setIsExporting(true);
     
     const element = dashboardDataRef.current;
+    element.classList.add('exporting');
     const fileName = `Dashboard_Metrics_${new Date().toISOString().split('T')[0]}.pdf`;
 
     const opt = {
@@ -274,6 +275,7 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
     } catch (err) {
       console.error("Dashboard Export Error:", err);
     } finally {
+      element.classList.remove('exporting');
       setIsExporting(false);
     }
   };
@@ -283,6 +285,7 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
     setIsExportingSchedule(true);
     
     const element = bookingScheduleRef.current;
+    element.classList.add('exporting');
     const fileName = `Booking_Schedule_${new Date().toISOString().split('T')[0]}.pdf`;
 
     const opt = {
@@ -305,6 +308,7 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
     } catch (err) {
       console.error("Booking Schedule Export Error:", err);
     } finally {
+      element.classList.remove('exporting');
       setIsExportingSchedule(false);
     }
   };
@@ -354,6 +358,18 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
       </div>
 
       <div ref={dashboardDataRef} className="space-y-6">
+        {/* Hidden Export Header */}
+        <div className="hidden show-on-export bg-white p-8 border-b-2 border-slate-900 mb-6 flex flex-col items-center text-center">
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">{config.companyName}</h1>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">{config.appSubtitle}</p>
+          <div className="flex gap-4 mt-2 text-[10px] font-bold text-slate-400 uppercase">
+            <span>{config.companyCell}</span>
+            <span>|</span>
+            <span>{config.companyEmail}</span>
+          </div>
+          <h2 className="text-xl font-black mt-6 uppercase tracking-tight text-blue-600">Dashboard Financial Metrics</h2>
+        </div>
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
@@ -492,6 +508,18 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
 
       {/* Booking Schedule Table */}
       <div ref={bookingScheduleRef} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        {/* Hidden Export Header */}
+        <div className="hidden show-on-export bg-white p-8 border-b-2 border-slate-900 mb-6 flex flex-col items-center text-center">
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">{config.companyName}</h1>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">{config.appSubtitle}</p>
+          <div className="flex gap-4 mt-2 text-[10px] font-bold text-slate-400 uppercase">
+            <span>{config.companyCell}</span>
+            <span>|</span>
+            <span>{config.companyEmail}</span>
+          </div>
+          <h2 className="text-xl font-black mt-6 uppercase tracking-tight text-blue-600">Booking Schedule Report</h2>
+        </div>
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
             <h3 className="text-lg font-bold">Booking Schedule</h3>

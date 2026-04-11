@@ -5,6 +5,7 @@
   import { supabase } from '../services/supabase';
 
   interface LedgerProps {
+    config: AppConfig;
     type?: AccountType;
     onEditVoucher: (v: Voucher) => void;
     onViewVoucher?: (v: Voucher) => void;
@@ -12,7 +13,7 @@
     clearInitialAccount?: () => void;
   }
 
-  const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher, initialAccountId, clearInitialAccount }) => {
+  const Ledger: React.FC<LedgerProps> = ({ config, type, onEditVoucher, onViewVoucher, initialAccountId, clearInitialAccount }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -21,13 +22,13 @@
     const [accountList, setAccountList] = useState<Account[]>([]);
     const [allAccountsForCode, setAllAccountsForCode] = useState<Account[]>([]);
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
-    const [config, setConfig] = useState<AppConfig | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     
     const [viewCurrency, setViewCurrency] = useState<Currency>(Currency.PKR);
     const [fromDate, setFromDate] = useState<string>('');
     const [toDate, setToDate] = useState<string>('');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
     const pdfRef = useRef<HTMLDivElement>(null);
 
     const [formData, setFormData] = useState<any>({ 
@@ -50,7 +51,6 @@
     }, [type]);
 
     useEffect(() => {
-      getConfig().then(setConfig);
       getVouchers().then(setVouchers);
     }, []);
 
@@ -133,13 +133,24 @@
     };
 
     const filteredAccounts = useMemo(() => {
-      if (!searchTerm) return accountList;
-      const lowSearch = searchTerm.toLowerCase();
-      return accountList.filter(a => 
-        a.name.toLowerCase().includes(lowSearch) || 
-        a.code?.includes(searchTerm)
-      );
-    }, [accountList, searchTerm]);
+      let result = [...accountList];
+      
+      if (searchTerm) {
+        const lowSearch = searchTerm.toLowerCase();
+        result = result.filter(a => 
+          a.name.toLowerCase().includes(lowSearch) || 
+          a.code?.includes(searchTerm)
+        );
+      }
+
+      if (sortOrder === 'asc') {
+        result.sort((a, b) => a.balance - b.balance);
+      } else if (sortOrder === 'desc') {
+        result.sort((a, b) => b.balance - a.balance);
+      }
+
+      return result;
+    }, [accountList, searchTerm, sortOrder]);
 
     const listStats = useMemo(() => {
       const count = filteredAccounts.length;
@@ -342,6 +353,28 @@
                 <span className="absolute left-3.5 top-3.5 text-sm opacity-40">🔍</span>
               </div>
               
+              {/* Sorting Controls */}
+              <div className="flex bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm no-print">
+                <button 
+                  onClick={() => setSortOrder('none')}
+                  className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${sortOrder === 'none' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Default
+                </button>
+                <button 
+                  onClick={() => setSortOrder('asc')}
+                  className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${sortOrder === 'asc' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Asc ⬆️
+                </button>
+                <button 
+                  onClick={() => setSortOrder('desc')}
+                  className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${sortOrder === 'desc' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Desc ⬇️
+                </button>
+              </div>
+              
               <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
                 <div className="bg-white dark:bg-slate-900 p-2.5 px-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[90px]">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Heads</p>
@@ -381,7 +414,12 @@
                     <th className="px-8 py-6 w-32">G/L Code</th>
                     <th className="px-8 py-6">Account Designation</th>
                     <th className="px-8 py-6">Origin/Location</th>
-                    <th className="px-8 py-6 text-right">Balance Position (PKR)</th>
+                    <th className="px-8 py-6 text-right flex items-center justify-end space-x-2">
+                      <span>Balance Position (PKR)</span>
+                      <span className="text-[8px] opacity-30">
+                        {sortOrder === 'asc' ? '⬆️' : sortOrder === 'desc' ? '⬇️' : '↕️'}
+                      </span>
+                    </th>
                     <th className="px-8 py-6 text-center">Command</th>
                   </tr>
                 </thead>

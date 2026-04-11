@@ -1,6 +1,12 @@
 import React from 'react';
 
-const UserGuide: React.FC = () => {
+import { AppConfig } from '../types';
+
+interface UserGuideProps {
+  config: AppConfig;
+}
+
+const UserGuide: React.FC<UserGuideProps> = ({ config }) => {
   return (
     <div className="max-w-4xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700">
       <div className="text-center space-y-4">
@@ -8,10 +14,10 @@ const UserGuide: React.FC = () => {
           📖
         </div>
         <h1 className="text-4xl font-orbitron font-black uppercase tracking-tighter text-slate-900 dark:text-white">
-          User Guide
+          {config.companyName} Guide
         </h1>
         <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-xs">
-          Learn how to master TravelLedger Pro
+          Learn how to master {config.appSubtitle}
         </p>
       </div>
 

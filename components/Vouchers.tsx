@@ -28,11 +28,12 @@ const amountToWords = (num: number): string => {
 };
 
 interface VouchersProps {
+  config: AppConfig;
   externalIntent?: { type: 'EDIT' | 'VIEW', voucher: Voucher } | null;
   clearIntent?: () => void;
 }
 
-const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
+const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent }) => {
   const [activeType, setActiveType] = useState<VoucherType>(VoucherType.HOTEL);
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<'CREATE' | 'EDIT' | 'CLONE'>('CREATE');
@@ -44,19 +45,16 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [config, setConfig] = useState<AppConfig | null>(null);
   const [allVouchers, setAllVouchers] = useState<Voucher[]>([]);
 
   const voucherRef = useRef<HTMLDivElement>(null);
 
   const fetchVoucherData = useCallback(async () => {
-    const [accs, conf, vchs] = await Promise.all([
+    const [accs, vchs] = await Promise.all([
       getAccounts(),
-      getConfig(),
       getVouchers()
     ]);
     setAccounts(accs);
-    setConfig(conf);
     setAllVouchers(vchs);
   }, []);
 

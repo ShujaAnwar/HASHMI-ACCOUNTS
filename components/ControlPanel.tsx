@@ -5,11 +5,12 @@ import { supabase } from '../services/supabase';
 import * as XLSX from 'xlsx';
 
 interface ControlPanelProps {
+  config: AppConfig;
   onConfigUpdate?: () => void;
 }
 
-const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
-  const [config, setConfig] = useState<(AppConfig & { fontSize?: number }) | null>(null);
+const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onConfigUpdate }) => {
+  const [config, setConfig] = useState<(AppConfig & { fontSize?: number }) | null>(initialConfig);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [saveStatus, setSaveStatus] = useState('');
@@ -26,18 +27,20 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
 
   useEffect(() => {
     const load = async () => {
-      const [conf, accs, vchs] = await Promise.all([
-        getConfig(),
+      const [accs, vchs] = await Promise.all([
         getAccounts(),
         getVouchers()
       ]);
-      setConfig(conf);
       setAccounts(accs);
       setVouchers(vchs);
       setLoading(false);
     };
     load();
   }, []);
+
+  useEffect(() => {
+    setConfig(initialConfig);
+  }, [initialConfig]);
 
   const integrityStats = useMemo(() => {
     const totalDr = accounts.reduce((s, a) => s + (a.balance > 0 ? a.balance : 0), 0);

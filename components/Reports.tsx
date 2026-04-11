@@ -3,13 +3,14 @@ import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
 
 interface ReportsProps {
+  config: AppConfig;
   onViewVoucher?: (v: Voucher) => void;
   onEditVoucher?: (v: Voucher) => void;
   initialAccountId?: string | null;
   clearInitialAccount?: () => void;
 }
 
-const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher, initialAccountId, clearInitialAccount }) => {
+const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher, initialAccountId, clearInitialAccount }) => {
   const [activeSection, setActiveSection] = useState<'TB' | 'PL' | 'BS' | 'GL'>('TB');
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
@@ -20,7 +21,6 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher, initial
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -28,14 +28,12 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher, initial
 
   const fetchReportData = useCallback(async (isBackground = false) => {
     if (!isBackground) setLoading(true);
-    const [accs, vchs, conf] = await Promise.all([
+    const [accs, vchs] = await Promise.all([
       getAccounts(),
-      getVouchers(),
-      getConfig()
+      getVouchers()
     ]);
     setAccounts(accs);
     setVouchers(vchs);
-    setConfig(conf);
     setLoading(false);
   }, []);
 

@@ -79,25 +79,25 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} />;
+        return <Dashboard config={config} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} />;
       case 'coa':
-        return <ChartOfAccounts onNavigateToLedger={handleNavigateToLedger} />;
+        return <ChartOfAccounts config={config} onNavigateToLedger={handleNavigateToLedger} />;
       case 'ledger':
-        return <Ledger onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Ledger config={config} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'customers':
-        return <Ledger type={AccountType.CUSTOMER} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Ledger config={config} type={AccountType.CUSTOMER} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'vendors':
-        return <Ledger type={AccountType.VENDOR} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Ledger config={config} type={AccountType.VENDOR} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'vouchers':
-        return <Vouchers externalIntent={intent} clearIntent={() => setIntent(null)} />;
+        return <Vouchers config={config} externalIntent={intent} clearIntent={() => setIntent(null)} />;
       case 'reports':
-        return <Reports onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Reports config={config} onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'control':
-        return <ControlPanel onConfigUpdate={refreshConfig} />;
+        return <ControlPanel config={config} onConfigUpdate={refreshConfig} />;
       case 'help':
-        return <UserGuide />;
+        return <UserGuide config={config} />;
       default:
-        return <Dashboard />;
+        return <Dashboard config={config} />;
     }
   };
 
