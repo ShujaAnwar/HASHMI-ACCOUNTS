@@ -5,9 +5,11 @@ import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from 
 interface ReportsProps {
   onViewVoucher?: (v: Voucher) => void;
   onEditVoucher?: (v: Voucher) => void;
+  initialAccountId?: string | null;
+  clearInitialAccount?: () => void;
 }
 
-const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
+const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher, initialAccountId, clearInitialAccount }) => {
   const [activeSection, setActiveSection] = useState<'TB' | 'PL' | 'BS' | 'GL'>('TB');
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
@@ -48,6 +50,14 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
     }, 5000);
     return () => clearInterval(interval);
   }, [fetchReportData]);
+
+  useEffect(() => {
+    if (initialAccountId) {
+      setActiveSection('GL');
+      setSelectedLedgerId(initialAccountId);
+      clearInitialAccount?.();
+    }
+  }, [initialAccountId, clearInitialAccount]);
 
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
@@ -441,6 +451,47 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
                         {glLedgerWithAccumulated.map((entry, idx) => {
                           const voucher = vouchers.find(v => v.id === entry.voucherId);
                           const isOpening = (entry as any).isOpening;
+
+                          const getNarrative = () => {
+                            if (!voucher || !voucher.details) return entry.description || '-';
+                            
+                            if (voucher.type === VoucherType.HOTEL) {
+                              const pax = (voucher.details.paxName || 'N/A').toUpperCase();
+                              const hotel = (voucher.details.hotelName || 'N/A').toUpperCase();
+                              const ci = voucher.details.fromDate || '-';
+                              const co = voucher.details.toDate || '-';
+                              const nights = voucher.details.numNights || '0';
+                              const mealsRaw = voucher.details.meals;
+                              const meals = Array.isArray(mealsRaw) 
+                                ? mealsRaw.join(', ') 
+                                : (mealsRaw && mealsRaw !== 'NONE' ? mealsRaw : 'N/A');
+                              
+                              return `${pax} | ${hotel} | Checkin: ${ci} | Checkout: ${co} | Nights: ${nights} | Meals: ${meals}`;
+                            }
+
+                            if (voucher.type === VoucherType.TRANSPORT) {
+                              const tPax = (voucher.details.paxName || '-').toUpperCase();
+                              const sector = (voucher.details.items?.[0]?.sector || 'N/A').toUpperCase();
+                              const vehicle = (voucher.details.items?.[0]?.vehicle || 'N/A').toUpperCase();
+                              return `${tPax} | ${sector} | ${vehicle}`;
+                            }
+
+                            if (voucher.type === VoucherType.VISA) {
+                              const head = (voucher.details.headName || 'N/A').toUpperCase();
+                              return `${head} | VISA PROCESSING | ${voucher.currency} ${voucher.details.unitRate}`;
+                            }
+
+                            if (voucher.type === VoucherType.TICKET) {
+                              const pax = (voucher.details.paxName || 'N/A').toUpperCase();
+                              const airline = (voucher.details.airline || 'N/A').toUpperCase();
+                              const sector = (voucher.details.sector || 'N/A').toUpperCase();
+                              const pnr = (voucher.reference || 'N/A').toUpperCase();
+                              return `${pax} | ${airline} | ${sector} | PNR: ${pnr}`;
+                            }
+                            
+                            return entry.description && entry.description !== '-' ? entry.description : (voucher.description || '-');
+                          };
+
                           return (
                             <tr key={idx} className={`hover:bg-slate-50 transition-all text-sm ${isOpening ? 'bg-slate-50/50 font-bold' : ''}`}>
                               <td className="py-4 text-slate-500">{isOpening ? '-' : new Date(entry.date).toLocaleDateString()}</td>
@@ -456,7 +507,9 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
                                   <span className="font-bold text-slate-400">{isOpening ? '-' : entry.voucherNum}</span>
                                 )}
                               </td>
-                              <td className="py-4 text-slate-700 italic max-w-xs truncate">{entry.description}</td>
+                              <td className="py-4 text-slate-700 italic max-w-xs truncate" title={getNarrative()}>
+                                {getNarrative()}
+                              </td>
                               <td className="py-4 text-right font-medium text-emerald-500">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td>
                               <td className="py-4 text-right font-medium text-rose-500">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td>
                               <td className="py-4 text-right pr-4 font-bold text-slate-800">

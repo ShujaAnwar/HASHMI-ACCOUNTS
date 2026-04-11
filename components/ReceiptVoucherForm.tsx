@@ -135,9 +135,12 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Payer (Credit Account)</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Credit Account (Paid From)</label>
                 <select required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
-                  <option value="">Select Payer...</option>
+                  <option value="">Select Account...</option>
+                  <optgroup label="Cash & Bank">
+                    {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                  </optgroup>
                   <optgroup label="Customers">
                     {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
                   </optgroup>
@@ -147,7 +150,7 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Deposit To (Debit Account)</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Debit Account (Received in)</label>
                 <select required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner" value={formData.bankId} onChange={e => setFormData({...formData, bankId: e.target.value})}>
                   <option value="">Select Account...</option>
                   <optgroup label="Cash & Bank">

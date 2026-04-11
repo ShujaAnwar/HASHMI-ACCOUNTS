@@ -73,6 +73,13 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
     setFormData({ ...formData, items: newItems });
   };
 
+  const handleCloneItem = (index: number) => {
+    const itemToClone = { ...formData.items[index] };
+    const newItems = [...formData.items];
+    newItems.splice(index + 1, 0, itemToClone);
+    setFormData({ ...formData, items: newItems });
+  };
+
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...formData.items];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -143,7 +150,7 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
               <input type="number" step="0.01" disabled={formData.currency === Currency.PKR} className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold text-rose-600 focus:ring-2 focus:ring-rose-500 disabled:opacity-30 outline-none transition-all" value={formData.roe} onChange={e => setFormData({...formData, roe: Number(e.target.value)})} />
             </div>
             <div>
-              <InputLabel>Fund Source (Credit)</InputLabel>
+              <InputLabel>Credit Account (Paid From)</InputLabel>
               <select required className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-rose-500 cursor-pointer outline-none transition-all" value={formData.bankId} onChange={e => setFormData({...formData, bankId: e.target.value})}>
                 <option value="">Select Cash/Bank...</option>
                 {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
@@ -154,7 +161,7 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
           {/* Itemized Expenses Table */}
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b dark:border-slate-800">
-               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expense Line Items (Debits)</h4>
+               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit Accounts (Paid To)</h4>
                <button type="button" onClick={handleAddItem} className="text-[10px] font-bold text-rose-600 hover:text-rose-500 uppercase tracking-widest">+ Add Expense Head</button>
             </div>
             <table className="w-full text-left">
@@ -198,8 +205,9 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
                     <td className="px-6 py-4">
                       <input type="number" step="0.01" className="w-full bg-transparent border-none focus:ring-0 text-right font-orbitron font-bold text-rose-600" value={item.amount} onChange={e => updateItem(idx, 'amount', Number(e.target.value))} />
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-rose-500 p-2">✕</button>
+                    <td className="px-6 py-4 text-right flex items-center justify-end space-x-1">
+                      <button type="button" onClick={() => handleCloneItem(idx)} className="text-slate-300 hover:text-indigo-500 p-2" title="Clone Line">👯</button>
+                      <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-rose-500 p-2" title="Remove Line">✕</button>
                     </td>
                   </tr>
                 ))}

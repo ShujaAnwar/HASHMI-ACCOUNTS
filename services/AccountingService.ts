@@ -217,10 +217,66 @@ export class AccountingService {
       
     } else if (voucher.type === 'PV') {
       const bankId = voucher.details?.bankId;
-      const expenseAccountId = voucher.details?.expenseId || voucher.details?.expenseAccountId || voucher.details?.items?.[0]?.accountId;
+      const items = voucher.details?.items || [];
       
-      if (expenseAccountId) entries.push({ account_id: expenseAccountId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
-      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: voucher.voucher_num });
+      // Handle multiple expense line items if they exist
+      if (items.length > 0) {
+        items.forEach((item: any) => {
+          const itemAmount = Number(item.amount) * (voucher.currency === Currency.SAR ? voucher.roe : 1);
+          const itemDesc = item.description || voucher.description;
+          
+          if (item.accountId) {
+            // Debit entry for the expense/vendor account
+            entries.push({ 
+              account_id: item.accountId, 
+              voucher_id: voucher.id, 
+              date: voucher.date, 
+              debit: itemAmount, 
+              credit: 0, 
+              description: itemDesc, 
+              voucher_num: voucher.voucher_num 
+            });
+
+            // Corresponding Credit entry for the bank/cash account (Split mode)
+            if (bankId) {
+              entries.push({ 
+                account_id: bankId, 
+                voucher_id: voucher.id, 
+                date: voucher.date, 
+                debit: 0, 
+                credit: itemAmount, 
+                description: itemDesc, 
+                voucher_num: voucher.voucher_num 
+              });
+            }
+          }
+        });
+      } else {
+        // Fallback for legacy or single-item PVs
+        const expenseAccountId = voucher.details?.expenseId || voucher.details?.expenseAccountId;
+        if (expenseAccountId) {
+          entries.push({ 
+            account_id: expenseAccountId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: amount, 
+            credit: 0, 
+            description: voucher.description, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+        if (bankId) {
+          entries.push({ 
+            account_id: bankId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: amount, 
+            description: voucher.description, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      }
     }
 
     if (entries.length > 0) {

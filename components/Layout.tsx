@@ -104,6 +104,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'coa', label: 'Chart of Accounts', icon: '📁' },
+    { id: 'ledger', label: 'General Ledger', icon: '📖' },
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'vendors', label: 'Vendors', icon: '🏢' },
     { id: 'vouchers', label: 'Vouchers', icon: '📝' },

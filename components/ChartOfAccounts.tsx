@@ -3,7 +3,11 @@ import { Account, AccountType } from '../types';
 import { getAccounts } from '../services/db';
 import { AccountingService } from '../services/AccountingService';
 
-const ChartOfAccounts: React.FC = () => {
+interface ChartOfAccountsProps {
+  onNavigateToLedger?: (accountId: string, type: AccountType) => void;
+}
+
+const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ onNavigateToLedger }) => {
   const [accountList, setAccountList] = useState<Account[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -105,11 +109,15 @@ const ChartOfAccounts: React.FC = () => {
             
             <div className="divide-y divide-slate-50 dark:divide-slate-800/50">
               {getAccountsByCategory(cat.prefix).map(acc => (
-                <div key={acc.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all flex justify-between items-center">
+                <div 
+                  key={acc.id} 
+                  onClick={() => onNavigateToLedger?.(acc.id, acc.type)}
+                  className="p-6 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all flex justify-between items-center cursor-pointer group"
+                >
                   <div className="flex items-center space-x-6">
-                    <span className="text-xs font-mono font-bold text-slate-400 w-12">{acc.code}</span>
+                    <span className="text-xs font-mono font-bold text-slate-400 w-12 group-hover:text-blue-600 transition-colors">{acc.code}</span>
                     <div>
-                      <p className="font-bold text-slate-800 dark:text-slate-200">{acc.name}</p>
+                      <p className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors">{acc.name}</p>
                       <p className="text-[10px] text-slate-400 uppercase font-medium tracking-wider">{acc.type.replace('_', ' ')}</p>
                     </div>
                   </div>

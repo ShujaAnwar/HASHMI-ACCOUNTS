@@ -19,6 +19,7 @@ const App: React.FC = () => {
   
   // Cross-tab action state
   const [intent, setIntent] = useState<{ type: 'EDIT' | 'VIEW', voucher: Voucher } | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   const refreshConfig = useCallback(async () => {
     const freshConfig = await getConfig();
@@ -63,20 +64,33 @@ const App: React.FC = () => {
     setActiveTab('vouchers');
   };
 
+  const handleNavigateToLedger = (accountId: string, type: AccountType) => {
+    setSelectedAccountId(accountId);
+    if (type === AccountType.CUSTOMER) {
+      setActiveTab('customers');
+    } else if (type === AccountType.VENDOR) {
+      setActiveTab('vendors');
+    } else {
+      setActiveTab('ledger');
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} />;
       case 'coa':
-        return <ChartOfAccounts />;
+        return <ChartOfAccounts onNavigateToLedger={handleNavigateToLedger} />;
+      case 'ledger':
+        return <Ledger onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'customers':
-        return <Ledger type={AccountType.CUSTOMER} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} />;
+        return <Ledger type={AccountType.CUSTOMER} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'vendors':
-        return <Ledger type={AccountType.VENDOR} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} />;
+        return <Ledger type={AccountType.VENDOR} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'vouchers':
         return <Vouchers externalIntent={intent} clearIntent={() => setIntent(null)} />;
       case 'reports':
-        return <Reports onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} />;
+        return <Reports onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'control':
         return <ControlPanel onConfigUpdate={refreshConfig} />;
       default:

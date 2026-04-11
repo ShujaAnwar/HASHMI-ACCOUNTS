@@ -14,7 +14,8 @@
     reference: v.reference,
     customerId: v.customer_id,
     vendorId: v.vendor_id,
-    details: v.details
+    details: v.details,
+    createdAt: v.created_at
   });
 
   const mapAccount = (a: any): Account => ({
@@ -35,7 +36,8 @@
       description: l.description,
       debit: Number(l.debit),
       credit: Number(l.credit),
-      balanceAfter: Number(l.balance_after)
+      balanceAfter: Number(l.balance_after),
+      createdAt: l.created_at
     }))
   });
 
@@ -62,7 +64,8 @@
       const { data, error } = await supabase
         .from('vouchers')
         .select('*')
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error("Error fetching vouchers:", error);

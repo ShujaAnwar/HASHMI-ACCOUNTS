@@ -23,6 +23,7 @@ export interface LedgerEntry {
   balanceAfter: number;
   currency?: Currency;
   roe?: number;
+  createdAt?: string;
 }
 
 export interface Account {
@@ -65,6 +66,7 @@ export interface Voucher {
   customerId?: string;
   vendorId?: string;
   details?: any;
+  createdAt?: string;
 }
 
 export interface AppConfig {

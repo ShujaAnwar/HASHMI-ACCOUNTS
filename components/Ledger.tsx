@@ -5,12 +5,14 @@
   import { supabase } from '../services/supabase';
 
   interface LedgerProps {
-    type: AccountType;
+    type?: AccountType;
     onEditVoucher: (v: Voucher) => void;
     onViewVoucher?: (v: Voucher) => void;
+    initialAccountId?: string | null;
+    clearInitialAccount?: () => void;
   }
 
-  const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher }) => {
+  const Ledger: React.FC<LedgerProps> = ({ type, onEditVoucher, onViewVoucher, initialAccountId, clearInitialAccount }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -31,13 +33,14 @@
     const [formData, setFormData] = useState<any>({ 
       name: '', cell: '', location: '', code: '', openingBalance: 0, 
       balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr',
-      currency: Currency.PKR 
+      currency: Currency.PKR,
+      type: type || AccountType.CASH_BANK
     });
 
     const refreshAccountList = useCallback(async () => {
       const data = await getAccounts();
       setAllAccountsForCode(data);
-      const filtered = data.filter(a => a.type === type);
+      const filtered = type ? data.filter(a => a.type === type) : data;
       setAccountList(filtered);
       
       setSelectedAccount(prev => {
@@ -57,6 +60,16 @@
       refreshAccountList();
     }, [type, refreshAccountList]);
 
+    useEffect(() => {
+      if (initialAccountId && accountList.length > 0) {
+        const acc = accountList.find(a => a.id === initialAccountId);
+        if (acc) {
+          setSelectedAccount(acc);
+          clearInitialAccount?.();
+        }
+      }
+    }, [initialAccountId, accountList, clearInitialAccount]);
+
     // Automatic 5-second sync (User Request)
     useEffect(() => {
       const interval = setInterval(() => {
@@ -66,7 +79,8 @@
       return () => clearInterval(interval);
     }, [refreshAccountList]);
 
-    const generateNextCode = useCallback((targetType: AccountType) => {
+    const generateNextCode = useCallback((targetType?: AccountType) => {
+      if (!targetType) return '';
       const prefix = targetType === AccountType.CUSTOMER ? '11' : '21';
       const existing = allAccountsForCode.filter(a => a.code?.startsWith(prefix));
       if (existing.length === 0) return `${prefix}01`;
@@ -157,6 +171,26 @@
         
         return `${pax} | ${hotel} | Checkin: ${ci} | Checkout: ${co} | Nights: ${nights} | Meals: ${meals}`;
       }
+
+      if (voucher.type === VoucherType.TRANSPORT) {
+        const tPax = (voucher.details.paxName || '-').toUpperCase();
+        const sector = (voucher.details.items?.[0]?.sector || 'N/A').toUpperCase();
+        const vehicle = (voucher.details.items?.[0]?.vehicle || 'N/A').toUpperCase();
+        return `${tPax} | ${sector} | ${vehicle}`;
+      }
+
+      if (voucher.type === VoucherType.VISA) {
+        const head = (voucher.details.headName || 'N/A').toUpperCase();
+        return `${head} | VISA PROCESSING | ${voucher.currency} ${voucher.details.unitRate}`;
+      }
+
+      if (voucher.type === VoucherType.TICKET) {
+        const pax = (voucher.details.paxName || 'N/A').toUpperCase();
+        const airline = (voucher.details.airline || 'N/A').toUpperCase();
+        const sector = (voucher.details.sector || 'N/A').toUpperCase();
+        const pnr = (voucher.reference || 'N/A').toUpperCase();
+        return `${pax} | ${airline} | ${sector} | PNR: ${pnr}`;
+      }
       
       return entry.description && entry.description !== '-' ? entry.description : (voucher.description || '-');
     };
@@ -173,6 +207,11 @@
         const isObB = b.description?.includes('Opening Balance');
         if (isObA && !isObB) return -1;
         if (!isObA && isObB) return 1;
+        
+        // Use createdAt as secondary sort key for same-day transactions
+        if (a.createdAt && b.createdAt) {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
         
         // Stable tie-breaker
         return (a.id || '').localeCompare(b.id || '');
@@ -251,7 +290,16 @@
         if (formMode === 'EDIT' && accountToEdit) {
           await AccountingService.updateAccount(accountToEdit.id, formData);
         } else {
-          await AccountingService.createAccount(formData.name, type, formData.cell, formData.location, formData.openingBalance, formData.balanceType === 'dr', formData.code, formData.currency);
+          await AccountingService.createAccount(
+            formData.name, 
+            type || formData.type, 
+            formData.cell, 
+            formData.location, 
+            formData.openingBalance, 
+            formData.balanceType === 'dr', 
+            formData.code, 
+            formData.currency
+          );
         }
         setShowAddModal(false);
         await refreshAccountList();
@@ -286,7 +334,7 @@
               <div className="relative flex-1 max-w-sm w-full">
                 <input 
                   type="text" 
-                  placeholder={`Search ${type.toLowerCase()}s...`} 
+                  placeholder={`Search ${type ? type.toLowerCase() + 's' : 'all accounts'}...`} 
                   className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 pl-10 outline-none shadow-sm text-sm focus:ring-2 focus:ring-blue-500/20 transition-all" 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
@@ -309,12 +357,19 @@
                 <button 
                     onClick={() => { 
                       setFormMode('CREATE'); 
-                      setFormData({ name: '', cell: '', location: '', code: generateNextCode(type), openingBalance: 0, balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr', currency: Currency.PKR });
+                      setFormData({ 
+                        name: '', cell: '', location: '', 
+                        code: type ? generateNextCode(type) : '', 
+                        openingBalance: 0, 
+                        balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr', 
+                        currency: Currency.PKR,
+                        type: type || AccountType.CASH_BANK
+                      });
                       setShowAddModal(true); 
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 whitespace-nowrap"
                   >
-                    + Create {type === AccountType.CUSTOMER ? 'Customer' : 'Vendor'} Head
+                    + Create {type ? (type === AccountType.CUSTOMER ? 'Customer' : 'Vendor') : 'Account'} Head
                   </button>
               </div>
             </div>
@@ -463,10 +518,10 @@
 
                 <div className="w-full mb-4 border-t border-slate-100 pt-4 flex flex-col items-center text-center">
                   <h2 className="text-[18px] font-black uppercase text-[#0f172a] tracking-tight mb-0.5">
-                    {type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER'} LEDGER STATEMENT
+                    {type ? (type === AccountType.VENDOR ? 'VENDOR' : 'CUSTOMER') : 'GENERAL'} LEDGER STATEMENT
                   </h2>
                   <p className="text-[12px] font-black text-slate-700 tracking-tight leading-none uppercase">
-                    PARTY: {selectedAccount.name} ({selectedAccount.code || 'N/A'})
+                    ACCOUNT: {selectedAccount.name} ({selectedAccount.code || 'N/A'})
                   </p>
                   <p className="text-[7px] text-slate-300 font-bold uppercase tracking-[0.2em] mt-1">
                     PERIOD: {fromDate ? new Date(fromDate).toLocaleDateString('en-GB') : 'START'} TO {toDate ? new Date(toDate).toLocaleDateString('en-GB') : 'END'}
@@ -632,6 +687,18 @@
                 {formMode === 'EDIT' ? 'Update' : 'Register'} Account Head
               </h3>
               <form onSubmit={handleFormSubmit} className="space-y-4">
+                {!type && formMode === 'CREATE' && (
+                  <div>
+                    <label className="text-[7px] font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Account Type</label>
+                    <select 
+                      className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 font-bold outline-none text-[10px]"
+                      value={formData.type}
+                      onChange={e => setFormData({...formData, type: e.target.value as AccountType})}
+                    >
+                      {Object.values(AccountType).map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-1">
                     <label className="text-[7px] font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Code</label>
