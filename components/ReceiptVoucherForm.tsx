@@ -36,7 +36,14 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
   });
 
   const customerAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CUSTOMER), [accounts]);
+  const vendorAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.VENDOR), [accounts]);
   const cashBankAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CASH_BANK), [accounts]);
+
+  const depositToAccounts = useMemo(() => [
+    ...cashBankAccounts,
+    ...customerAccounts,
+    ...vendorAccounts
+  ], [cashBankAccounts, customerAccounts, vendorAccounts]);
 
   useEffect(() => {
     if (config && !initialData && cashBankAccounts.length > 0) {
@@ -131,14 +138,27 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Payer (Credit Account)</label>
                 <select required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
                   <option value="">Select Payer...</option>
-                  {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                  <optgroup label="Customers">
+                    {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                  </optgroup>
+                  <optgroup label="Vendors">
+                    {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                  </optgroup>
                 </select>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Deposit To (Debit Account)</label>
                 <select required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner" value={formData.bankId} onChange={e => setFormData({...formData, bankId: e.target.value})}>
-                  <option value="">Select Cash/Bank Account...</option>
-                  {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                  <option value="">Select Account...</option>
+                  <optgroup label="Cash & Bank">
+                    {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                  </optgroup>
+                  <optgroup label="Customers">
+                    {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                  </optgroup>
+                  <optgroup label="Vendors">
+                    {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                  </optgroup>
                 </select>
               </div>
             </div>

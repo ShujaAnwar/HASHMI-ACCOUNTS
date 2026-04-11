@@ -24,6 +24,8 @@
     const [isExporting, setIsExporting] = useState(false);
     
     const [viewCurrency, setViewCurrency] = useState<Currency>(Currency.PKR);
+    const [fromDate, setFromDate] = useState<string>('');
+    const [toDate, setToDate] = useState<string>('');
     const pdfRef = useRef<HTMLDivElement>(null);
 
     const [formData, setFormData] = useState<any>({ 
@@ -175,15 +177,39 @@
         // Stable tie-breaker
         return (a.id || '').localeCompare(b.id || '');
       });
+
       let running = 0;
-      return sortedLedger.map(entry => {
-        // Use database balance_after if available, otherwise calculate on the fly
-        // We prefer database value because it's the "source of truth" for the accumulated balance
-        const dbBalanceAfter = (entry as any).balance_after;
+      const fullLedger = sortedLedger.map(entry => {
         running += (entry.debit - entry.credit);
-        return { ...entry, balanceAfter: dbBalanceAfter !== undefined && dbBalanceAfter !== null ? Number(dbBalanceAfter) : running };
+        return { ...entry, balanceAfter: running };
       });
-    }, [selectedAccount]);
+
+      if (!fromDate && !toDate) return fullLedger;
+
+      const start = fromDate ? new Date(fromDate).getTime() : 0;
+      const end = toDate ? new Date(toDate).getTime() : Infinity;
+
+      const preEntries = fullLedger.filter(e => new Date(e.date).getTime() < start);
+      const periodEntries = fullLedger.filter(e => {
+        const t = new Date(e.date).getTime();
+        return t >= start && t <= end;
+      });
+
+      if (preEntries.length === 0) return periodEntries;
+
+      const lastPreEntry = preEntries[preEntries.length - 1];
+      const openingBalanceRow = {
+        id: 'period-opening',
+        date: fromDate,
+        description: 'Balance Brought Forward',
+        debit: lastPreEntry.balanceAfter > 0 ? lastPreEntry.balanceAfter : 0,
+        credit: lastPreEntry.balanceAfter < 0 ? Math.abs(lastPreEntry.balanceAfter) : 0,
+        balanceAfter: lastPreEntry.balanceAfter,
+        isOpening: true
+      };
+
+      return [openingBalanceRow, ...periodEntries];
+    }, [selectedAccount, fromDate, toDate]);
 
     const handleDownloadPDF = async () => {
       if (!pdfRef.current || !selectedAccount) return;
@@ -200,7 +226,6 @@
           scale: 2, 
           useCORS: true, 
           logging: false,
-          letterRendering: true,
           backgroundColor: '#ffffff',
           width: 1122, 
         },
@@ -249,8 +274,8 @@
 
     if (!config) return null;
 
-    const totalVisibleDebit = ledgerWithRunningBalance.reduce((sum, entry) => sum + entry.debit, 0);
-    const totalVisibleCredit = ledgerWithRunningBalance.reduce((sum, entry) => sum + entry.credit, 0);
+    const totalVisibleDebit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening).reduce((sum, entry) => sum + entry.debit, 0);
+    const totalVisibleCredit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening).reduce((sum, entry) => sum + entry.credit, 0);
     const totalTransactions = ledgerWithRunningBalance.filter(e => e.voucherId).length;
 
     return (
@@ -367,6 +392,37 @@
                 </div>
               </div>
               <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border dark:border-slate-700 shadow-inner">
+                  <div className="flex flex-col px-1">
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">From Date</span>
+                    <input 
+                      type="date" 
+                      className="bg-transparent border-none text-[10px] font-bold outline-none text-slate-700 dark:text-slate-200 p-0 h-5 w-24"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                  <div className="flex flex-col px-1">
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">To Date</span>
+                    <input 
+                      type="date" 
+                      className="bg-transparent border-none text-[10px] font-bold outline-none text-slate-700 dark:text-slate-200 p-0 h-5 w-24"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                    />
+                  </div>
+                  {(fromDate || toDate) && (
+                    <button 
+                      onClick={() => { setFromDate(''); setToDate(''); }}
+                      className="ml-1 p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all"
+                      title="Clear Filters"
+                    >
+                      <span className="text-xs">✕</span>
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg shadow-inner">
                   <button onClick={() => setViewCurrency(Currency.PKR)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${viewCurrency === Currency.PKR ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500'}`}>PKR</button>
                   <button onClick={() => setViewCurrency(Currency.SAR)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${viewCurrency === Currency.SAR ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500'}`}>SAR</button>
@@ -413,6 +469,8 @@
                     PARTY: {selectedAccount.name} ({selectedAccount.code || 'N/A'})
                   </p>
                   <p className="text-[7px] text-slate-300 font-bold uppercase tracking-[0.2em] mt-1">
+                    PERIOD: {fromDate ? new Date(fromDate).toLocaleDateString('en-GB') : 'START'} TO {toDate ? new Date(toDate).toLocaleDateString('en-GB') : 'END'}
+                    <span className="mx-4">|</span>
                     PRINT DATE: {new Date().toLocaleDateString('en-GB')} {new Date().toLocaleTimeString()}
                   </p>
                 </div>
@@ -438,15 +496,15 @@
                           const voucher = vouchers.find(v => v.id === entry.voucherId);
                           const displayVNum = voucher?.voucherNum || entry.voucherNum || '-';
                           const displayDescription = getNarrativeForLedger(entry, voucher);
-                          const displayType = voucher?.type || (entry.description?.includes('Opening') ? 'OP' : '-');
+                          const displayType = voucher?.type || ((entry.description?.includes('Opening') || (entry as any).isOpening) ? 'OP' : '-');
                           
                           const itemRoe = voucher?.roe || currentROE;
                           const isSar = voucher?.currency === Currency.SAR;
 
                           return (
-                            <tr key={i} className="border-b border-slate-50" style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}>
+                            <tr key={i} className={`border-b border-slate-50 ${(entry as any).isOpening ? 'bg-slate-50/50' : ''}`} style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB')}
+                                {(entry as any).isOpening ? '-' : (entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB'))}
                               </td>
                               <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                                 {voucher ? (
@@ -476,7 +534,7 @@
                               <td className="px-1 py-2 text-center uppercase font-bold text-slate-400 text-[9px]">
                                 {displayType}
                               </td>
-                              <td className="px-3 py-2 uppercase leading-snug font-bold text-slate-800 text-[10px]" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                              <td className="px-3 py-3 uppercase leading-normal font-bold text-slate-800 text-[10px]" style={{ whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                                 {displayDescription}
                               </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">

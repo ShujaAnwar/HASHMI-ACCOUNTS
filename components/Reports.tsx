@@ -67,7 +67,7 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
         useCORS: true, 
         backgroundColor: '#ffffff',
         logging: false,
-        letterRendering: true
+        letterRendering: false
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
@@ -95,8 +95,14 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
   const trialBalance = useMemo(() => {
     let totalDr = 0;
     let totalCr = 0;
+    
+    const end = new Date(toDate).getTime() + 86400000;
+
     const items = accounts.map(acc => {
-      const balance = acc.balance;
+      // Calculate balance as of toDate
+      const periodLedger = acc.ledger.filter(e => new Date(e.date).getTime() <= end);
+      const balance = periodLedger.reduce((sum, e) => sum + (e.debit - e.credit), 0);
+      
       const dr = balance > 0 ? balance : 0;
       const cr = balance < 0 ? Math.abs(balance) : 0;
       totalDr += dr;
@@ -107,7 +113,7 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
     const diff = Math.abs(totalDr - totalCr);
     
     return { items, totalDr, totalCr, diff };
-  }, [accounts]);
+  }, [accounts, toDate]);
 
   const profitLoss = useMemo(() => {
     const income = filteredVouchers
@@ -169,19 +175,54 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
     if (!selectedAccount) return [];
     
     // Sort chronologically
-    const sortedEntries = [...selectedAccount.ledger].sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    const sortedEntries = [...selectedAccount.ledger].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      
+      const isObA = a.description?.includes('Opening Balance');
+      const isObB = b.description?.includes('Opening Balance');
+      if (isObA && !isObB) return -1;
+      if (!isObA && isObB) return 1;
+      
+      return (a.id || '').localeCompare(b.id || '');
+    });
 
     let runningTotal = 0;
-    return sortedEntries.map(entry => {
+    const fullLedger = sortedEntries.map(entry => {
       runningTotal += (entry.debit - entry.credit);
       return {
         ...entry,
         accumulatedBalance: runningTotal
       };
     });
-  }, [selectedAccount]);
+
+    if (!fromDate && !toDate) return fullLedger;
+
+    const start = new Date(fromDate).getTime();
+    const end = new Date(toDate).getTime() + 86400000;
+
+    const preEntries = fullLedger.filter(e => new Date(e.date).getTime() < start);
+    const periodEntries = fullLedger.filter(e => {
+      const t = new Date(e.date).getTime();
+      return t >= start && t <= end;
+    });
+
+    if (preEntries.length === 0) return periodEntries;
+
+    const lastPreEntry = preEntries[preEntries.length - 1];
+    const openingBalanceRow = {
+      id: 'period-opening',
+      date: fromDate,
+      description: 'Balance Brought Forward',
+      debit: lastPreEntry.accumulatedBalance > 0 ? lastPreEntry.accumulatedBalance : 0,
+      credit: lastPreEntry.accumulatedBalance < 0 ? Math.abs(lastPreEntry.accumulatedBalance) : 0,
+      accumulatedBalance: lastPreEntry.accumulatedBalance,
+      isOpening: true
+    };
+
+    return [openingBalanceRow, ...periodEntries];
+  }, [selectedAccount, fromDate, toDate]);
 
   const navigateToLedger = (id: string) => {
     setSelectedLedgerId(id);
@@ -399,9 +440,10 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
                       <tbody className="divide-y divide-slate-100">
                         {glLedgerWithAccumulated.map((entry, idx) => {
                           const voucher = vouchers.find(v => v.id === entry.voucherId);
+                          const isOpening = (entry as any).isOpening;
                           return (
-                            <tr key={idx} className="hover:bg-slate-50 transition-all text-sm">
-                              <td className="py-4 text-slate-500">{new Date(entry.date).toLocaleDateString()}</td>
+                            <tr key={idx} className={`hover:bg-slate-50 transition-all text-sm ${isOpening ? 'bg-slate-50/50 font-bold' : ''}`}>
+                              <td className="py-4 text-slate-500">{isOpening ? '-' : new Date(entry.date).toLocaleDateString()}</td>
                               <td className="py-4">
                                 {voucher ? (
                                   <button 
@@ -411,7 +453,7 @@ const Reports: React.FC<ReportsProps> = ({ onViewVoucher, onEditVoucher }) => {
                                     {entry.voucherNum}
                                   </button>
                                 ) : (
-                                  <span className="font-bold text-slate-400">{entry.voucherNum}</span>
+                                  <span className="font-bold text-slate-400">{isOpening ? '-' : entry.voucherNum}</span>
                                 )}
                               </td>
                               <td className="py-4 text-slate-700 italic max-w-xs truncate">{entry.description}</td>

@@ -33,10 +33,10 @@
         COALESCE(SUM(CASE WHEN type = 'CASH_BANK' THEN balance ELSE 0 END), 0) as total_cash_bank
     FROM public.accounts;
 
-    -- 6. CRITICAL: Account Balance Sync System
+    -- 6. Efficient Account Balance Sync System
     -- This ensures the 'balance' column in 'accounts' and 'balance_after' in 'ledger_entries' stay in sync.
     
-    -- First, drop ALL existing triggers to ensure a clean state and avoid doubling
+    -- First, drop ALL existing triggers to ensure a clean state
     DO $$ 
     DECLARE 
         r RECORD;
@@ -47,6 +47,7 @@
     END $$;
 
     -- 7. RECALCULATE ALL BALANCES (The Source of Truth)
+    -- Added SECURITY DEFINER to ensure it runs with full permissions
     CREATE OR REPLACE FUNCTION public.recalculate_all_balances()
     RETURNS void AS $$
     BEGIN
@@ -67,28 +68,49 @@
         ) sub
         WHERE le.id = sub.id;
     END;
-    $$ LANGUAGE plpgsql;
+    $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-    -- 8. STATEMENT-LEVEL TRIGGER
-    -- This fires ONCE per SQL command, ensuring balances are synced exactly once.
-    -- This prevents doubling issues caused by row-level triggers firing multiple times.
-    CREATE OR REPLACE FUNCTION public.sync_balances_stmt_fn()
+    -- 8. ROW-LEVEL SYNC TRIGGER
+    -- This is more reliable for knowing which account to update.
+    -- Added SECURITY DEFINER to fix permission issues.
+    CREATE OR REPLACE FUNCTION public.sync_account_balances_fn()
     RETURNS TRIGGER AS $$
+    DECLARE
+        target_account_id UUID;
     BEGIN
-        -- CRITICAL: Prevent infinite recursion
-        -- When recalculate_all_balances() updates ledger_entries, it would trigger this again.
+        -- Prevent infinite recursion
         IF pg_trigger_depth() > 1 THEN
             RETURN NULL;
         END IF;
 
-        PERFORM public.recalculate_all_balances();
+        target_account_id := COALESCE(NEW.account_id, OLD.account_id);
+
+        -- 1. Update the specific account's head balance
+        UPDATE public.accounts
+        SET balance = (
+            SELECT COALESCE(SUM(debit - credit), 0)
+            FROM public.ledger_entries
+            WHERE account_id = target_account_id
+        )
+        WHERE id = target_account_id;
+
+        -- 2. Update running balances for ONLY this account
+        UPDATE public.ledger_entries le
+        SET balance_after = sub.running_bal
+        FROM (
+            SELECT id, SUM(debit - credit) OVER (ORDER BY date ASC, id ASC) as running_bal
+            FROM public.ledger_entries
+            WHERE account_id = target_account_id
+        ) sub
+        WHERE le.id = sub.id AND le.account_id = target_account_id;
+
         RETURN NULL;
     END;
-    $$ LANGUAGE plpgsql;
+    $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-    CREATE TRIGGER trg_sync_balances_stmt
+    CREATE TRIGGER trg_sync_account_balances
     AFTER INSERT OR UPDATE OR DELETE ON public.ledger_entries
-    FOR EACH STATEMENT EXECUTE FUNCTION public.sync_balances_stmt_fn();
+    FOR EACH ROW EXECUTE FUNCTION public.sync_account_balances_fn();
 
     -- Run it once to fix current data
     SELECT public.recalculate_all_balances();
