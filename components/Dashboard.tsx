@@ -3,6 +3,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell, Legend, Label
 } from 'recharts';
+import { formatCurrency } from '../utils/format';
 import { getVouchers, getAccounts } from '../services/db';
 import { supabase } from '../services/supabase';
 import { VoucherType, AccountType, Voucher, Account, AppConfig } from '../types';
@@ -40,7 +41,12 @@ const useAnimatedNumber = (targetValue: number, duration: number = 1000) => {
   return displayValue;
 };
 
-const Dashboard: React.FC<{ config: AppConfig; onEditVoucher?: (v: Voucher) => void; onViewVoucher?: (v: Voucher) => void }> = ({ config, onEditVoucher, onViewVoucher }) => {
+const Dashboard: React.FC<{ 
+  config: AppConfig; 
+  onEditVoucher?: (v: Voucher) => void; 
+  onViewVoucher?: (v: Voucher) => void;
+  onNavigate?: (tab: string) => void;
+}> = ({ config, onEditVoucher, onViewVoucher, onNavigate }) => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -373,18 +379,23 @@ const Dashboard: React.FC<{ config: AppConfig; onEditVoucher?: (v: Voucher) => v
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Total Receivables', value: animReceivables, icon: '↗️', color: 'text-blue-600' },
-            { label: 'Total Payables', value: animPayables, icon: '↘️', color: 'text-rose-500' },
-            { label: 'Total Revenue', value: animIncome, icon: '💰', color: 'text-emerald-500' },
-            { label: 'Cash/Bank', value: animCash, icon: '🏦', color: 'text-blue-500' }
+            { label: 'Total Receivables', value: animReceivables, icon: '↗️', color: 'text-blue-600', tab: 'customers' },
+            { label: 'Total Payables', value: animPayables, icon: '↘️', color: 'text-rose-500', tab: 'vendors' },
+            { label: 'Total Revenue', value: animIncome, icon: '💰', color: 'text-emerald-500', tab: 'reports' },
+            { label: 'Cash/Bank', value: animCash, icon: '🏦', color: 'text-blue-500', tab: 'ledger' }
           ].map((card, i) => (
-            <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group">
+            <div 
+              key={i} 
+              onClick={() => onNavigate?.(card.tab)}
+              className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group cursor-pointer"
+            >
               <div className="flex justify-between items-start mb-4">
                 <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
+                <span className="text-[10px] font-black text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">View Details →</span>
               </div>
               <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{card.label}</h3>
               <p className={`text-2xl font-orbitron font-bold mt-1 tracking-tighter uppercase ${card.color}`}>
-                PKR {Math.floor(card.value).toLocaleString()}
+                PKR {formatCurrency(Math.floor(card.value))}
               </p>
             </div>
           ))}
@@ -498,7 +509,7 @@ const Dashboard: React.FC<{ config: AppConfig; onEditVoucher?: (v: Voucher) => v
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{item.name}</p>
                   </div>
-                  <p className="text-xs font-black uppercase truncate">PKR {Math.floor(item.value).toLocaleString()}</p>
+                  <p className="text-xs font-black uppercase truncate">PKR {formatCurrency(Math.floor(item.value))}</p>
                 </div>
               ))}
             </div>
@@ -607,7 +618,7 @@ const Dashboard: React.FC<{ config: AppConfig; onEditVoucher?: (v: Voucher) => v
                     </td>
                     <td className="px-4 py-4 text-right">
                       <p className="text-[11px] font-orbitron font-black text-slate-900 dark:text-white">
-                        {booking.totalAmountPKR.toLocaleString()}
+                        {formatCurrency(booking.totalAmountPKR)}
                       </p>
                     </td>
                   </tr>

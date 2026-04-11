@@ -1,5 +1,6 @@
   import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
   import { Account, AccountType, Voucher, Currency, AppConfig, VoucherType } from '../types';
+  import { formatCurrency } from '../utils/format';
   import { AccountingService } from '../services/AccountingService';
   import { getAccounts, getVouchers, getConfig } from '../services/db';
   import { supabase } from '../services/supabase';
@@ -383,7 +384,7 @@
                 <div className="bg-white dark:bg-slate-900 p-2.5 px-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[160px]">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aggregated Exposure</p>
                     <p className="text-lg font-orbitron font-bold text-slate-800 dark:text-white leading-none mt-1">
-                      {Math.abs(listStats.totalBalance).toLocaleString()}
+                      {formatCurrency(listStats.totalBalance)}
                       <span className="text-[10px] font-sans ml-1.5 opacity-50 uppercase font-black">{listStats.totalBalance >= 0 ? 'Dr' : 'Cr'}</span>
                     </p>
                 </div>
@@ -438,7 +439,7 @@
                       <td className="px-8 py-7 text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-none tracking-wide">{acc.location || '-'}</td>
                       <td className="px-8 py-7 text-right">
                         <p className="font-orbitron font-black text-lg text-slate-900 dark:text-white tracking-tighter">
-                          {Math.abs(acc.balance).toLocaleString()}
+                          {formatCurrency(acc.balance)}
                           <span className="text-[11px] font-sans ml-2 opacity-40 uppercase font-black">{acc.balance >= 0 ? 'Dr' : 'Cr'}</span>
                         </p>
                       </td>
@@ -545,7 +546,7 @@
               >
                 <div className="w-full mb-4 flex flex-col items-center text-center">
                   <h1 className="text-[32px] font-black tracking-tighter uppercase leading-none text-[#0f172a] mb-1">
-                    {config.companyName || 'HASHMI BOOKS'}
+                    {config.companyName}
                   </h1>
                   <div className="flex items-center justify-center text-[8px] font-bold text-slate-400 tracking-[0.2em] uppercase w-full">
                     <span>CONTACT: {config.companyCell}</span>
@@ -646,7 +647,7 @@
                                 {entry.credit > 0 ? getConvertedVal(entry.credit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
                               </td>
                               <td className="px-2 py-2 text-right font-black text-slate-900">
-                                {Math.abs(getConvertedVal(entry.balanceAfter)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                {formatCurrency(getConvertedVal(entry.balanceAfter))}
                                 <span className="ml-0.5 text-[8px] opacity-40 uppercase">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
                               </td>
                             </tr>
@@ -663,7 +664,7 @@
                             {getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-2 py-4 text-right bg-slate-50 border-t-2 border-slate-900">
-                            {Math.abs(getConvertedVal(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            {formatCurrency(getConvertedVal(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance))}
                             <span className="ml-1 text-[8px] opacity-50">
                               {(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance) >= 0 ? 'DR' : 'CR'}
                             </span>
@@ -705,7 +706,7 @@
                       <div className="flex items-baseline justify-center space-x-3">
                         <p className="text-4xl font-black text-[#0f172a] leading-none tracking-tighter uppercase">
                           {viewCurrency === Currency.PKR ? 'Rs. ' : 'SAR '}
-                          {Math.abs(getConvertedVal(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          {formatCurrency(getConvertedVal(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance))}
                         </p>
                         <span className="font-black uppercase text-lg text-slate-300 leading-none">
                           {(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance) >= 0 ? 'DR' : 'CR'}

@@ -555,7 +555,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
              {config?.companyLogo ? (
                <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" className="object-contain" />
              ) : (
-               <div className="font-black text-2xl tracking-tighter text-[#0f172a]">NEEM TREE</div>
+               <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{config?.companyName || 'ENTERPRISE'}</div>
              )}
           </div>
           <div className="text-center flex-1">

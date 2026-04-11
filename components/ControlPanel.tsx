@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { getConfig, saveConfig, exportFullDatabase, importFullDatabase, getAccounts, getVouchers } from '../services/db';
+import { formatCurrency } from '../utils/format';
 import { AppConfig, Account, Voucher } from '../types';
 import { supabase } from '../services/supabase';
 import * as XLSX from 'xlsx';
@@ -547,14 +548,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                   <div className={`p-6 rounded-3xl border ${Math.abs(integrityStats.diff) < 0.01 ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100' : 'bg-rose-50 dark:bg-rose-900/10 border-rose-100'}`}>
                     <p className="text-[9px] font-black text-slate-400 uppercase mb-2">System Discrepancy</p>
                     <p className={`text-xl font-orbitron font-bold ${Math.abs(integrityStats.diff) < 0.01 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {integrityStats.diff.toLocaleString()}
+                      {formatCurrency(integrityStats.diff)}
                     </p>
                   </div>
                 </div>
 
                 {Math.abs(integrityStats.diff) > 0.01 && (
                   <div className="bg-rose-100/50 dark:bg-rose-900/20 p-6 rounded-3xl border border-rose-200 text-sm font-bold text-rose-700 dark:text-rose-400">
-                     ALERT: Your Trial Balance is broken by PKR {Math.abs(integrityStats.diff).toLocaleString()}. 
+                     ALERT: Your Trial Balance is broken by PKR {formatCurrency(integrityStats.diff)}. 
                      Please check Account 3001 (Reserve) to see if an Opening Balance entry is missing its counterpart.
                   </div>
                 )}

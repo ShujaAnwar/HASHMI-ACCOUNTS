@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { formatCurrency } from '../utils/format';
 import { Account, AccountType } from '../types';
 import { getAccounts } from '../services/db';
 import { AccountingService } from '../services/AccountingService';
@@ -123,7 +124,7 @@ const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ onNavigateToLedger })
                   </div>
                   <div className="text-right">
                     <p className={`font-orbitron font-bold ${acc.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {Math.abs(acc.balance).toLocaleString()} 
+                      {formatCurrency(acc.balance)} 
                       <span className="text-[10px] ml-1 opacity-50 font-sans">{acc.balance >= 0 ? 'DR' : 'CR'}</span>
                     </p>
                   </div>

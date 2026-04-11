@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { formatCurrency } from '../utils/format';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
 
@@ -335,7 +336,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
                       <tr className="bg-rose-50 animate-pulse">
                         <td colSpan={4} className="py-4 text-center">
                            <p className="text-rose-600 font-black uppercase text-[10px] tracking-[0.3em]">
-                             ⚠️ Ledger Out of Balance! Current Discrepancy: PKR {trialBalance.diff.toLocaleString()}
+                             ⚠️ Ledger Out of Balance! Current Discrepancy: PKR {formatCurrency(trialBalance.diff)}
                            </p>
                            <p className="text-[9px] text-rose-400 font-bold mt-1">Check Opening Balances (A/C 3001) or multi-currency vouchers.</p>
                         </td>
@@ -356,7 +357,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
                   return (<div key={inc.type} className="flex justify-between items-center px-4 hover:bg-slate-50 py-2 rounded-xl transition-all"><span className="text-slate-600 font-medium text-sm">{inc.label}</span><span className="font-orbitron font-bold text-slate-800">{val.toLocaleString()}</span></div>);
                 })}<div className="flex justify-between items-center p-5 bg-emerald-50 rounded-2xl border border-emerald-100"><span className="font-bold text-emerald-700 uppercase text-xs tracking-widest">Gross Post Income</span><span className="font-orbitron font-bold text-2xl text-emerald-600">{profitLoss.income.toLocaleString()}</span></div></div></div>
                 <div><h4 className="text-rose-500 font-bold uppercase tracking-[0.2em] mb-4 border-b border-rose-100 pb-2 text-[10px]">Operating Costs</h4><div className="space-y-4"><div className="flex justify-between items-center px-4 hover:bg-slate-50 py-2 rounded-xl transition-all"><span className="text-slate-600 font-medium text-sm">General Ledger Expenses</span><span className="font-orbitron font-bold text-slate-800">{profitLoss.expenses.toLocaleString()}</span></div><div className="flex justify-between items-center p-5 bg-rose-50 rounded-2xl border border-rose-100"><span className="font-bold text-rose-700 uppercase text-xs tracking-widest">Total Operating Outflow</span><span className="font-orbitron font-bold text-2xl text-rose-600">{profitLoss.expenses.toLocaleString()}</span></div></div></div>
-                <div className="bg-slate-900 text-white p-10 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center border border-white/5"><div><h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">IFRS Period Result</h5><p className="text-4xl font-orbitron font-bold uppercase tracking-tighter">Net Profit / (Loss)</p></div><div className="text-right mt-6 md:mt-0"><p className={`text-5xl font-orbitron font-bold ${profitLoss.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{profitLoss.netProfit.toLocaleString()}</p></div></div>
+                <div className="bg-slate-900 text-white p-10 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center border border-white/5"><div><h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">IFRS Period Result</h5><p className="text-4xl font-orbitron font-bold uppercase tracking-tighter">Net Profit / (Loss)</p></div><div className="text-right mt-6 md:mt-0"><p className={`text-5xl font-orbitron font-bold ${profitLoss.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatCurrency(profitLoss.netProfit)}</p></div></div>
               </div>
             </div>
           )}
@@ -376,7 +377,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
                       ))}
                       <div className="flex justify-between pt-6 border-t-2 border-slate-900">
                         <span className="text-xl font-bold uppercase font-orbitron">Total Assets</span>
-                        <span className="text-3xl font-orbitron font-bold text-blue-600">{balanceSheet.totalAssets.toLocaleString()}</span>
+                        <span className="text-3xl font-orbitron font-bold text-blue-600">{formatCurrency(balanceSheet.totalAssets)}</span>
                       </div>
                     </div>
                 </div>
@@ -405,12 +406,12 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
                         ))}
                         <div className="flex justify-between items-center border-b pb-3 hover:bg-slate-50 px-2 rounded transition-all bg-emerald-50/50">
                           <span className="text-emerald-700 font-bold text-sm italic">Current Period Earnings (Net Profit)</span>
-                          <span className="font-orbitron font-bold text-emerald-600">{balanceSheet.netProfit.toLocaleString()}</span>
+                          <span className="font-orbitron font-bold text-emerald-600">{formatCurrency(balanceSheet.netProfit)}</span>
                         </div>
                         
                         <div className="flex justify-between pt-6 border-t-2 border-slate-900">
                           <span className="text-xl font-bold uppercase font-orbitron">Total L&E</span>
-                          <span className="text-3xl font-orbitron font-bold text-slate-900">{(balanceSheet.totalLE).toLocaleString()}</span>
+                          <span className="text-3xl font-orbitron font-bold text-slate-900">{formatCurrency(balanceSheet.totalLE)}</span>
                         </div>
                       </div>
                     </div>
@@ -422,7 +423,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
                 <p className="font-bold text-xs uppercase tracking-widest text-slate-500">
                   {Math.abs(balanceSheet.totalAssets - balanceSheet.totalLE) < 0.01 
                     ? 'System Balance Verified (IFRS Compliant)' 
-                    : `Discrepancy Detected: PKR ${Math.abs(balanceSheet.totalAssets - balanceSheet.totalLE).toLocaleString()}`}
+                    : `Discrepancy Detected: PKR ${formatCurrency(balanceSheet.totalAssets - balanceSheet.totalLE)}`}
                 </p>
               </div>
             </div>
@@ -442,7 +443,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
                 <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-slate-50 p-8 rounded-[2rem] flex flex-col md:flex-row justify-between items-center border border-slate-100 gap-4">
                       <div className="text-center md:text-left"><p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Audit Profile</p><h5 className="text-2xl font-bold font-orbitron uppercase tracking-tighter text-slate-900">{selectedAccount.name}</h5>{selectedAccount.code && <p className="text-xs font-mono text-slate-400 mt-1 font-bold">Standard COA Code: {selectedAccount.code}</p>}</div>
-                      <div className="text-center md:text-right"><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Ledger Closing Balance</p><p className={`text-4xl font-orbitron font-bold ${selectedAccount.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.abs(selectedAccount.balance).toLocaleString()} <span className="text-sm font-sans font-bold bg-slate-200 px-2 py-0.5 rounded ml-2 text-slate-700">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span></p></div>
+                      <div className="text-center md:text-right"><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Ledger Closing Balance</p><p className={`text-4xl font-orbitron font-bold ${selectedAccount.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{formatCurrency(selectedAccount.balance)} <span className="text-sm font-sans font-bold bg-slate-200 px-2 py-0.5 rounded ml-2 text-slate-700">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span></p></div>
                     </div>
                     <div className="overflow-x-auto"><table className="w-full"><thead className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><tr><th className="py-4 text-left">Post Date</th><th className="py-4 text-left">Voucher #</th><th className="py-4 text-left">Narrative</th><th className="py-4 text-right">Debit</th><th className="py-4 text-right">Credit</th><th className="py-4 text-right pr-4">Accumulated Balance</th></tr></thead>
                       <tbody className="divide-y divide-slate-100">
@@ -511,7 +512,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
                               <td className="py-4 text-right font-medium text-emerald-500">{entry.debit > 0 ? entry.debit.toLocaleString() : '-'}</td>
                               <td className="py-4 text-right font-medium text-rose-500">{entry.credit > 0 ? entry.credit.toLocaleString() : '-'}</td>
                               <td className="py-4 text-right pr-4 font-bold text-slate-800">
-                                {Math.abs(entry.accumulatedBalance).toLocaleString()} 
+                                {formatCurrency(entry.accumulatedBalance)} 
                                 <span className="text-[10px] opacity-60 font-sans ml-1">
                                   {entry.accumulatedBalance >= 0 ? 'Dr' : 'Cr'}
                                 </span>
