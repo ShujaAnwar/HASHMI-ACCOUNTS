@@ -109,6 +109,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
     { id: 'vendors', label: 'Vendors', icon: '🏢' },
     { id: 'vouchers', label: 'Vouchers', icon: '📝' },
     { id: 'reports', label: 'Reports', icon: '📈' },
+    { id: 'help', label: 'Help / Guide', icon: '📖' },
     ...(isAdminUnlocked ? [{ id: 'control', label: 'Control Panel', icon: '⚙️' }] : []),
   ];
 

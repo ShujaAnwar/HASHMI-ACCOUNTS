@@ -205,7 +205,9 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           </div>
           <div className="text-right">
             <div className="border-2 border-slate-900 px-8 py-3 text-center min-w-[220px] rounded-sm shadow-sm">
-              <p className="font-bold text-[13px] uppercase tracking-wide">INVOICE : {invoiceNum}</p>
+              <p className="font-bold text-[13px] uppercase tracking-wide">
+                {v.type === VoucherType.RECEIPT ? 'RECEIPT VOUCHER' : v.type === VoucherType.PAYMENT ? 'PAYMENT VOUCHER' : 'INVOICE'} : {invoiceNum}
+              </p>
               <p className="font-bold text-[13px] mt-1">(PKR) = {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             </div>
           </div>
@@ -222,16 +224,24 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
             <thead className="bg-[#0b7ea1] text-white">
               <tr>
                 <th className="py-2 px-3 border-r border-slate-400 font-bold uppercase text-[11px]">Account Name:</th>
-                <th className="py-2 px-3 border-r border-slate-400 font-bold uppercase text-[11px]">Hotel Invoice Date #</th>
-                <th className="py-2 px-3 border-r border-slate-400 font-bold uppercase text-[11px]">Option Date</th>
-                <th className="py-2 px-3 font-bold uppercase text-[11px]">Confirmation #</th>
+                <th className="py-2 px-3 border-r border-slate-400 font-bold uppercase text-[11px]">
+                  {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 'Voucher Date' : 'Hotel Invoice Date #'}
+                </th>
+                <th className="py-2 px-3 border-r border-slate-400 font-bold uppercase text-[11px]">
+                  {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 'Currency' : 'Option Date'}
+                </th>
+                <th className="py-2 px-3 font-bold uppercase text-[11px]">
+                  {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 'Reference / PNR' : 'Confirmation #'}
+                </th>
               </tr>
             </thead>
             <tbody className="text-[12px] font-bold">
               <tr>
                 <td className="py-4 px-3 border-r border-slate-300 uppercase">{customer?.name || 'N/A'}</td>
                 <td className="py-4 px-3 border-r border-slate-300">{new Date(v.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                <td className="py-4 px-3 border-r border-slate-300">30, Nov -0001</td>
+                <td className="py-4 px-3 border-r border-slate-300 uppercase">
+                  {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? v.currency : '30, Nov -0001'}
+                </td>
                 <td className="py-4 px-3 uppercase">
                   {v.reference || 'N/A'}
                   {v.details?.bookingRef && (
@@ -248,36 +258,92 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
         <div className="mb-8 border border-slate-300">
           <table className="w-full text-center border-collapse text-[10px]">
             <thead className="bg-[#0b7ea1] text-white">
-              <tr>
-                <th className="py-2 border-r border-slate-400 font-bold uppercase">Pax Name</th>
-                <th className="py-2 border-r border-slate-400 font-bold uppercase">Hotel</th>
-                <th className="py-2 border-r border-slate-400 font-bold uppercase">Room Type #</th>
-                <th className="py-2 border-r border-slate-400 font-bold uppercase">Meal</th>
-                <th className="py-2 border-r border-slate-400 font-bold uppercase">Destination</th>
-                <th className="py-2 border-r border-slate-400 font-bold uppercase">Checkin Checkout</th>
-                <th className="py-2 font-bold uppercase">Amount(PKR)</th>
-              </tr>
+              {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? (
+                <tr>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Date</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Description / Narration</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">
+                    {v.type === VoucherType.RECEIPT ? 'Paid From (Account)' : 'Paid From (Source)'}
+                  </th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">
+                    {v.type === VoucherType.RECEIPT ? 'Received In (Bank/Cash)' : 'Paid To (Expense/Vendor)'}
+                  </th>
+                  <th className="py-2 font-bold uppercase">Amount(PKR)</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Pax Name</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Hotel</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Room Type #</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Meal</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Destination</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Checkin Checkout</th>
+                  <th className="py-2 font-bold uppercase">Amount(PKR)</th>
+                </tr>
+              )}
             </thead>
             <tbody className="text-[11px] font-bold">
-              <tr>
-                <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.paxName || v.details?.headName || 'N/A'}</td>
-                <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.hotelName || v.details?.airline || 'N/A'}</td>
-                <td className="py-6 px-2 border-r border-slate-300 uppercase">
-                  {v.details?.roomType || 'N/A'}
-                  <div className="text-[9px] opacity-60 mt-1 font-bold">
-                    {v.details?.adults || 0} ADT / {v.details?.children || 0} CHD
-                  </div>
-                </td>
-                <td className="py-6 px-2 border-r border-slate-300 uppercase">{formatMeals(v.details?.meals)}</td>
-                <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.city}, {v.details?.country}</td>
-                <td className="py-6 px-2 border-r border-slate-300 leading-normal">
-                  {v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}<br/>
-                  {v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
-                </td>
-                <td className="py-6 px-2 font-black">{v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
+              {v.type === VoucherType.RECEIPT ? (
+                <tr>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase">
+                    {new Date(v.date).toLocaleDateString('en-GB')}
+                  </td>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase text-left">
+                    {v.description || 'N/A'}
+                  </td>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase">
+                    {accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}
+                  </td>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase">
+                    {accounts.find(a => a.id === v.details?.bankId)?.name || 'N/A'}
+                  </td>
+                  <td className="py-6 px-2 font-black">
+                    {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ) : v.type === VoucherType.PAYMENT && v.details?.items?.length > 0 ? (
+                v.details.items.map((item: any, i: number) => (
+                  <tr key={i} className={i > 0 ? 'border-t border-slate-200' : ''}>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase">
+                      {new Date(v.date).toLocaleDateString('en-GB')}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
+                      {item.description || v.description}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase">
+                      {accounts.find(a => a.id === v.details?.bankId)?.name || 'N/A'}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase">
+                      {accounts.find(a => a.id === item.accountId)?.name || 'N/A'}
+                    </td>
+                    <td className="py-4 px-2 font-black">
+                      {(Number(item.amount) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.paxName || v.details?.headName || accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}</td>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.hotelName || v.details?.airline || v.description || 'N/A'}</td>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase">
+                    {v.details?.roomType || 'N/A'}
+                    {v.details?.adults !== undefined && (
+                      <div className="text-[9px] opacity-60 mt-1 font-bold">
+                        {v.details?.adults || 0} ADT / {v.details?.children || 0} CHD
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase">{formatMeals(v.details?.meals)}</td>
+                  <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.city || '-'}, {v.details?.country || '-'}</td>
+                  <td className="py-6 px-2 border-r border-slate-300 leading-normal">
+                    {v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}<br/>
+                    {v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                  </td>
+                  <td className="py-6 px-2 font-black">{v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                </tr>
+              )}
               <tr className="bg-slate-50 border-t border-slate-300 font-bold">
-                <td colSpan={6} className="py-4 text-right px-8 uppercase text-xs">Total:</td>
+                <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 4 : 6} className="py-4 text-right px-8 uppercase text-xs">Total:</td>
                 <td className="py-4 px-2">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
@@ -617,6 +683,12 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
 
   const renderInspectorContent = () => {
     if (!viewingVoucher) return null;
+    
+    // For Receipt and Payment Vouchers, always show the financial view
+    if (viewingVoucher.type === VoucherType.RECEIPT || viewingVoucher.type === VoucherType.PAYMENT) {
+      return renderOfficialInvoice(viewingVoucher);
+    }
+
     switch (inspectorView) {
       case 'OFFICIAL': return renderOfficialInvoice(viewingVoucher);
       case 'PKR': return renderConfirmationLetter(viewingVoucher);
@@ -743,7 +815,7 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden print:shadow-none print:rounded-none">
             <div className="no-print p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                <div className="flex space-x-2">
-                  {[
+                  {!(viewingVoucher.type === VoucherType.RECEIPT || viewingVoucher.type === VoucherType.PAYMENT) && [
                     { id: 'SERVICE', label: 'Booking Voucher', icon: '🏨' },
                     { id: 'OFFICIAL', label: 'Official Invoice', icon: '📄' },
                     { id: 'PKR', label: 'Confirmation', icon: '✅' },
@@ -753,6 +825,11 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
                       <span>{tab.icon}</span> <span>{tab.label}</span>
                     </button>
                   ))}
+                  {(viewingVoucher.type === VoucherType.RECEIPT || viewingVoucher.type === VoucherType.PAYMENT) && (
+                    <div className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center space-x-2">
+                      <span>📄</span> <span>Financial Voucher</span>
+                    </div>
+                  )}
                </div>
                <div className="flex items-center space-x-3">
                   <button 

@@ -7,6 +7,7 @@ import Reports from './components/Reports';
 import ControlPanel from './components/ControlPanel';
 import ChartOfAccounts from './components/ChartOfAccounts';
 import LoginForm from './components/LoginForm';
+import UserGuide from './components/UserGuide';
 import { AccountType, AppConfig, Voucher } from './types';
 import { getConfig } from './services/db';
 import { supabase } from './services/supabase';
@@ -93,6 +94,8 @@ const App: React.FC = () => {
         return <Reports onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'control':
         return <ControlPanel onConfigUpdate={refreshConfig} />;
+      case 'help':
+        return <UserGuide />;
       default:
         return <Dashboard />;
     }

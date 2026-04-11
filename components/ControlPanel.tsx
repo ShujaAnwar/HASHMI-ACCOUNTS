@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { getConfig, saveConfig, exportFullDatabase, importFullDatabase, getAccounts, getVouchers } from '../services/db';
 import { AppConfig, Account, Voucher } from '../types';
 import { supabase } from '../services/supabase';
+import * as XLSX from 'xlsx';
 
 interface ControlPanelProps {
   onConfigUpdate?: () => void;
@@ -102,7 +103,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
     reader.readAsDataURL(file);
   };
 
-  const handleBackup = async () => {
+  const handleBackupJSON = async () => {
     const data = await exportFullDatabase();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -110,19 +111,149 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
     a.href = url;
     a.download = `TLP_Backup_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
-    triggerNotification(`Database exported.`);
+    triggerNotification(`Database exported as JSON.`);
   };
 
-  const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBackupExcel = async () => {
+    const data = await exportFullDatabase();
+    const workbook = XLSX.utils.book_new();
+
+    // Accounts Sheet
+    const accountsData = data.accounts.map(a => ({
+      ID: a.id,
+      Code: a.code,
+      Name: a.name,
+      Type: a.type,
+      Cell: a.cell,
+      Location: a.location,
+      Currency: a.currency,
+      Balance: a.balance
+    }));
+    const accountsSheet = XLSX.utils.json_to_sheet(accountsData);
+    XLSX.utils.book_append_sheet(workbook, accountsSheet, "Accounts");
+
+    // Vouchers Sheet
+    const vouchersData = data.vouchers.map(v => ({
+      ID: v.id,
+      Type: v.type,
+      VoucherNum: v.voucherNum,
+      Date: v.date,
+      Currency: v.currency,
+      ROE: v.roe,
+      TotalAmountPKR: v.totalAmountPKR,
+      Description: v.description,
+      Status: v.status,
+      Reference: v.reference,
+      CustomerID: v.customerId,
+      VendorID: v.vendorId,
+      Details: JSON.stringify(v.details),
+      CreatedAt: v.createdAt
+    }));
+    const vouchersSheet = XLSX.utils.json_to_sheet(vouchersData);
+    XLSX.utils.book_append_sheet(workbook, vouchersSheet, "Vouchers");
+
+    // Ledger Entries Sheet
+    const ledgerEntries: any[] = [];
+    data.accounts.forEach(a => {
+      if (a.ledger) {
+        a.ledger.forEach(l => {
+          ledgerEntries.push({
+            AccountID: a.id,
+            AccountName: a.name,
+            Date: l.date,
+            VoucherID: l.voucherId,
+            VoucherNum: l.voucherNum,
+            Description: l.description,
+            Debit: l.debit,
+            Credit: l.credit,
+            BalanceAfter: l.balanceAfter,
+            CreatedAt: l.createdAt
+          });
+        });
+      }
+    });
+    const ledgerSheet = XLSX.utils.json_to_sheet(ledgerEntries);
+    XLSX.utils.book_append_sheet(workbook, ledgerSheet, "LedgerEntries");
+
+    // Config Sheet
+    const configSheet = XLSX.utils.json_to_sheet([data.config]);
+    XLSX.utils.book_append_sheet(workbook, configSheet, "Config");
+
+    XLSX.writeFile(workbook, `TLP_Backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+    triggerNotification(`Database exported as Excel.`);
+  };
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
     setSaveStatus('Reading backup file...');
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const content = event.target?.result as string;
-        const data = JSON.parse(content);
+        let data: any;
+
+        if (fileExt === 'json') {
+          const content = event.target?.result as string;
+          data = JSON.parse(content);
+        } else if (fileExt === 'xlsx') {
+          const arrayBuffer = event.target?.result as ArrayBuffer;
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          
+          // Parse Sheets
+          const accountsSheet = workbook.Sheets["Accounts"];
+          const vouchersSheet = workbook.Sheets["Vouchers"];
+          const ledgerSheet = workbook.Sheets["LedgerEntries"];
+          const configSheet = workbook.Sheets["Config"];
+
+          if (!accountsSheet || !vouchersSheet || !configSheet) {
+            throw new Error("Invalid Excel backup: Missing required sheets (Accounts, Vouchers, Config).");
+          }
+
+          const rawAccounts = XLSX.utils.sheet_to_json(accountsSheet);
+          const rawVouchers = XLSX.utils.sheet_to_json(vouchersSheet);
+          const rawLedger = ledgerSheet ? XLSX.utils.sheet_to_json(ledgerSheet) : [];
+          const rawConfig = XLSX.utils.sheet_to_json(configSheet)[0] as any;
+
+          // Reconstruct data structure
+          data = {
+            config: rawConfig,
+            vouchers: rawVouchers.map((v: any) => ({
+              ...v,
+              details: v.Details ? JSON.parse(v.Details) : {}
+            })),
+            accounts: rawAccounts.map((a: any) => {
+              const accountLedger = rawLedger
+                .filter((l: any) => l.AccountID === a.ID)
+                .map((l: any) => ({
+                  date: l.Date,
+                  voucherId: l.VoucherID,
+                  voucherNum: l.VoucherNum,
+                  description: l.Description,
+                  debit: Number(l.Debit),
+                  credit: Number(l.Credit),
+                  balanceAfter: Number(l.BalanceAfter),
+                  createdAt: l.CreatedAt
+                }));
+              return {
+                ...a,
+                id: a.ID,
+                code: a.Code,
+                name: a.Name,
+                type: a.Type,
+                cell: a.Cell,
+                location: a.Location,
+                currency: a.Currency,
+                balance: Number(a.Balance),
+                ledger: accountLedger
+              };
+            })
+          };
+        } else {
+          throw new Error("Unsupported file format. Please use .json or .xlsx");
+        }
         
         if (!data.accounts || !data.vouchers || !data.config) {
           throw new Error("Invalid backup file: Missing required data structures.");
@@ -146,7 +277,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
         }
       }
     };
-    reader.readAsText(file);
+
+    if (fileExt === 'json') {
+      reader.readAsText(file);
+    } else {
+      reader.readAsArrayBuffer(file);
+    }
   };
 
   if (loading || !config) {
@@ -343,32 +479,44 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ onConfigUpdate }) => {
 
         {activeTab === 'disaster' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-slate-900 text-white rounded-[2.5rem] p-12 shadow-2xl flex flex-col justify-between min-h-[300px] border border-white/5">
+            <div className="bg-slate-900 text-white rounded-[2.5rem] p-12 shadow-2xl flex flex-col justify-between min-h-[400px] border border-white/5">
               <div>
                 <h3 className="text-3xl font-orbitron font-bold mb-2 tracking-tighter uppercase">Export Vault</h3>
                 <p className="text-slate-400 text-xs mb-8">Download a secure local backup of all accounts and vouchers.</p>
               </div>
-              <button 
-                type="button" 
-                onClick={handleBackup} 
-                className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all"
-              >
-                Download Full Backup
-              </button>
+              <div className="space-y-4">
+                <button 
+                  type="button" 
+                  onClick={handleBackupJSON} 
+                  className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center space-x-3"
+                >
+                  <span>📄</span> <span>Download JSON Backup</span>
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleBackupExcel} 
+                  className="w-full py-5 bg-emerald-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center space-x-3"
+                >
+                  <span>📊</span> <span>Download Excel Backup</span>
+                </button>
+              </div>
             </div>
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-12 shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[300px]">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-12 shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[400px]">
               <div>
                 <h3 className="text-3xl font-orbitron font-bold mb-2 tracking-tighter uppercase dark:text-white">Restoration</h3>
-                <p className="text-slate-400 text-xs mb-8">Upload a JSON backup file to overwrite current cloud state.</p>
+                <p className="text-slate-400 text-xs mb-8">Upload a JSON or Excel backup file to overwrite current cloud state.</p>
               </div>
-              <button 
-                type="button" 
-                onClick={() => restoreInputRef.current?.click()} 
-                className="w-full py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-600/20 uppercase text-xs tracking-[0.2em] transition-all"
-              >
-                Upload JSON Backup
-              </button>
-              <input type="file" hidden ref={restoreInputRef} accept=".json" onChange={handleRestore} />
+              <div className="space-y-4">
+                <button 
+                  type="button" 
+                  onClick={() => restoreInputRef.current?.click()} 
+                  className="w-full py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-600/20 uppercase text-xs tracking-[0.2em] transition-all flex items-center justify-center space-x-3"
+                >
+                  <span>📤</span> <span>Upload & Restore Backup</span>
+                </button>
+                <p className="text-[10px] text-slate-400 font-bold uppercase text-center">Supports .json and .xlsx formats</p>
+              </div>
+              <input type="file" hidden ref={restoreInputRef} accept=".json,.xlsx" onChange={handleRestore} />
             </div>
           </div>
         )}
