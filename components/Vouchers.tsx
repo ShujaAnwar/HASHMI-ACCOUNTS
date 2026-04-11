@@ -685,9 +685,37 @@ const Vouchers: React.FC<VouchersProps> = ({ externalIntent, clearIntent }) => {
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
-                      {accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}
-                    </p>
+                    <div className="space-y-1">
+                      {v.type === VoucherType.RECEIPT ? (
+                        <>
+                          <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
+                            <span className="text-[8px] text-slate-400 mr-1">FROM:</span>
+                            {accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}
+                          </p>
+                          <p className="font-bold text-[10px] uppercase text-blue-600 dark:text-blue-400">
+                            <span className="text-[8px] text-slate-400 mr-1">IN:</span>
+                            {accounts.find(a => a.id === v.details?.bankId)?.name || 'N/A'}
+                          </p>
+                        </>
+                      ) : v.type === VoucherType.PAYMENT ? (
+                        <>
+                          <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
+                            <span className="text-[8px] text-slate-400 mr-1">FROM:</span>
+                            {accounts.find(a => a.id === v.details?.bankId)?.name || 'N/A'}
+                          </p>
+                          <p className="font-bold text-[10px] uppercase text-rose-600 dark:text-rose-400">
+                            <span className="text-[8px] text-slate-400 mr-1">TO:</span>
+                            {v.details?.items?.length > 1 
+                              ? `${v.details.items.length} ACCOUNTS` 
+                              : (accounts.find(a => a.id === v.details?.items?.[0]?.accountId)?.name || 'N/A')}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
+                          {accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}
+                        </p>
+                      )}
+                    </div>
                   </td>
                   <td className="px-8 py-6 max-w-xs truncate">
                     <p className="text-[11px] font-medium text-slate-500 italic" title={getDetailedNarrative(v)}>{getDetailedNarrative(v)}</p>
