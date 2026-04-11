@@ -46,8 +46,10 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingSchedule, setIsExportingSchedule] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const dashboardRef = useRef<HTMLDivElement>(null);
+  const dashboardDataRef = useRef<HTMLDivElement>(null);
+  const bookingScheduleRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState({
     today: true,
     tomorrow: true,
@@ -246,11 +248,11 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
   }, [vouchers, accounts, filters]);
 
   const handleExportPDF = async () => {
-    if (!dashboardRef.current) return;
+    if (!dashboardDataRef.current) return;
     setIsExporting(true);
     
-    const element = dashboardRef.current;
-    const fileName = `Dashboard_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+    const element = dashboardDataRef.current;
+    const fileName = `Dashboard_Metrics_${new Date().toISOString().split('T')[0]}.pdf`;
 
     const opt = {
       margin: [10, 10, 10, 10],
@@ -261,7 +263,7 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
         useCORS: true, 
         logging: false,
         letterRendering: true,
-        backgroundColor: '#f8fafc' // slate-50 background for PDF
+        backgroundColor: '#f8fafc'
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
@@ -276,6 +278,37 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
     }
   };
 
+  const handleExportBookingSchedulePDF = async () => {
+    if (!bookingScheduleRef.current) return;
+    setIsExportingSchedule(true);
+    
+    const element = bookingScheduleRef.current;
+    const fileName = `Booking_Schedule_${new Date().toISOString().split('T')[0]}.pdf`;
+
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        letterRendering: true,
+        backgroundColor: '#ffffff'
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    try {
+      // @ts-ignore
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("Booking Schedule Export Error:", err);
+    } finally {
+      setIsExportingSchedule(false);
+    }
+  };
+
   if (loading) return (
     <div className="flex flex-col justify-center items-center h-96 space-y-4">
       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -284,7 +317,7 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
   );
 
   return (
-    <div ref={dashboardRef} className="space-y-6 p-1">
+    <div className="space-y-6 p-1">
       {/* Dashboard Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
         <div>
@@ -296,14 +329,22 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
             {isRefreshing && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>}
           </div>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button 
             onClick={handleExportPDF}
             disabled={isExporting}
             className="no-print flex items-center space-x-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-900/10"
           >
             <span>{isExporting ? '⏳' : '📥'}</span>
-            <span>{isExporting ? 'Exporting...' : 'Export PDF Report'}</span>
+            <span>{isExporting ? 'Exporting...' : 'Export Dashboard'}</span>
+          </button>
+          <button 
+            onClick={handleExportBookingSchedulePDF}
+            disabled={isExportingSchedule}
+            className="no-print flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/10"
+          >
+            <span>{isExportingSchedule ? '⏳' : '📅'}</span>
+            <span>{isExportingSchedule ? 'Exporting...' : 'Export Booking Schedule PDF'}</span>
           </button>
           <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30">
             <div className={`w-2 h-2 rounded-full bg-emerald-500 animate-blink shadow-[0_0_8px_rgba(16,185,129,0.5)]`}></div>
@@ -312,143 +353,145 @@ const Dashboard: React.FC<{ onEditVoucher?: (v: Voucher) => void; onViewVoucher?
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Receivables', value: animReceivables, icon: '↗️', color: 'text-blue-600' },
-          { label: 'Total Payables', value: animPayables, icon: '↘️', color: 'text-rose-500' },
-          { label: 'Total Revenue', value: animIncome, icon: '💰', color: 'text-emerald-500' },
-          { label: 'Cash/Bank', value: animCash, icon: '🏦', color: 'text-blue-500' }
-        ].map((card, i) => (
-          <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group">
-            <div className="flex justify-between items-start mb-4">
-              <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
+      <div ref={dashboardDataRef} className="space-y-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Receivables', value: animReceivables, icon: '↗️', color: 'text-blue-600' },
+            { label: 'Total Payables', value: animPayables, icon: '↘️', color: 'text-rose-500' },
+            { label: 'Total Revenue', value: animIncome, icon: '💰', color: 'text-emerald-500' },
+            { label: 'Cash/Bank', value: animCash, icon: '🏦', color: 'text-blue-500' }
+          ].map((card, i) => (
+            <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group">
+              <div className="flex justify-between items-start mb-4">
+                <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
+              </div>
+              <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{card.label}</h3>
+              <p className={`text-2xl font-orbitron font-bold mt-1 tracking-tighter uppercase ${card.color}`}>
+                PKR {Math.floor(card.value).toLocaleString()}
+              </p>
             </div>
-            <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{card.label}</h3>
-            <p className={`text-2xl font-orbitron font-bold mt-1 tracking-tighter uppercase ${card.color}`}>
-              PKR {Math.floor(card.value).toLocaleString()}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Income Trends Chart */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold">Consolidated Trends</h3>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue vs Exposure</span>
-          </div>
-          <div className="h-72 w-full min-h-[300px] min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={lineData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
-                  tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [`PKR ${value.toLocaleString()}`]}
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} 
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '10px' }} />
-                
-                <Line 
-                  name="Revenue" 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#3B82F6" 
-                  strokeWidth={4} 
-                  dot={{ r: 4, fill: '#3B82F6', strokeWidth: 0 }} 
-                  activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} 
-                />
-                <Line 
-                  name="Receivables" 
-                  type="monotone" 
-                  dataKey="receivables" 
-                  stroke="#10B981" 
-                  strokeWidth={2} 
-                  strokeDasharray="5 5"
-                  dot={{ r: 3, fill: '#10B981', strokeWidth: 0 }} 
-                />
-                <Line 
-                  name="Payables" 
-                  type="monotone" 
-                  dataKey="payables" 
-                  stroke="#F43F5E" 
-                  strokeWidth={2} 
-                  strokeDasharray="3 3"
-                  dot={{ r: 3, fill: '#F43F5E', strokeWidth: 0 }} 
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          ))}
         </div>
 
-        {/* Exposure Breakdown Chart */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center min-w-0">
-          <div className="w-full flex justify-between items-center mb-2 px-2">
-            <h3 className="text-lg font-bold">Exposure Donut</h3>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liability Ratio</span>
-          </div>
-          <div className="flex-1 w-full h-72 min-h-[300px] relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie 
-                  data={pieData} 
-                  innerRadius={70} 
-                  outerRadius={95} 
-                  paddingAngle={8} 
-                  dataKey="value"
-                  animationDuration={1500}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
-                  ))}
-                  <Label 
-                    value="Exposure" 
-                    position="center" 
-                    fill="#94a3b8" 
-                    style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }} 
-                    dy={-10}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Income Trends Chart */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold">Consolidated Trends</h3>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue vs Exposure</span>
+            </div>
+            <div className="h-72 w-full min-h-[300px] min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={lineData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
+                    dy={10}
                   />
-                  <Label 
-                    value={`${((stats.totalReceivables / (stats.totalReceivables + stats.totalPayables || 1)) * 100).toFixed(0)}% DR`} 
-                    position="center" 
-                    fill="#3B82F6" 
-                    style={{ fontSize: '16px', fontWeight: 900 }} 
-                    dy={12}
+                  <YAxis 
+                    axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
+                    tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
                   />
-                </Pie>
-                <Tooltip formatter={(value: number) => `PKR ${value.toLocaleString()}`} />
-              </PieChart>
-            </ResponsiveContainer>
+                  <Tooltip 
+                    formatter={(value: number) => [`PKR ${value.toLocaleString()}`]}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} 
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '10px' }} />
+                  
+                  <Line 
+                    name="Revenue" 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="#3B82F6" 
+                    strokeWidth={4} 
+                    dot={{ r: 4, fill: '#3B82F6', strokeWidth: 0 }} 
+                    activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} 
+                  />
+                  <Line 
+                    name="Receivables" 
+                    type="monotone" 
+                    dataKey="receivables" 
+                    stroke="#10B981" 
+                    strokeWidth={2} 
+                    strokeDasharray="5 5"
+                    dot={{ r: 3, fill: '#10B981', strokeWidth: 0 }} 
+                  />
+                  <Line 
+                    name="Payables" 
+                    type="monotone" 
+                    dataKey="payables" 
+                    stroke="#F43F5E" 
+                    strokeWidth={2} 
+                    strokeDasharray="3 3"
+                    dot={{ r: 3, fill: '#F43F5E', strokeWidth: 0 }} 
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 w-full mt-2 px-4">
-            {pieData.map((item, i) => (
-              <div key={i} className="flex flex-col items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{item.name}</p>
+
+          {/* Exposure Breakdown Chart */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center min-w-0">
+            <div className="w-full flex justify-between items-center mb-2 px-2">
+              <h3 className="text-lg font-bold">Exposure Donut</h3>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liability Ratio</span>
+            </div>
+            <div className="flex-1 w-full h-72 min-h-[300px] relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie 
+                    data={pieData} 
+                    innerRadius={70} 
+                    outerRadius={95} 
+                    paddingAngle={8} 
+                    dataKey="value"
+                    animationDuration={1500}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                    ))}
+                    <Label 
+                      value="Exposure" 
+                      position="center" 
+                      fill="#94a3b8" 
+                      style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }} 
+                      dy={-10}
+                    />
+                    <Label 
+                      value={`${((stats.totalReceivables / (stats.totalReceivables + stats.totalPayables || 1)) * 100).toFixed(0)}% DR`} 
+                      position="center" 
+                      fill="#3B82F6" 
+                      style={{ fontSize: '16px', fontWeight: 900 }} 
+                      dy={12}
+                    />
+                  </Pie>
+                  <Tooltip formatter={(value: number) => `PKR ${value.toLocaleString()}`} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-2 gap-4 w-full mt-2 px-4">
+              {pieData.map((item, i) => (
+                <div key={i} className="flex flex-col items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{item.name}</p>
+                  </div>
+                  <p className="text-xs font-black uppercase truncate">PKR {Math.floor(item.value).toLocaleString()}</p>
                 </div>
-                <p className="text-xs font-black uppercase truncate">PKR {Math.floor(item.value).toLocaleString()}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Booking Schedule Table */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div ref={bookingScheduleRef} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
             <h3 className="text-lg font-bold">Booking Schedule</h3>
