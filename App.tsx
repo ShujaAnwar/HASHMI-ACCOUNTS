@@ -8,6 +8,7 @@ import ControlPanel from './components/ControlPanel';
 import ChartOfAccounts from './components/ChartOfAccounts';
 import LoginForm from './components/LoginForm';
 import UserGuide from './components/UserGuide';
+import AutoBackupManager from './components/AutoBackupManager';
 import { AccountType, AppConfig, Voucher } from './types';
 import { getConfig } from './services/db';
 import { supabase } from './services/supabase';
@@ -116,6 +117,7 @@ const App: React.FC = () => {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} config={config} onLogout={handleLogout}>
+      <AutoBackupManager config={config} />
       <div className="animate-in fade-in duration-500">
         {renderContent()}
       </div>

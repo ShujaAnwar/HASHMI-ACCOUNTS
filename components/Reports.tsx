@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDate } from '../utils/format';
+import DateInput from './DateInput';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
 
@@ -65,7 +66,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
     const element = reportRef.current;
     const titleMap = { 'TB': 'Trial_Balance', 'PL': 'Profit_Loss', 'BS': 'Balance_Sheet', 'GL': 'General_Ledger' };
     const sectionName = titleMap[activeSection];
-    const fileName = `${sectionName}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `${sectionName}_${formatDate(new Date())}.pdf`;
     
     const opt = {
       margin: [10, 10, 10, 10],
@@ -256,7 +257,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
       <div className="text-right">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reporting Date</p>
         <p className="font-bold text-sm bg-slate-100 px-3 py-1 rounded-lg mt-1 inline-block text-slate-900">
-          As of {new Date().toLocaleDateString()}
+          As of {formatDate(new Date())}
         </p>
       </div>
     </div>
@@ -265,8 +266,8 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-20">
       <div className="no-print bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-end gap-6">
-        <div className="flex-1 min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Statement From</label><input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div>
-        <div className="flex-1 min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Statement To</label><input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div>
+        <div className="flex-1 min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Statement From (DD-MM-YYYY)</label><DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={fromDate} onChange={val => setFromDate(val)} /></div>
+        <div className="flex-1 min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Statement To (DD-MM-YYYY)</label><DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={toDate} onChange={val => setToDate(val)} /></div>
         <button 
           onClick={handleExportPDF} 
           disabled={isExporting}
@@ -493,7 +494,7 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
 
                           return (
                             <tr key={idx} className={`hover:bg-slate-50 transition-all text-sm ${isOpening ? 'bg-slate-50/50 font-bold' : ''}`}>
-                              <td className="py-4 text-slate-500">{isOpening ? '-' : new Date(entry.date).toLocaleDateString()}</td>
+                              <td className="py-4 text-slate-500">{isOpening ? '-' : formatDate(entry.date)}</td>
                               <td className="py-4">
                                 {voucher ? (
                                   <button 

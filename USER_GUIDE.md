@@ -46,7 +46,9 @@ The **Control Panel** is for administrators.
 - **Financials**: Set the default exchange rate (e.g., PKR to SAR).
 - **Security**: Create new user accounts for your staff.
 - **Disaster Recovery (Backup)**: 
-  - **Download Backup**: Save your data to your computer in **Excel** or **JSON** format. Do this daily!
+  - **Automatic Daily Backup**: Enable this in the Disaster tab to have the system automatically download a backup every day at 12:00 AM (or the first time you open the app each day).
+  - **Interval Backup**: Set a custom interval (e.g., every 6 hours) for automatic backups. The timer resets after each successful backup.
+  - **Download Backup**: Manually save your data to your computer in **Excel** or **JSON** format.
   - **Restore**: If you lose data, you can upload your backup file to get everything back.
 
 ## 8. Tips for Success

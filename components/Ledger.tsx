@@ -1,6 +1,7 @@
   import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
   import { Account, AccountType, Voucher, Currency, AppConfig, VoucherType } from '../types';
-  import { formatCurrency } from '../utils/format';
+  import { formatCurrency, formatDate } from '../utils/format';
+import DateInput from './DateInput';
   import { AccountingService } from '../services/AccountingService';
   import { getAccounts, getVouchers, getConfig } from '../services/db';
   import { supabase } from '../services/supabase';
@@ -267,7 +268,7 @@
       
       setIsExporting(true);
       const element = pdfRef.current;
-      const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${formatDate(new Date())}.pdf`;
       
       const opt = {
         margin: 0,
@@ -488,22 +489,20 @@
               <div className="flex items-center space-x-2">
                 <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border dark:border-slate-700 shadow-inner">
                   <div className="flex flex-col px-1">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">From Date</span>
-                    <input 
-                      type="date" 
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">From Date (DD-MM-YYYY)</span>
+                    <DateInput 
                       className="bg-transparent border-none text-[10px] font-bold outline-none text-slate-700 dark:text-slate-200 p-0 h-5 w-24"
                       value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
+                      onChange={val => setFromDate(val)}
                     />
                   </div>
                   <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
                   <div className="flex flex-col px-1">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">To Date</span>
-                    <input 
-                      type="date" 
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">To Date (DD-MM-YYYY)</span>
+                    <DateInput 
                       className="bg-transparent border-none text-[10px] font-bold outline-none text-slate-700 dark:text-slate-200 p-0 h-5 w-24"
                       value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
+                      onChange={val => setToDate(val)}
                     />
                   </div>
                   {(fromDate || toDate) && (
@@ -563,9 +562,9 @@
                     ACCOUNT: {selectedAccount.name} ({selectedAccount.code || 'N/A'})
                   </p>
                   <p className="text-[7px] text-slate-300 font-bold uppercase tracking-[0.2em] mt-1">
-                    PERIOD: {fromDate ? new Date(fromDate).toLocaleDateString('en-GB') : 'START'} TO {toDate ? new Date(toDate).toLocaleDateString('en-GB') : 'END'}
+                    PERIOD: {fromDate ? formatDate(fromDate) : 'START'} TO {toDate ? formatDate(toDate) : 'END'}
                     <span className="mx-4">|</span>
-                    PRINT DATE: {new Date().toLocaleDateString('en-GB')} {new Date().toLocaleTimeString()}
+                    PRINT DATE: {formatDate(new Date())} {new Date().toLocaleTimeString()}
                   </p>
                 </div>
 
@@ -598,7 +597,7 @@
                           return (
                             <tr key={i} className={`border-b border-slate-50 ${(entry as any).isOpening ? 'bg-slate-50/50' : ''}`} style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {(entry as any).isOpening ? '-' : (entry.date === '-' ? '-' : new Date(entry.date).toLocaleDateString('en-GB'))}
+                                {(entry as any).isOpening ? '-' : (entry.date === '-' ? '-' : formatDate(entry.date))}
                               </td>
                               <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                                 {voucher ? (

@@ -17,7 +17,10 @@
     ALTER TABLE public.app_config 
     ADD COLUMN IF NOT EXISTS font_size INTEGER DEFAULT 16,
     ADD COLUMN IF NOT EXISTS account_name_case TEXT DEFAULT 'Sentence Case',
-    ADD COLUMN IF NOT EXISTS banks JSONB DEFAULT '[]';
+    ADD COLUMN IF NOT EXISTS banks JSONB DEFAULT '[]',
+    ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
 
     -- 4. Ensure Ledger Entries has the voucher_num column for better tracking
     ALTER TABLE public.ledger_entries 

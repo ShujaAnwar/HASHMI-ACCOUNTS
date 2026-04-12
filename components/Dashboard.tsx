@@ -3,7 +3,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell, Legend, Label
 } from 'recharts';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDate } from '../utils/format';
+import DateInput from './DateInput';
 import { getVouchers, getAccounts } from '../services/db';
 import { supabase } from '../services/supabase';
 import { VoucherType, AccountType, Voucher, Account, AppConfig } from '../types';
@@ -60,7 +61,10 @@ const Dashboard: React.FC<{
     today: true,
     tomorrow: true,
     previous: false,
-    all: false
+    afterTomorrow: false,
+    all: false,
+    fromDate: '',
+    toDate: ''
   });
 
   // Derived Metrics Calculation (Real-time computed)
@@ -192,6 +196,9 @@ const Dashboard: React.FC<{
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    const afterTomorrow = new Date(tomorrow);
+    afterTomorrow.setDate(afterTomorrow.getDate() + 1);
+
     const isSameDay = (d1: Date, d2: Date) => {
       return d1.getFullYear() === d2.getFullYear() &&
              d1.getMonth() === d2.getMonth() &&
@@ -215,6 +222,7 @@ const Dashboard: React.FC<{
         let isToday = isSameDay(bookingDate, today);
         let isTomorrow = isSameDay(bookingDate, tomorrow);
         let isPrevious = bookingDate < today;
+        let isAfterTomorrow = bookingDate >= afterTomorrow;
 
         if (isToday) {
           statusColor = 'text-emerald-600 dark:text-emerald-400';
@@ -225,6 +233,9 @@ const Dashboard: React.FC<{
         } else if (isPrevious) {
           statusColor = 'text-rose-600 dark:text-rose-400';
           bgColor = 'bg-rose-50/50 dark:bg-rose-900/10';
+        } else if (isAfterTomorrow) {
+          statusColor = 'text-purple-600 dark:text-purple-400';
+          bgColor = 'bg-purple-50/50 dark:bg-purple-900/10';
         }
 
         return {
@@ -237,6 +248,7 @@ const Dashboard: React.FC<{
           isToday,
           isTomorrow,
           isPrevious,
+          isAfterTomorrow,
           paxName: v.details?.paxName || v.details?.headName || 'N/A',
           hotelName: v.details?.hotelName || v.details?.airline || v.details?.items?.[0]?.vehicle || 'N/A',
           roomType: v.details?.roomType || v.details?.items?.[0]?.sector || '-',
@@ -244,10 +256,18 @@ const Dashboard: React.FC<{
         };
       })
       .filter(b => {
+        if (filters.fromDate && filters.toDate) {
+          const start = new Date(filters.fromDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(filters.toDate);
+          end.setHours(23, 59, 59, 999);
+          return b.bookingDate >= start && b.bookingDate <= end;
+        }
         if (filters.all) return true;
         if (filters.today && b.isToday) return true;
         if (filters.tomorrow && b.isTomorrow) return true;
         if (filters.previous && b.isPrevious) return true;
+        if (filters.afterTomorrow && b.isAfterTomorrow) return true;
         return false;
       })
       .sort((a, b) => b.bookingDate.getTime() - a.bookingDate.getTime());
@@ -259,7 +279,7 @@ const Dashboard: React.FC<{
     
     const element = dashboardDataRef.current;
     element.classList.add('exporting');
-    const fileName = `Dashboard_Metrics_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `Dashboard_Metrics_${formatDate(new Date())}.pdf`;
 
     const opt = {
       margin: [10, 10, 10, 10],
@@ -292,7 +312,7 @@ const Dashboard: React.FC<{
     
     const element = bookingScheduleRef.current;
     element.classList.add('exporting');
-    const fileName = `Booking_Schedule_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `Booking_Schedule_${formatDate(new Date())}.pdf`;
 
     const opt = {
       margin: [10, 10, 10, 10],
@@ -540,6 +560,7 @@ const Dashboard: React.FC<{
             {[
               { id: 'today', label: 'Today', color: 'bg-emerald-500' },
               { id: 'tomorrow', label: 'Tomorrow', color: 'bg-amber-500' },
+              { id: 'afterTomorrow', label: 'After Tomorrow', color: 'bg-purple-500' },
               { id: 'previous', label: 'Previous', color: 'bg-rose-500' },
               { id: 'all', label: 'All Bookings', color: 'bg-blue-500' }
             ].map(f => (
@@ -547,7 +568,7 @@ const Dashboard: React.FC<{
                 <div className="relative flex items-center">
                   <input 
                     type="checkbox" 
-                    checked={filters[f.id as keyof typeof filters]}
+                    checked={filters[f.id as keyof typeof filters] as boolean}
                     onChange={(e) => setFilters(prev => ({ ...prev, [f.id]: e.target.checked }))}
                     className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
@@ -560,6 +581,30 @@ const Dashboard: React.FC<{
                 </div>
               </label>
             ))}
+
+            <div className="flex items-center space-x-2 ml-2 pl-4 border-l border-slate-200 dark:border-slate-700">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Range:</span>
+              <DateInput 
+                className="bg-white dark:bg-slate-900 border-none rounded-lg p-1.5 text-[10px] font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700"
+                value={filters.fromDate}
+                onChange={val => setFilters(prev => ({ ...prev, fromDate: val }))}
+              />
+              <span className="text-[9px] font-bold text-slate-400">TO</span>
+              <DateInput 
+                className="bg-white dark:bg-slate-900 border-none rounded-lg p-1.5 text-[10px] font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700"
+                value={filters.toDate}
+                onChange={val => setFilters(prev => ({ ...prev, toDate: val }))}
+              />
+              {(filters.fromDate || filters.toDate) && (
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, fromDate: '', toDate: '' }))}
+                  className="text-rose-500 hover:text-rose-600 p-1 transition-colors"
+                  title="Clear Range"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </div>
         
@@ -585,7 +630,7 @@ const Dashboard: React.FC<{
                     onClick={() => onEditVoucher?.(booking as unknown as Voucher)}
                   >
                     <td className={`px-4 py-4 text-[11px] font-bold ${booking.statusColor}`}>
-                      {booking.bookingDate.toLocaleDateString('en-GB')}
+                      {formatDate(booking.bookingDate)}
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase leading-none">{booking.paxName}</p>

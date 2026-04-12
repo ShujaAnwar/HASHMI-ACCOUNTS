@@ -15,3 +15,18 @@ export const formatCurrency = (amount: number): string => {
   
   return absoluteValue;
 };
+
+/**
+ * Formats a date as Day Month Year (e.g., 12 April 2026).
+ */
+export const formatDate = (date: string | Date | undefined | null): string => {
+  if (!date) return '-';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
+  
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
+};

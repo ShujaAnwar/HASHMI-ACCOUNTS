@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
+import DateInput from './DateInput';
 
 interface TransportVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -25,7 +26,9 @@ const SECTOR_SUGGESTIONS = [
 
 // Fixed InputLabel by moving it outside the component and making children optional to satisfy strict TS checks
 const InputLabel = ({ children }: { children?: React.ReactNode }) => (
-  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block ml-1">{children}</label>
+  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block ml-1">
+    {children}{children === 'Date' ? ' (DD-MM-YYYY)' : ''}
+  </label>
 );
 
 const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData, onSave, onCancel, isClone }) => {
@@ -181,7 +184,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border dark:border-slate-800">
             <div>
               <InputLabel>Date</InputLabel>
-              <input type="date" required className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+              <DateInput required className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all" value={formData.date} onChange={val => setFormData({...formData, date: val})} />
             </div>
             <div>
               <InputLabel>Currency</InputLabel>

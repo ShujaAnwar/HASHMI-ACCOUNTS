@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { getConfig, saveConfig, exportFullDatabase, importFullDatabase, getAccounts, getVouchers } from '../services/db';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDate } from '../utils/format';
 import { AppConfig, Account, Voucher } from '../types';
 import { supabase } from '../services/supabase';
 import * as XLSX from 'xlsx';
@@ -113,7 +113,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `TLP_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `TLP_Backup_${formatDate(new Date())}.json`;
     a.click();
     triggerNotification(`Database exported as JSON.`);
   };
@@ -183,7 +183,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
     const configSheet = XLSX.utils.json_to_sheet([data.config]);
     XLSX.utils.book_append_sheet(workbook, configSheet, "Config");
 
-    XLSX.writeFile(workbook, `TLP_Backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(workbook, `TLP_Backup_${formatDate(new Date())}.xlsx`);
     triggerNotification(`Database exported as Excel.`);
   };
 
@@ -488,21 +488,74 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                 <h3 className="text-3xl font-orbitron font-bold mb-2 tracking-tighter uppercase">Export Vault</h3>
                 <p className="text-slate-400 text-xs mb-8">Download a secure local backup of all accounts and vouchers.</p>
               </div>
-              <div className="space-y-4">
-                <button 
-                  type="button" 
-                  onClick={handleBackupJSON} 
-                  className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center space-x-3"
-                >
-                  <span>📄</span> <span>Download JSON Backup</span>
-                </button>
-                <button 
-                  type="button" 
-                  onClick={handleBackupExcel} 
-                  className="w-full py-5 bg-emerald-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center space-x-3"
-                >
-                  <span>📊</span> <span>Download Excel Backup</span>
-                </button>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">Automatic Daily Backup</span>
+                    <span className="text-[8px] text-slate-400 uppercase font-bold">Triggers at 12:00 AM (if app is open)</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={config.autoBackupEnabled} 
+                      onChange={e => setConfig({...config, autoBackupEnabled: e.target.checked})} 
+                    />
+                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white">Interval Backup</span>
+                      <span className="text-[8px] text-slate-400 uppercase font-bold">Triggers every X hours</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={config.autoBackupIntervalEnabled} 
+                        onChange={e => setConfig({...config, autoBackupIntervalEnabled: e.target.checked})} 
+                      />
+                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                  
+                  {config.autoBackupIntervalEnabled && (
+                    <div className="animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Backup Interval (Hours)</label>
+                      <div className="flex items-center space-x-4">
+                        <input 
+                          type="number" 
+                          min="1" 
+                          max="168"
+                          className="w-24 bg-slate-800 border-none rounded-xl p-3 text-xs font-bold text-white outline-none focus:ring-2 focus:ring-blue-500"
+                          value={config.autoBackupIntervalHours}
+                          onChange={e => setConfig({...config, autoBackupIntervalHours: Math.max(1, Number(e.target.value))})}
+                        />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hours</span>
+                      </div>
+                      <p className="text-[8px] text-slate-500 mt-2 italic font-medium uppercase">Timer resets after each successful backup.</p>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <button 
+                    type="button" 
+                    onClick={handleBackupJSON} 
+                    className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center space-x-3"
+                  >
+                    <span>📄</span> <span>Download JSON Backup</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={handleBackupExcel} 
+                    className="w-full py-5 bg-emerald-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center space-x-3"
+                  >
+                    <span>📊</span> <span>Download Excel Backup</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-12 shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[400px]">
@@ -572,14 +625,16 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                 
                 <div className="relative group">
                    <pre className="bg-slate-900 text-slate-300 p-8 rounded-3xl text-[11px] font-mono overflow-x-auto border border-white/5">
-{`-- FIX: Add missing column and reload cache
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR';
+{`-- FIX: Add missing columns and reload cache
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
 NOTIFY pgrst, 'reload schema';`}
                    </pre>
                    <button 
                       type="button"
                       onClick={() => {
-                         navigator.clipboard.writeText("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR';\nNOTIFY pgrst, 'reload schema';");
+                         navigator.clipboard.writeText("ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE;\nALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE;\nALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;\nNOTIFY pgrst, 'reload schema';");
                          triggerNotification("SQL Copied to Clipboard");
                       }}
                       className="absolute top-4 right-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest backdrop-blur-md transition-all"

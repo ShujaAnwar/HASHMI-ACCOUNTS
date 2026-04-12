@@ -114,7 +114,10 @@
         fontSize: data.font_size || 16,
         defaultROE: Number(data.default_roe),
         accountNameCase: data.account_name_case || 'Sentence Case',
-        banks: data.banks || []
+        banks: data.banks || [],
+        autoBackupEnabled: data.auto_backup_enabled || false,
+        autoBackupIntervalEnabled: data.auto_backup_interval_enabled || false,
+        autoBackupIntervalHours: data.auto_backup_interval_hours || 6
       };
     } catch (err) {
       return {
@@ -128,7 +131,10 @@
         logoSize: 80,
         fontSize: 16,
         accountNameCase: 'Sentence Case',
-        banks: []
+        banks: [],
+        autoBackupEnabled: false,
+        autoBackupIntervalEnabled: false,
+        autoBackupIntervalHours: 6
       };
     }
   };
@@ -147,7 +153,10 @@
       font_size: (config as any).fontSize || 16,
       default_roe: config.defaultROE,
       account_name_case: config.accountNameCase,
-      banks: config.banks
+      banks: config.banks,
+      auto_backup_enabled: config.autoBackupEnabled,
+      auto_backup_interval_enabled: config.autoBackupIntervalEnabled,
+      auto_backup_interval_hours: config.autoBackupIntervalHours
     };
 
     const { error } = await supabase

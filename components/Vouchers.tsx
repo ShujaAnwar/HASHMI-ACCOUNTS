@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
+import { formatDate } from '../utils/format';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountingService } from '../services/AccountingService';
 import PaymentVoucherForm from './PaymentVoucherForm';
@@ -153,7 +154,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
         const vehicle = v.details.items?.[0]?.vehicle || 'N/A';
         return `${tPax.toUpperCase()} | ${sector.toUpperCase()} | ${vehicle.toUpperCase()}`;
       case VoucherType.VISA:
-        return `${(v.details.headName || 'N/A').toUpperCase()} | VISA PROCESSING | ${v.currency} ${v.details.unitRate}`;
+        const vItems = v.details.items || [];
+        const itemsSummary = vItems.map((i: any) => `${i.description} (${i.passportNumber})`).join(', ');
+        return `${itemsSummary} | ${v.description || ''}`;
       case VoucherType.TICKET:
         return `${(v.details.paxName || 'N/A').toUpperCase()} | ${v.details.airline || 'N/A'} | ${v.details.sector || 'N/A'} | PNR: ${v.reference || 'N/A'}`;
       default:
@@ -236,7 +239,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
             <tbody className="text-[12px] font-bold">
               <tr>
                 <td className="py-4 px-3 border-r border-slate-300 uppercase">{customer?.name || 'N/A'}</td>
-                <td className="py-4 px-3 border-r border-slate-300">{new Date(v.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                <td className="py-4 px-3 border-r border-slate-300">{formatDate(v.date)}</td>
                 <td className="py-4 px-3 border-r border-slate-300 uppercase">
                   {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? v.currency : '30, Nov -0001'}
                 </td>
@@ -245,6 +248,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   {v.details?.bookingRef && (
                     <div className="text-[9px] text-blue-600 mt-1 font-black">
                       REF: {v.details.bookingRef}
+                    </div>
+                  )}
+                  {v.details?.passportNumber && (
+                    <div className="text-[10px] text-amber-600 mt-1 font-black">
+                      PASSPORT: {v.details.passportNumber}
                     </div>
                   )}
                 </td>
@@ -268,6 +276,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   </th>
                   <th className="py-2 font-bold uppercase">Amount(PKR)</th>
                 </tr>
+              ) : v.type === VoucherType.VISA ? (
+                <tr>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Description</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Passport Number</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Quantity</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
+                  <th className="py-2 font-bold uppercase">Amount(PKR)</th>
+                </tr>
               ) : (
                 <tr>
                   <th className="py-2 border-r border-slate-400 font-bold uppercase">Pax Name</th>
@@ -284,7 +300,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
               {v.type === VoucherType.RECEIPT ? (
                 <tr>
                   <td className="py-6 px-2 border-r border-slate-300 uppercase">
-                    {new Date(v.date).toLocaleDateString('en-GB')}
+                    {formatDate(v.date)}
                   </td>
                   <td className="py-6 px-2 border-r border-slate-300 uppercase text-left">
                     {v.description || 'N/A'}
@@ -303,7 +319,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                 v.details.items.map((item: any, i: number) => (
                   <tr key={i} className={i > 0 ? 'border-t border-slate-200' : ''}>
                     <td className="py-4 px-2 border-r border-slate-300 uppercase">
-                      {new Date(v.date).toLocaleDateString('en-GB')}
+                      {formatDate(v.date)}
                     </td>
                     <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
                       {item.description || v.description}
@@ -316,6 +332,26 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                     </td>
                     <td className="py-4 px-2 font-black">
                       {(Number(item.amount) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              ) : v.type === VoucherType.VISA && v.details?.items?.length > 0 ? (
+                v.details.items.map((item: any, i: number) => (
+                  <tr key={i} className={i > 0 ? 'border-t border-slate-200' : ''}>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
+                      {item.description}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase">
+                      {item.passportNumber || v.details.passportNumber || 'N/A'}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300">
+                      {item.quantity}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 font-bold">
+                      {Number(item.rate).toLocaleString()}
+                    </td>
+                    <td className="py-4 px-2 font-black">
+                      {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 ))
@@ -334,14 +370,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   <td className="py-6 px-2 border-r border-slate-300 uppercase">{formatMeals(v.details?.meals)}</td>
                   <td className="py-6 px-2 border-r border-slate-300 uppercase">{v.details?.city || '-'}, {v.details?.country || '-'}</td>
                   <td className="py-6 px-2 border-r border-slate-300 leading-normal">
-                    {v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}<br/>
-                    {v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                    {v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}<br/>
+                    {v.details?.toDate ? formatDate(v.details.toDate) : '-'}
                   </td>
                   <td className="py-6 px-2 font-black">{v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                 </tr>
               )}
               <tr className="bg-slate-50 border-t border-slate-300 font-bold">
-                <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 4 : 6} className="py-4 text-right px-8 uppercase text-xs">Total:</td>
+                <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT || v.type === VoucherType.VISA ? 4 : 6} className="py-4 text-right px-8 uppercase text-xs">Total:</td>
                 <td className="py-4 px-2">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
@@ -354,6 +390,23 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
         </div>
 
         <div className="mt-auto pt-10">
+          <div className="flex justify-between items-end mb-8">
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Prepared By
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Customer Signature
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Authorized Stamp
+              </div>
+            </div>
+          </div>
           <h3 className="text-[14px] font-black border-b-2 border-slate-900 pb-2 mb-4 tracking-tight uppercase">Acknowledgement</h3>
           <ol className="text-[10px] space-y-1 font-bold text-slate-700 uppercase leading-relaxed">
             <li>1. ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li>
@@ -446,8 +499,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                 </div>
               </td>
               <td className="p-3 border border-slate-300">{formatMeals(v.details?.meals)}</td>
-              <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
-              <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+              <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}</td>
+              <td className="p-3 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? formatDate(v.details.toDate) : '-'}</td>
               <td className="p-3 border border-slate-300 text-center">{v.details?.numNights}</td>
               <td className="p-3 border border-slate-300 text-center">{v.details?.numRooms}</td>
               <td className="p-3 border border-slate-300 font-black text-right">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
@@ -484,7 +537,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
           <div className="flex space-x-3"><span>Account Name:</span> <span className="font-black">{customer?.name}</span></div>
           <div className="text-right flex justify-end space-x-3"><span>HVI #:</span> <span className="font-black">{invoiceNum}</span></div>
           <div className="flex space-x-3"><span>Subject:</span> <span className="font-black">Definite Invoice</span></div>
-          <div className="text-right flex justify-end space-x-3"><span>Date:</span> <span className="font-black">{new Date(v.date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
+          <div className="text-right flex justify-end space-x-3"><span>Date:</span> <span className="font-black">{formatDate(v.date)}</span></div>
           {v.details?.bookingRef && (
             <div className="flex space-x-3"><span>Booking Ref:</span> <span className="font-black text-blue-600">{v.details.bookingRef}</span></div>
           )}
@@ -516,8 +569,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   {v.details?.adults || 0} ADT / {v.details?.children || 0} CHD
                 </div>
               </td>
-              <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
-              <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+              <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}</td>
+              <td className="p-4 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? formatDate(v.details.toDate) : '-'}</td>
               <td className="p-4 border border-slate-300">{v.details?.numRooms} / {v.details?.numNights}</td>
               <td className="p-4 border border-slate-300 font-black text-right">{totalSAR.toLocaleString(undefined, { minimumFractionDigits: 0 })}</td>
             </tr>
@@ -543,8 +596,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
   };
 
   const renderServiceVoucher = (v: Voucher) => {
-    const fromDateStr = v.details?.fromDate ? new Date(v.details.fromDate).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-';
-    const toDateStr = v.details?.toDate ? new Date(v.details.toDate).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+    const fromDateStr = v.details?.fromDate ? formatDate(v.details.fromDate) : '-';
+    const toDateStr = v.details?.toDate ? formatDate(v.details.toDate) : '-';
     
     return (
       <div ref={voucherRef} className="bg-white p-8 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
@@ -751,7 +804,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   <td className="px-8 py-6">
                     <div>
                       <p className="font-black text-slate-900 dark:text-white leading-none text-sm">{v.voucherNum}</p>
-                      <p className="text-[10px] text-slate-400 mt-1 font-bold">{new Date(v.date).toLocaleDateString()}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-bold">{formatDate(v.date)}</p>
                     </div>
                   </td>
                   <td className="px-8 py-6">

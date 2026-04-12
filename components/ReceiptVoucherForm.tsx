@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
+import DateInput from './DateInput';
 
 interface ReceiptVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -98,8 +99,8 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Date</label>
-              <input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Date (DD-MM-YYYY)</label>
+              <DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner" value={formData.date} onChange={val => setFormData({...formData, date: val})} />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Currency</label>

@@ -192,7 +192,77 @@ export class AccountingService {
       if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
       if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: voucher.voucher_num });
       
-    } else if (voucher.type === 'TV' || voucher.type === 'HV' || voucher.type === 'TRANSPORT' || voucher.type === 'HOTEL') {
+    } else if (voucher.type === 'TV' || voucher.type === 'TRANSPORT') {
+      const items = voucher.details?.items || [];
+      const rate = voucher.currency === Currency.SAR ? voucher.roe : 1;
+      const incomeAccountId = voucher.details?.incomeAccountId;
+      const incomeAmountPKR = Number(voucher.details?.incomeAmountPKR) || 0;
+
+      // 1. Post each transport item separately
+      items.forEach((item: any) => {
+        const itemRatePKR = Number(item.rate) * rate;
+        const sectorName = item.sector === 'CUSTOM' ? (item.customLabel || 'Custom Route') : item.sector;
+        const itemDesc = `${sectorName} (${item.vehicle}) - ${voucher.description || ''}`;
+        
+        if (customerId) {
+          entries.push({ 
+            account_id: customerId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: itemRatePKR, 
+            credit: 0, 
+            description: itemDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+        if (vendorId) {
+          entries.push({ 
+            account_id: vendorId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: itemRatePKR, 
+            description: itemDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      });
+
+      // 2. Post Service Fee (Income) separately
+      if (incomeAmountPKR !== 0) {
+        let targetIncomeId = incomeAccountId;
+        if (!targetIncomeId) {
+          const { data: incomeAcc } = await supabase.from('accounts').select('id').eq('type', 'REVENUE').limit(1).maybeSingle();
+          targetIncomeId = incomeAcc?.id;
+        }
+        
+        const incomeDesc = `Service Fee: ${voucher.description || voucher.voucher_num}`;
+        
+        if (customerId) {
+          entries.push({ 
+            account_id: customerId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: incomeAmountPKR, 
+            credit: 0, 
+            description: incomeDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+        if (targetIncomeId) {
+          entries.push({ 
+            account_id: targetIncomeId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: incomeAmountPKR, 
+            description: incomeDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      }
+      
+    } else if (voucher.type === 'HV' || voucher.type === 'HOTEL') {
       const vendorAmount = Number(voucher.details?.vendorAmountPKR) || amount;
       const incomeAmount = Number(voucher.details?.incomeAmountPKR) || 0;
       const incomeAccountId = voucher.details?.incomeAccountId;
@@ -211,10 +281,50 @@ export class AccountingService {
         }
       }
       
-    } else if (voucher.type === 'VV' || voucher.type === 'TK' || voucher.type === 'VISA' || voucher.type === 'TICKET') {
+    } else if (voucher.type === 'VV' || voucher.type === 'VISA') {
+      const items = voucher.details?.items || [];
+      const rate = voucher.currency === Currency.SAR ? voucher.roe : 1;
+
+      if (items.length > 0) {
+        items.forEach((item: any) => {
+          const itemAmountPKR = (Number(item.quantity) * Number(item.rate)) * rate;
+          const itemPassport = item.passportNumber || 'N/A';
+          const itemDesc = `Visa Voucher – ${item.description} – Passport No: ${itemPassport}`;
+          
+          if (customerId) {
+            entries.push({ 
+              account_id: customerId, 
+              voucher_id: voucher.id, 
+              date: voucher.date, 
+              debit: itemAmountPKR, 
+              credit: 0, 
+              description: itemDesc, 
+              voucher_num: voucher.voucher_num 
+            });
+          }
+          if (vendorId) {
+            entries.push({ 
+              account_id: vendorId, 
+              voucher_id: voucher.id, 
+              date: voucher.date, 
+              debit: 0, 
+              credit: itemAmountPKR, 
+              description: itemDesc, 
+              voucher_num: voucher.voucher_num 
+            });
+          }
+        });
+      } else {
+        // Fallback for legacy vouchers
+        const passportNum = voucher.details?.passportNumber || 'N/A';
+        const legacyDesc = `Visa Voucher – ${voucher.description || 'Visa Processing'} – Passport No: ${passportNum}`;
+        if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: legacyDesc, voucher_num: voucher.voucher_num });
+        if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: legacyDesc, voucher_num: voucher.voucher_num });
+      }
+      
+    } else if (voucher.type === 'TK' || voucher.type === 'TICKET') {
       if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
       if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: voucher.voucher_num });
-      
     } else if (voucher.type === 'PV') {
       const bankId = voucher.details?.bankId;
       const items = voucher.details?.items || [];

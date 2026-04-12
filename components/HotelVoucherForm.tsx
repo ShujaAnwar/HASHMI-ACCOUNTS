@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
+import DateInput from './DateInput';
 import { AccountingService } from '../services/AccountingService';
 
 interface HotelVoucherFormProps {
@@ -146,8 +147,8 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">DATE</label>
-              <input type="date" required className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold shadow-sm outline-none ring-1 ring-slate-100" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">DATE (DD-MM-YYYY)</label>
+              <DateInput required className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold shadow-sm outline-none ring-1 ring-slate-100" value={formData.date} onChange={val => setFormData({...formData, date: val})} />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CURRENCY</label>
@@ -168,7 +169,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                 <input 
                   type="number" 
                   step="0.01" 
-                  className="w-full bg-transparent border-none p-2 focus:ring-0 text-3xl font-black [appearance:textfield]" 
+                  className="w-full bg-transparent border-none p-2 focus:ring-0 text-3xl font-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                   value={formData.unitRate} 
                   onChange={e => setFormData({...formData, unitRate: Number(e.target.value)})} 
                 />
@@ -219,20 +220,20 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                   </select>
                   <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100">
                     <span className="text-[10px] font-black mr-2">RMS:</span>
-                    <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.numRooms} onChange={e => setFormData({...formData, numRooms: Number(e.target.value)})} />
+                    <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={formData.numRooms} onChange={e => setFormData({...formData, numRooms: Number(e.target.value)})} />
                   </div>
                   <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100">
                     <span className="text-[10px] font-black mr-2">ADULT:</span>
-                    <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.adults} onChange={e => setFormData({...formData, adults: Number(e.target.value)})} />
+                    <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={formData.adults} onChange={e => setFormData({...formData, adults: Number(e.target.value)})} />
                   </div>
                   <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100">
                     <span className="text-[10px] font-black mr-2">CHILD:</span>
-                    <input type="number" min="0" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.children} onChange={e => setFormData({...formData, children: Number(e.target.value)})} />
+                    <input type="number" min="0" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={formData.children} onChange={e => setFormData({...formData, children: Number(e.target.value)})} />
                   </div>
                 </div>
                 <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100 mt-4">
                   <span className="text-[10px] font-black mr-2">TOTAL NIGHTS:</span>
-                  <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0" value={formData.numNights} onChange={e => setFormData({...formData, numNights: Number(e.target.value)})} />
+                  <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={formData.numNights} onChange={e => setFormData({...formData, numNights: Number(e.target.value)})} />
                 </div>
               </div>
             </div>
@@ -241,11 +242,11 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHECK-IN</label>
-                  <input type="date" required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.fromDate} onChange={e => setFormData({...formData, fromDate: e.target.value})} />
+                  <DateInput required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.fromDate} onChange={val => setFormData({...formData, fromDate: val})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHECK-OUT</label>
-                  <input type="date" required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.toDate} onChange={e => setFormData({...formData, toDate: e.target.value})} />
+                  <DateInput required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.toDate} onChange={val => setFormData({...formData, toDate: val})} />
                 </div>
               </div>
 
