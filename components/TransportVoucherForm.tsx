@@ -11,17 +11,14 @@ interface TransportVoucherFormProps {
 }
 
 const SECTOR_SUGGESTIONS = [
-  { label: 'Makkah → Jeddah (H1)', sector: 'Makkah → Jeddah', vehicle: 'H1', rate: 200 },
-  { label: 'Makkah → Jeddah (Car)', sector: 'Makkah → Jeddah', vehicle: 'Car', rate: 150 },
-  { label: 'Makkah → Madinah (H1)', sector: 'Makkah → Madinah', vehicle: 'H1', rate: 450 },
-  { label: 'Makkah → Madinah (Car)', sector: 'Makkah → Madinah', vehicle: 'Car', rate: 350 },
-  { label: 'Madinah → Makkah (H1)', sector: 'Madinah → Makkah', vehicle: 'H1', rate: 450 },
-  { label: 'Madinah → Makkah (Car)', sector: 'Madinah → Makkah', vehicle: 'Car', rate: 350 },
-  { label: 'Madinah Hotel → Madinah Airport', sector: 'Madinah Hotel → Madinah Airport', vehicle: 'Car/H1', rate: 100 },
-  { label: 'Jeddah Airport → Makkah (GMC)', sector: 'Jeddah Airport → Makkah Hotel', vehicle: 'GMC', rate: 250 },
-  { label: 'Jeddah Airport → Makkah (Car)', sector: 'Jeddah Airport → Makkah Hotel', vehicle: 'Car', rate: 150 },
-  { label: 'Ziyarat Makkah (H1)', sector: 'Ziyarat Makkah', vehicle: 'H1', rate: 200 },
-  { label: 'Ziyarat Madinah (H1)', sector: 'Ziyarat Madinah', vehicle: 'H1', rate: 150 },
+  { label: 'Makkah → Jeddah', sector: 'Makkah → Jeddah', vehicle: 'Car', rate: 150 },
+  { label: 'Makkah → Madinah', sector: 'Makkah → Madinah', vehicle: 'Car', rate: 350 },
+  { label: 'Madinah → Makkah', sector: 'Madinah → Makkah', vehicle: 'Car', rate: 350 },
+  { label: 'Madinah → Jeddah', sector: 'Madinah → Jeddah', vehicle: 'Car', rate: 400 },
+  { label: 'Madinah Hotel → Madinah Airport', sector: 'Madinah Hotel → Madinah Airport', vehicle: 'Car', rate: 100 },
+  { label: 'Jeddah Airport → Makkah', sector: 'Jeddah Airport → Makkah Hotel', vehicle: 'Car', rate: 150 },
+  { label: 'Ziyarat Makkah', sector: 'Ziyarat Makkah', vehicle: 'H1', rate: 200 },
+  { label: 'Ziyarat Madinah', sector: 'Ziyarat Madinah', vehicle: 'H1', rate: 150 },
 ];
 
 // Fixed InputLabel by moving it outside the component and making children optional to satisfy strict TS checks
