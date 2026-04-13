@@ -289,7 +289,8 @@ export class AccountingService {
         items.forEach((item: any) => {
           const itemAmountPKR = (Number(item.quantity) * Number(item.rate)) * rate;
           const itemPassport = item.passportNumber || 'N/A';
-          const itemDesc = `Visa Voucher – ${item.description} – Passport No: ${itemPassport}`;
+          const itemPax = item.paxName || 'N/A';
+          const itemDesc = `Visa Voucher – ${itemPax} – ${item.description} – Passport No: ${itemPassport}`;
           
           if (customerId) {
             entries.push({ 

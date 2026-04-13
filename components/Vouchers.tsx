@@ -155,8 +155,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
         return `${tPax.toUpperCase()} | ${sector.toUpperCase()} | ${vehicle.toUpperCase()}`;
       case VoucherType.VISA:
         const vItems = v.details.items || [];
-        const itemsSummary = vItems.map((i: any) => `${i.description} (${i.passportNumber})`).join(', ');
-        return `${itemsSummary} | ${v.description || ''}`;
+        const itemsSummary = vItems.map((i: any) => `${i.paxName || 'N/A'} (${i.passportNumber || 'N/A'})`).join(', ');
+        return `Visa: ${itemsSummary} | ${v.description || ''}`;
       case VoucherType.TICKET:
         return `${(v.details.paxName || 'N/A').toUpperCase()} | ${v.details.airline || 'N/A'} | ${v.details.sector || 'N/A'} | PNR: ${v.reference || 'N/A'}`;
       default:
@@ -278,7 +278,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                 </tr>
               ) : v.type === VoucherType.VISA ? (
                 <tr>
-                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Description</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Head Name</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Pax Name</th>
                   <th className="py-2 border-r border-slate-400 font-bold uppercase">Passport Number</th>
                   <th className="py-2 border-r border-slate-400 font-bold uppercase">Quantity</th>
                   <th className="py-2 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
@@ -340,6 +341,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   <tr key={i} className={i > 0 ? 'border-t border-slate-200' : ''}>
                     <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
                       {item.description}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
+                      {item.paxName || 'N/A'}
                     </td>
                     <td className="py-4 px-2 border-r border-slate-300 uppercase">
                       {item.passportNumber || v.details.passportNumber || 'N/A'}

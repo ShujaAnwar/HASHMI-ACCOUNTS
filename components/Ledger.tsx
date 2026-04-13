@@ -193,8 +193,7 @@ import DateInput from './DateInput';
       }
 
       if (voucher.type === VoucherType.VISA) {
-        const head = (voucher.details.headName || 'N/A').toUpperCase();
-        return `${head} | VISA PROCESSING | ${voucher.currency} ${voucher.details.unitRate}`;
+        return entry.description || 'VISA PROCESSING';
       }
 
       if (voucher.type === VoucherType.TICKET) {

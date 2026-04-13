@@ -249,9 +249,9 @@ const Dashboard: React.FC<{
           isTomorrow,
           isPrevious,
           isAfterTomorrow,
-          paxName: v.details?.paxName || v.details?.headName || 'N/A',
-          hotelName: v.details?.hotelName || v.details?.airline || v.details?.items?.[0]?.vehicle || 'N/A',
-          roomType: v.details?.roomType || v.details?.items?.[0]?.sector || '-',
+          paxName: v.details?.paxName || v.details?.headName || (v.type === VoucherType.VISA ? v.details?.items?.map((i: any) => i.paxName).filter(Boolean).join(', ') : 'N/A') || 'N/A',
+          hotelName: v.details?.hotelName || v.details?.airline || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : v.details?.items?.[0]?.vehicle) || 'N/A',
+          roomType: v.details?.roomType || (v.type === VoucherType.VISA ? v.details?.items?.map((i: any) => i.description).filter(Boolean).join(', ') : v.details?.items?.[0]?.sector) || '-',
           numNights: v.details?.numNights || '-',
         };
       })
@@ -616,6 +616,7 @@ const Dashboard: React.FC<{
                 <th className="px-4 py-4">Pax Name</th>
                 <th className="px-4 py-4">Service/Hotel</th>
                 <th className="px-4 py-4">Vendor</th>
+                <th className="px-4 py-4">Customer</th>
                 <th className="px-4 py-4">Room/Sector</th>
                 <th className="px-4 py-4 text-center">Nights</th>
                 <th className="px-4 py-4 text-right">Amount</th>
@@ -650,6 +651,9 @@ const Dashboard: React.FC<{
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-none">{booking.vendorName}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase leading-none">{booking.customerName}</p>
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium uppercase">
