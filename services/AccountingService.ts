@@ -263,12 +263,48 @@ export class AccountingService {
       }
       
     } else if (voucher.type === 'HV' || voucher.type === 'HOTEL') {
-      const vendorAmount = Number(voucher.details?.vendorAmountPKR) || amount;
+      const items = voucher.details?.items || [];
+      const currency = voucher.currency || Currency.PKR;
+      const roe = voucher.roe || 1;
+      const rate = currency === Currency.SAR ? roe : 1;
+
+      if (items.length > 0) {
+        items.forEach((item: any) => {
+          const itemAmountPKR = (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)) * rate;
+          const itemDesc = `Hotel Voucher – ${voucher.details?.paxName || 'N/A'} – ${item.hotelName} (${item.city}) – ${item.numNights} Nights`;
+          
+          if (customerId) {
+            entries.push({ 
+              account_id: customerId, 
+              voucher_id: voucher.id, 
+              date: voucher.date, 
+              debit: itemAmountPKR, 
+              credit: 0, 
+              description: itemDesc, 
+              voucher_num: voucher.voucher_num 
+            });
+          }
+          if (vendorId) {
+            entries.push({ 
+              account_id: vendorId, 
+              voucher_id: voucher.id, 
+              date: voucher.date, 
+              debit: 0, 
+              credit: itemAmountPKR, 
+              description: itemDesc, 
+              voucher_num: voucher.voucher_num 
+            });
+          }
+        });
+      } else {
+        // Fallback for legacy vouchers
+        const vendorAmount = Number(voucher.details?.vendorAmountPKR) || amount;
+        if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
+        if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description, voucher_num: voucher.voucher_num });
+      }
+      
       const incomeAmount = Number(voucher.details?.incomeAmountPKR) || 0;
       const incomeAccountId = voucher.details?.incomeAccountId;
-      
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
-      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description, voucher_num: voucher.voucher_num });
       
       if (incomeAmount !== 0) {
         let targetIncomeId = incomeAccountId;

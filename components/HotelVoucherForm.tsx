@@ -43,19 +43,21 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     description: initialData?.description || '',
     reference: isClone ? '' : (initialData?.reference || ''),
     paxName: initialData?.details?.paxName || '',
-    hotelName: initialData?.details?.hotelName || '',
-    city: initialData?.details?.city || 'Karachi',
-    country: initialData?.details?.country || 'Pakistan',
-    roomType: initialData?.details?.roomType || 'DBL C.V',
-    numRooms: initialData?.details?.numRooms || 1,
-    numNights: initialData?.details?.numNights || 0,
-    unitRate: initialData?.details?.unitRate || 0,
-    fromDate: initialData?.details?.fromDate || '',
-    toDate: initialData?.details?.toDate || '',
+    items: initialData?.details?.items || [{
+      hotelName: initialData?.details?.hotelName || '',
+      city: initialData?.details?.city || 'Makkah',
+      country: initialData?.details?.country || 'Saudi Arabia',
+      roomType: initialData?.details?.roomType || 'DBL C.V',
+      numRooms: initialData?.details?.numRooms || 1,
+      numNights: initialData?.details?.numNights || 0,
+      unitRate: initialData?.details?.unitRate || 0,
+      fromDate: initialData?.details?.fromDate || '',
+      toDate: initialData?.details?.toDate || '',
+      meals: (Array.isArray(initialData?.details?.meals) ? initialData.details.meals : (typeof initialData?.details?.meals === 'string' ? [initialData.details.meals] : [])) as string[],
+      adults: initialData?.details?.adults || 2,
+      children: initialData?.details?.children || 0
+    }],
     bookingRef: initialData?.details?.bookingRef || '',
-    meals: (Array.isArray(initialData?.details?.meals) ? initialData.details.meals : (typeof initialData?.details?.meals === 'string' ? [initialData.details.meals] : [])) as string[],
-    adults: initialData?.details?.adults || 2,
-    children: initialData?.details?.children || 0
   });
 
   const customerAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CUSTOMER), [accounts]);
@@ -70,39 +72,71 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     }
   }, [config, initialData]);
 
-  useEffect(() => {
-    if (formData.fromDate && formData.toDate) {
-      const start = new Date(formData.fromDate);
-      const end = new Date(formData.toDate);
-      const diffTime = end.getTime() - start.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (diffDays >= 0) {
-        setFormData(prev => ({ ...prev, numNights: diffDays }));
-      }
-    }
-  }, [formData.fromDate, formData.toDate]);
+  const calculateNights = (from: string, to: string) => {
+    if (!from || !to) return 0;
+    const start = new Date(from);
+    const end = new Date(to);
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 ? diffDays : 0;
+  };
 
-  const vendorSubtotal = useMemo(() => {
-    return (formData.unitRate || 0) * (formData.numRooms || 1) * (formData.numNights || 1);
-  }, [formData.unitRate, formData.numRooms, formData.numNights]);
+  const handleCloneItem = (index: number) => {
+    setFormData(prev => {
+      const newItems = [...prev.items];
+      const itemToClone = { ...newItems[index] };
+      // Insert the cloned item right after the original one
+      newItems.splice(index + 1, 0, itemToClone);
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    if (formData.items.length === 1) return;
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateItem = (index: number, field: string, value: any) => {
+    setFormData(prev => {
+      const newItems = [...prev.items];
+      const updatedItem = { ...newItems[index], [field]: value };
+      
+      if (field === 'fromDate' || field === 'toDate') {
+        updatedItem.numNights = calculateNights(updatedItem.fromDate, updatedItem.toDate);
+      }
+      
+      newItems[index] = updatedItem;
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const toggleMeal = (index: number, meal: string) => {
+    setFormData(prev => {
+      const newItems = [...prev.items];
+      const meals = newItems[index].meals;
+      newItems[index] = {
+        ...newItems[index],
+        meals: meals.includes(meal) 
+          ? meals.filter(m => m !== meal) 
+          : [...meals, meal]
+      };
+      return { ...prev, items: newItems };
+    });
+  };
 
   const totalSelectedCurrency = useMemo(() => {
-    return vendorSubtotal;
-  }, [vendorSubtotal]);
+    return formData.items.reduce((sum: number, item: any) => {
+      return sum + (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights));
+    }, 0);
+  }, [formData.items]);
 
   const totalPKR = useMemo(() => {
     const rate = formData.currency === Currency.SAR ? formData.roe : 1;
     return totalSelectedCurrency * rate;
   }, [totalSelectedCurrency, formData.roe, formData.currency]);
-
-  const toggleMeal = (meal: string) => {
-    setFormData(prev => ({
-      ...prev,
-      meals: prev.meals.includes(meal) 
-        ? prev.meals.filter(m => m !== meal) 
-        : [...prev.meals, meal]
-    }));
-  };
 
   const handleCurrencyChange = (newCurrency: Currency) => {
     setFormData(prev => ({
@@ -123,8 +157,6 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
       status: VoucherStatus.POSTED,
       details: {
         ...formData,
-        vendorAmountPKR: vendorSubtotal * (formData.currency === Currency.SAR ? formData.roe : 1),
-        incomeAmountPKR: 0,
         totalSelectedCurrency
       }
     });
@@ -134,160 +166,199 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto no-print">
-      <div className="bg-[#f8fbff] dark:bg-slate-900 w-full max-w-5xl rounded-[2.5rem] shadow-2xl flex flex-col border border-white/20 animate-in zoom-in-95 duration-200 overflow-hidden">
+      <div className="bg-[#f8fbff] dark:bg-slate-900 w-full max-w-6xl rounded-[2.5rem] shadow-2xl flex flex-col border border-white/20 animate-in zoom-in-95 duration-200 overflow-hidden">
         
-        <div className="px-10 pt-8 pb-4 flex justify-between items-center bg-[#f8fbff] dark:bg-slate-900">
-            <h1 className="text-2xl font-black font-orbitron text-slate-800 dark:text-white uppercase tracking-tighter">
+        <div className="px-6 pt-4 pb-1 flex justify-between items-center bg-[#f8fbff] dark:bg-slate-900">
+            <h1 className="text-lg font-black font-orbitron text-slate-800 dark:text-white uppercase tracking-tighter">
                 HOTEL VOUCHER
             </h1>
             <button onClick={onCancel} className="text-slate-400 hover:text-rose-500 transition-colors">✕</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-10 space-y-8 overflow-y-auto max-h-[85vh]">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[85vh]">
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">DATE (DD-MM-YYYY)</label>
-              <DateInput required className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold shadow-sm outline-none ring-1 ring-slate-100" value={formData.date} onChange={val => setFormData({...formData, date: val})} />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-sm ring-1 ring-slate-100">
+            <div className="space-y-1">
+              <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">DATE</label>
+              <DateInput required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-bold shadow-sm outline-none ring-1 ring-slate-100" value={formData.date} onChange={val => setFormData({...formData, date: val})} />
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CURRENCY</label>
-              <select className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold shadow-sm outline-none appearance-none ring-1 ring-slate-100" value={formData.currency} onChange={e => handleCurrencyChange(e.target.value as Currency)}>
+            <div className="space-y-1">
+              <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CURRENCY</label>
+              <select className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-bold shadow-sm outline-none appearance-none ring-1 ring-slate-100" value={formData.currency} onChange={e => handleCurrencyChange(e.target.value as Currency)}>
                 <option value={Currency.PKR}>PKR</option>
                 <option value={Currency.SAR}>SAR</option>
               </select>
             </div>
             {formData.currency === Currency.SAR && (
-              <div className="space-y-2 animate-in slide-in-from-left-2">
-                <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest ml-1">ROE</label>
-                <input type="number" step="0.0001" className="w-full bg-blue-50/50 dark:bg-blue-900/20 border-none rounded-2xl p-4 text-sm font-bold text-blue-600 outline-none ring-1 ring-blue-100" value={formData.roe} onChange={e => setFormData({...formData, roe: Number(e.target.value)})} />
+              <div className="space-y-1 animate-in slide-in-from-left-2">
+                <label className="text-[8px] font-bold text-blue-600 uppercase tracking-widest ml-1">ROE</label>
+                <input type="number" step="0.0001" className="w-full bg-blue-50/50 dark:bg-blue-900/20 border-none rounded-lg p-2 text-xs font-bold text-blue-600 outline-none ring-1 ring-blue-100" value={formData.roe} onChange={e => setFormData({...formData, roe: Number(e.target.value)})} />
               </div>
             )}
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">RATE/UNIT</label>
-              <div className="flex items-center bg-white dark:bg-slate-800 border-none rounded-2xl p-3 px-5 shadow-sm ring-1 ring-slate-100">
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  className="w-full bg-transparent border-none p-2 focus:ring-0 text-3xl font-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
-                  value={formData.unitRate} 
-                  onChange={e => setFormData({...formData, unitRate: Number(e.target.value)})} 
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">LEAD PAX NAME</label>
+              <input required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100" placeholder="Lead Pax Name" value={formData.paxName} onChange={e => setFormData({...formData, paxName: e.target.value})} />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CUSTOMER (DR)</label>
-                  <select required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CUSTOMER (DR)</label>
+                  <select required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
                     <option value="">Select Customer...</option>
                     {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VENDOR (CR)</label>
-                  <select required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.vendorId} onChange={e => setFormData({...formData, vendorId: e.target.value})}>
+                <div className="space-y-1">
+                  <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">VENDOR (CR)</label>
+                  <select required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={formData.vendorId} onChange={e => setFormData({...formData, vendorId: e.target.value})}>
                     <option value="">Select Vendor...</option>
                     {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <input required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-5 text-sm font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100" placeholder="Lead Pax Name" value={formData.paxName} onChange={e => setFormData({...formData, paxName: e.target.value})} />
+              <div className="space-y-1">
+                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">BOOKING REFERENCE NUMBER</label>
+                <input className="w-full bg-blue-50 dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-black uppercase outline-none ring-1 ring-blue-100" placeholder="e.g. BK-99281" value={formData.bookingRef} onChange={e => setFormData({...formData, bookingRef: e.target.value})} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <input required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100" placeholder="Hotel Name" value={formData.hotelName} onChange={e => setFormData({...formData, hotelName: e.target.value})} />
-                <div className="grid grid-cols-2 gap-2">
-                  <select className="bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})}>
-                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <select className="bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})}>
-                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOM & GUEST CONFIGURATION</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <select className="bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.roomType} onChange={e => setFormData({...formData, roomType: e.target.value})}>
-                    {ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100">
-                    <span className="text-[10px] font-black mr-2">RMS:</span>
-                    <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={formData.numRooms} onChange={e => setFormData({...formData, numRooms: Number(e.target.value)})} />
-                  </div>
-                  <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100">
-                    <span className="text-[10px] font-black mr-2">ADULT:</span>
-                    <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={formData.adults} onChange={e => setFormData({...formData, adults: Number(e.target.value)})} />
-                  </div>
-                  <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100">
-                    <span className="text-[10px] font-black mr-2">CHILD:</span>
-                    <input type="number" min="0" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={formData.children} onChange={e => setFormData({...formData, children: Number(e.target.value)})} />
-                  </div>
-                </div>
-                <div className="flex items-center bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 ring-1 ring-slate-100 mt-4">
-                  <span className="text-[10px] font-black mr-2">TOTAL NIGHTS:</span>
-                  <input type="number" min="1" className="w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={formData.numNights} onChange={e => setFormData({...formData, numNights: Number(e.target.value)})} />
-                </div>
+              <div className="space-y-1">
+                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">REMARKS</label>
+                <textarea className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-medium outline-none ring-1 ring-slate-100 h-16 resize-none" placeholder="Notes for this booking..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
             </div>
 
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHECK-IN</label>
-                  <DateInput required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.fromDate} onChange={val => setFormData({...formData, fromDate: val})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHECK-OUT</label>
-                  <DateInput required className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-slate-100" value={formData.toDate} onChange={val => setFormData({...formData, toDate: val})} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">MEAL PLAN</label>
-                <div className="flex space-x-2">
-                  {MEALS.map(meal => (
-                    <button key={meal} type="button" onClick={() => toggleMeal(meal)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${formData.meals.includes(meal) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-[#f0f4f9] dark:bg-slate-800 text-slate-400'}`}>
-                      {meal}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CONFIRMATION / PNR / REF</label>
-                <input className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-black uppercase outline-none ring-1 ring-slate-100" placeholder="e.g. 125983" value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">BOOKING REFERENCE NUMBER</label>
-                <input className="w-full bg-blue-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-black uppercase outline-none ring-1 ring-blue-100" placeholder="e.g. BK-99281" value={formData.bookingRef} onChange={e => setFormData({...formData, bookingRef: e.target.value})} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">REMARKS</label>
-                <textarea className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-medium outline-none ring-1 ring-slate-100 h-24 resize-none" placeholder="Notes for this booking..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+            <div className="space-y-3">
+               <div className="space-y-1">
+                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CONFIRMATION / PNR / REF</label>
+                <input className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-black uppercase outline-none ring-1 ring-slate-100" placeholder="e.g. 125983" value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} />
               </div>
             </div>
           </div>
 
-          <div className="bg-slate-900 p-8 rounded-[3rem] flex flex-col md:flex-row justify-between items-center text-white border border-white/5 shadow-2xl">
-            <div className="flex flex-col items-center md:items-start mb-6 md:mb-0">
-               <p className="text-[10px] font-bold uppercase opacity-50 tracking-[0.4em] mb-2">Total Customer Debit</p>
-               <p className="text-5xl font-black font-orbitron tracking-tighter">
+          {/* Hotel Segments */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Hotel Segments / Bookings</h3>
+            </div>
+
+            <div className="space-y-3">
+              {formData.items.map((item: any, idx: number) => (
+                <div key={idx} className="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-sm ring-1 ring-slate-100 relative group animate-in fade-in slide-in-from-bottom-2">
+                  <div className="absolute top-3 right-3 flex items-center space-x-2">
+                    <button type="button" onClick={() => handleCloneItem(idx)} className="text-blue-500 hover:text-blue-700 font-bold text-[8px] uppercase tracking-widest transition-colors flex items-center bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-md">
+                      <span className="mr-1">+</span> Clone
+                    </button>
+                    {formData.items.length > 1 && (
+                      <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-rose-500 transition-colors p-1">✕</button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">HOTEL NAME</label>
+                        <input required className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100" placeholder="Hotel Name" value={item.hotelName} onChange={e => updateItem(idx, 'hotelName', e.target.value)} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CITY</label>
+                          <select className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={item.city} onChange={e => updateItem(idx, 'city', e.target.value)}>
+                            {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">COUNTRY</label>
+                          <select className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={item.country} onChange={e => updateItem(idx, 'country', e.target.value)}>
+                            {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHECK-IN</label>
+                          <DateInput required className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={item.fromDate} onChange={val => updateItem(idx, 'fromDate', val)} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHECK-OUT</label>
+                          <DateInput required className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={item.toDate} onChange={val => updateItem(idx, 'toDate', val)} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">NIGHTS</label>
+                          <input type="number" readOnly className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black outline-none ring-1 ring-slate-100" value={item.numNights} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOMS</label>
+                          <input type="number" min="1" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={item.numRooms} onChange={e => updateItem(idx, 'numRooms', Number(e.target.value))} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">RATE / NIGHT</label>
+                          <input type="number" step="0.01" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black text-blue-600 outline-none ring-1 ring-slate-100" value={item.unitRate} onChange={e => updateItem(idx, 'unitRate', Number(e.target.value))} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">AMOUNT ({formData.currency})</label>
+                          <div className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black text-slate-900 dark:text-white ring-1 ring-slate-100">
+                            {(item.unitRate * item.numRooms * item.numNights).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">MEAL PLAN</label>
+                        <div className="flex flex-wrap gap-1">
+                          {MEALS.map(meal => (
+                            <button key={meal} type="button" onClick={() => toggleMeal(idx, meal)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${item.meals.includes(meal) ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-400'}`}>
+                              {meal}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-50 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOM TYPE</label>
+                      <select className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100" value={item.roomType} onChange={e => updateItem(idx, 'roomType', e.target.value)}>
+                        {ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ADULTS</label>
+                      <input type="number" min="1" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100" value={item.adults} onChange={e => updateItem(idx, 'adults', Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHILDREN</label>
+                      <input type="number" min="0" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100" value={item.children} onChange={e => updateItem(idx, 'children', Number(e.target.value))} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-slate-900 p-4 rounded-3xl flex flex-col md:flex-row justify-between items-center text-white border border-white/5 shadow-2xl">
+            <div className="flex flex-col items-center md:items-start mb-3 md:mb-0">
+               <p className="text-[8px] font-bold uppercase opacity-50 tracking-[0.4em] mb-0.5">Total Customer Debit</p>
+               <p className="text-2xl font-black font-orbitron tracking-tighter">
                  PKR {totalPKR.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                </p>
             </div>
-            <div className="flex space-x-4">
-               <button type="button" onClick={onCancel} className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl uppercase text-[10px] tracking-widest transition-all">Discard</button>
-               <button type="submit" className="px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 uppercase text-[10px] tracking-[0.3em] font-orbitron transition-all active:scale-95">Post Voucher</button>
+            <div className="flex space-x-2">
+               <button type="button" onClick={onCancel} className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-lg uppercase text-[8px] tracking-widest transition-all">Discard</button>
+               <button type="submit" className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg shadow-xl shadow-blue-600/20 uppercase text-[8px] tracking-[0.3em] font-orbitron transition-all active:scale-95">Post Voucher</button>
             </div>
           </div>
         </form>
