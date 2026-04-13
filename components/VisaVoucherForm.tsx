@@ -33,7 +33,7 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
     vendorId: initialData?.vendorId || '',
     description: initialData?.description || '',
     reference: isClone ? '' : (initialData?.reference || ''),
-    items: initialData?.details?.items || [{ description: 'Adult', paxName: '', passportNumber: '', quantity: 1, rate: 0 }]
+    items: initialData?.details?.items || [{ paxName: '', passportNumber: '', quantity: 1, rate: 0 }]
   });
 
   useEffect(() => {
@@ -54,7 +54,7 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
   const handleAddItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { description: '', paxName: '', passportNumber: '', quantity: 1, rate: 0 }]
+      items: [...formData.items, { paxName: '', passportNumber: '', quantity: 1, rate: 0 }]
     });
   };
 
@@ -172,7 +172,6 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-white dark:bg-slate-900 border-b dark:border-slate-800">
-                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase">Head Name</th>
                   <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase">Pax Name</th>
                   <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase">Passport Number</th>
                   <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-20">Qty</th>
@@ -184,14 +183,6 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
               <tbody className="divide-y dark:divide-slate-800">
                 {formData.items.map((item: any, idx: number) => (
                   <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all">
-                    <td className="px-6 py-4">
-                      <input 
-                        className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-slate-100"
-                        placeholder="e.g. Adult"
-                        value={item.description}
-                        onChange={e => updateItem(idx, 'description', e.target.value)}
-                      />
-                    </td>
                     <td className="px-6 py-4">
                       <input 
                         className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-slate-100"

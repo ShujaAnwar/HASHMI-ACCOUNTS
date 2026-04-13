@@ -150,9 +150,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
         return `${pax.toUpperCase()} | ${hotel.toUpperCase()} |Checkin: ${ci} | Checkout: ${co} | R/B: ${rb} | Nights:${ngt} | ${loc.toUpperCase()} ${countrySuffix}`;
       case VoucherType.TRANSPORT:
         const tPax = v.details.paxName || '-';
-        const sector = v.details.items?.[0]?.sector || 'N/A';
-        const vehicle = v.details.items?.[0]?.vehicle || 'N/A';
-        return `${tPax.toUpperCase()} | ${sector.toUpperCase()} | ${vehicle.toUpperCase()}`;
+        const tItems = v.details.items || [];
+        const tSummary = tItems.map((i: any) => `${i.sector === 'CUSTOM' ? i.customLabel : i.sector} (${i.vehicle})`).join(' | ');
+        return `${tPax.toUpperCase()} | ${tSummary.toUpperCase()}`;
       case VoucherType.VISA:
         const vItems = v.details.items || [];
         const itemsSummary = vItems.map((i: any) => `${i.paxName || 'N/A'} (${i.passportNumber || 'N/A'})`).join(', ');
@@ -172,7 +172,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
     
     const paxName = viewingVoucher.details?.paxName?.replace(/\s+/g, '_') || 'Guest';
     const voucherNum = viewingVoucher.voucherNum;
-    const fileName = `HotelVoucher_${voucherNum}_${paxName}.pdf`;
+    const typeLabel = viewingVoucher.type === VoucherType.HOTEL ? 'HotelVoucher' : 
+                     viewingVoucher.type === VoucherType.TRANSPORT ? 'TransportVoucher' : 
+                     viewingVoucher.type === VoucherType.VISA ? 'VisaVoucher' : 'Voucher';
+    const fileName = `${typeLabel}_${voucherNum}_${paxName}.pdf`;
 
     const opt = {
       margin: 0,
@@ -278,10 +281,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                 </tr>
               ) : v.type === VoucherType.VISA ? (
                 <tr>
-                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Head Name</th>
                   <th className="py-2 border-r border-slate-400 font-bold uppercase">Pax Name</th>
                   <th className="py-2 border-r border-slate-400 font-bold uppercase">Passport Number</th>
                   <th className="py-2 border-r border-slate-400 font-bold uppercase">Quantity</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
+                  <th className="py-2 font-bold uppercase">Amount(PKR)</th>
+                </tr>
+              ) : v.type === VoucherType.TRANSPORT ? (
+                <tr>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Pax Name</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Sector / Route</th>
+                  <th className="py-2 border-r border-slate-400 font-bold uppercase">Vehicle</th>
                   <th className="py-2 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
                   <th className="py-2 font-bold uppercase">Amount(PKR)</th>
                 </tr>
@@ -340,9 +350,6 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                 v.details.items.map((item: any, i: number) => (
                   <tr key={i} className={i > 0 ? 'border-t border-slate-200' : ''}>
                     <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
-                      {item.description}
-                    </td>
-                    <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
                       {item.paxName || 'N/A'}
                     </td>
                     <td className="py-4 px-2 border-r border-slate-300 uppercase">
@@ -356,6 +363,26 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                     </td>
                     <td className="py-4 px-2 font-black">
                       {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              ) : v.type === VoucherType.TRANSPORT && v.details?.items?.length > 0 ? (
+                v.details.items.map((item: any, i: number) => (
+                  <tr key={i} className={i > 0 ? 'border-t border-slate-200' : ''}>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
+                      {v.details.paxName || 'N/A'}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase text-left">
+                      {item.sector === 'CUSTOM' ? item.customLabel : item.sector}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 uppercase">
+                      {item.vehicle}
+                    </td>
+                    <td className="py-4 px-2 border-r border-slate-300 font-bold">
+                      {Number(item.rate).toLocaleString()}
+                    </td>
+                    <td className="py-4 px-2 font-black">
+                      {(Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 ))
@@ -381,7 +408,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                 </tr>
               )}
               <tr className="bg-slate-50 border-t border-slate-300 font-bold">
-                <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT || v.type === VoucherType.VISA ? 4 : 6} className="py-4 text-right px-8 uppercase text-xs">Total:</td>
+                <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT || v.type === VoucherType.VISA ? 3 : 6} className="py-4 text-right px-8 uppercase text-xs">Total:</td>
                 <td className="py-4 px-2">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
@@ -736,6 +763,284 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
     );
   };
 
+  const renderTransportVoucher = (v: Voucher) => {
+    return (
+      <div ref={voucherRef} className="bg-white p-8 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+        
+        {/* Compact Header */}
+        <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100">
+          <div className="w-40">
+             {config?.companyLogo ? (
+               <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" className="object-contain" />
+             ) : (
+               <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{config?.companyName || 'ENTERPRISE'}</div>
+             )}
+          </div>
+          <div className="text-center flex-1">
+            <h1 className="text-[30px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-1">Transport Voucher</h1>
+            <p className="text-[20px] font-bold text-[#e11d48] uppercase tracking-wider">
+              {config?.appSubtitle || 'TRAVELS SERVICES'}
+            </p>
+          </div>
+          <div className="w-44 text-right pr-6">
+             <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-slate-400 uppercase flex justify-end gap-3">
+                  CELL: <span className="text-[#0f172a] font-bold">{config?.companyCell}</span>
+                </p>
+                <p className="text-[10px] font-black text-slate-400 uppercase flex justify-end gap-3">
+                  PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone}</span>
+                </p>
+             </div>
+          </div>
+        </div>
+
+        {/* Reference Line */}
+        <div className="mb-6 flex justify-between items-end">
+          <p className="text-[15px] font-black text-[#0f172a]">Voucher No: {v.voucherNum}</p>
+          <p className="text-[13px] font-black text-slate-500 uppercase tracking-tight">
+            Date: {formatDate(v.date)}
+          </p>
+        </div>
+
+        {/* Details Grid */}
+        <div className="grid grid-cols-2 gap-x-24 gap-y-4 mb-6 border-b border-slate-100 pb-6">
+          <div className="space-y-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER NAME</p>
+              <p className="text-[18px] font-black uppercase text-[#0f172a] leading-tight">
+                {accounts.find(a => a.id === v.customerId)?.name || 'N/A'}
+              </p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PASSENGER NAME</p>
+              <p className="text-[16px] font-black uppercase text-slate-700">
+                {v.details?.paxName || 'N/A'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">REFERENCE / PNR</p>
+              <p className="text-[16px] font-black text-[#0f172a]">{v.reference || 'N/A'}</p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CURRENCY / ROE</p>
+              <p className="text-[16px] font-black text-slate-700">
+                {v.currency} @ {v.roe || 1}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="mb-6 flex-1">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="text-[10px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
+                <th className="py-3 px-5 text-left border-r border-slate-700">#</th>
+                <th className="py-3 px-5 text-left border-r border-slate-700">SECTOR / ROUTE</th>
+                <th className="py-3 px-5 text-left border-r border-slate-700">VEHICLE TYPE</th>
+                <th className="py-3 px-5 text-right border-r border-slate-700">RATE ({v.currency})</th>
+                <th className="py-3 px-5 text-right">AMOUNT (PKR)</th>
+              </tr>
+            </thead>
+            <tbody className="text-[12px] font-bold text-slate-800">
+              {v.details?.items?.map((item: any, i: number) => (
+                <tr key={i} className="bg-white border-b border-slate-200">
+                  <td className="py-3 px-5 border-r border-slate-200">{i + 1}</td>
+                  <td className="py-3 px-5 border-r border-slate-200 uppercase">
+                    {item.sector === 'CUSTOM' ? item.customLabel : item.sector}
+                  </td>
+                  <td className="py-3 px-5 border-r border-slate-200 uppercase">{item.vehicle}</td>
+                  <td className="py-3 px-5 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
+                  <td className="py-3 px-5 text-right">
+                    {(Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-50 font-black text-[14px]">
+                <td colSpan={4} className="py-4 px-5 text-right uppercase tracking-widest">Grand Total:</td>
+                <td className="py-4 px-5 text-right text-blue-600">
+                  PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Remarks Section */}
+        {v.description && (
+          <div className="mb-8 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">REMARKS / INSTRUCTIONS</p>
+            <p className="text-[12px] font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {v.description}
+            </p>
+          </div>
+        )}
+
+        {/* Signatures */}
+        <div className="mt-auto pt-12 pb-4">
+          <div className="flex justify-between items-end">
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Prepared By
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Customer Signature
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Authorized Stamp
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderVisaVoucher = (v: Voucher) => {
+    return (
+      <div ref={voucherRef} className="bg-white p-8 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+        
+        {/* Compact Header */}
+        <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100">
+          <div className="w-40">
+             {config?.companyLogo ? (
+               <img src={config.companyLogo} style={{ height: `60px` }} alt="logo" className="object-contain" />
+             ) : (
+               <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{config?.companyName || 'ENTERPRISE'}</div>
+             )}
+          </div>
+          <div className="text-center flex-1">
+            <h1 className="text-[30px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-1">Visa Voucher</h1>
+            <p className="text-[20px] font-bold text-[#e11d48] uppercase tracking-wider">
+              {config?.appSubtitle || 'TRAVELS SERVICES'}
+            </p>
+          </div>
+          <div className="w-44 text-right pr-6">
+             <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-slate-400 uppercase flex justify-end gap-3">
+                  CELL: <span className="text-[#0f172a] font-bold">{config?.companyCell}</span>
+                </p>
+                <p className="text-[10px] font-black text-slate-400 uppercase flex justify-end gap-3">
+                  PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone}</span>
+                </p>
+             </div>
+          </div>
+        </div>
+
+        {/* Reference Line */}
+        <div className="mb-6 flex justify-between items-end">
+          <p className="text-[15px] font-black text-[#0f172a]">Voucher No: {v.voucherNum}</p>
+          <p className="text-[13px] font-black text-slate-500 uppercase tracking-tight">
+            Date: {formatDate(v.date)}
+          </p>
+        </div>
+
+        {/* Details Grid */}
+        <div className="grid grid-cols-2 gap-x-24 gap-y-4 mb-6 border-b border-slate-100 pb-6">
+          <div className="space-y-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER NAME</p>
+              <p className="text-[18px] font-black uppercase text-[#0f172a] leading-tight">
+                {accounts.find(a => a.id === v.customerId)?.name || 'N/A'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">REFERENCE / PNR</p>
+              <p className="text-[16px] font-black text-[#0f172a]">{v.reference || 'N/A'}</p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CURRENCY / ROE</p>
+              <p className="text-[16px] font-black text-slate-700">
+                {v.currency} @ {v.roe || 1}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="mb-6 flex-1">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="text-[10px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
+                <th className="py-3 px-5 text-left border-r border-slate-700">#</th>
+                <th className="py-3 px-5 text-left border-r border-slate-700">PAX NAME</th>
+                <th className="py-3 px-5 text-left border-r border-slate-700">PASSPORT NO</th>
+                <th className="py-3 px-5 text-center border-r border-slate-700">QTY</th>
+                <th className="py-3 px-5 text-right border-r border-slate-700">RATE ({v.currency})</th>
+                <th className="py-3 px-5 text-right">AMOUNT (PKR)</th>
+              </tr>
+            </thead>
+            <tbody className="text-[12px] font-bold text-slate-800">
+              {v.details?.items?.map((item: any, i: number) => (
+                <tr key={i} className="bg-white border-b border-slate-200">
+                  <td className="py-3 px-5 border-r border-slate-200">{i + 1}</td>
+                  <td className="py-3 px-5 border-r border-slate-200 uppercase">{item.paxName || 'N/A'}</td>
+                  <td className="py-3 px-5 border-r border-slate-200 uppercase">{item.passportNumber || 'N/A'}</td>
+                  <td className="py-3 px-5 border-r border-slate-200 text-center">{item.quantity}</td>
+                  <td className="py-3 px-5 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
+                  <td className="py-3 px-5 text-right">
+                    {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-50 font-black text-[14px]">
+                <td colSpan={5} className="py-4 px-5 text-right uppercase tracking-widest">Grand Total:</td>
+                <td className="py-4 px-5 text-right text-blue-600">
+                  PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Remarks Section */}
+        {v.description && (
+          <div className="mb-8 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">REMARKS / INSTRUCTIONS</p>
+            <p className="text-[12px] font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {v.description}
+            </p>
+          </div>
+        )}
+
+        {/* Signatures */}
+        <div className="mt-auto pt-12 pb-4">
+          <div className="flex justify-between items-end">
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Prepared By
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Customer Signature
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="w-48 border-t-2 border-slate-900 pt-2 font-black text-[11px] uppercase tracking-widest">
+                Authorized Stamp
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderInspectorContent = () => {
     if (!viewingVoucher) return null;
     
@@ -748,7 +1053,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
       case 'OFFICIAL': return renderOfficialInvoice(viewingVoucher);
       case 'PKR': return renderConfirmationLetter(viewingVoucher);
       case 'SAR': return renderSARQuotation(viewingVoucher);
-      case 'SERVICE': return renderServiceVoucher(viewingVoucher);
+      case 'SERVICE': 
+        if (viewingVoucher.type === VoucherType.TRANSPORT) return renderTransportVoucher(viewingVoucher);
+        if (viewingVoucher.type === VoucherType.VISA) return renderVisaVoucher(viewingVoucher);
+        return renderServiceVoucher(viewingVoucher);
       default: return renderOfficialInvoice(viewingVoucher);
     }
   };
