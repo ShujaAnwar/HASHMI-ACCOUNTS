@@ -612,7 +612,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
               <th className="p-2 border-r border-slate-400">Room</th>
               <th className="p-2 border-r border-slate-400">Checkin</th>
               <th className="p-2 border-r border-slate-400">Checkout</th>
-              <th className="p-2 border-r border-slate-400">Rooms / Nights</th>
+              <th className="p-2 border-r border-slate-400">Rooms</th>
+              <th className="p-2 border-r border-slate-400">Nights</th>
               <th className="p-2">Total(SAR)</th>
             </tr>
           </thead>
@@ -629,7 +630,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   </td>
                   <td className="p-2 border-r border-slate-300 whitespace-nowrap">{item.fromDate ? formatDate(item.fromDate) : '-'}</td>
                   <td className="p-2 border-r border-slate-300 whitespace-nowrap">{item.toDate ? formatDate(item.toDate) : '-'}</td>
-                  <td className="p-2 border-r border-slate-300">{item.numRooms} / {item.numNights}</td>
+                  <td className="p-2 border-r border-slate-300">{item.numRooms}</td>
+                  <td className="p-2 border-r border-slate-300">{item.numNights}</td>
                   <td className="p-2 font-black text-right">
                     {(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)).toLocaleString(undefined, { minimumFractionDigits: 0 })}
                   </td>
@@ -646,12 +648,13 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                 </td>
                 <td className="p-2 border-r border-slate-300 whitespace-nowrap">{v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}</td>
                 <td className="p-2 border-r border-slate-300 whitespace-nowrap">{v.details?.toDate ? formatDate(v.details.toDate) : '-'}</td>
-                <td className="p-2 border-r border-slate-300">{v.details?.numRooms} / {v.details?.numNights}</td>
+                <td className="p-2 border-r border-slate-300">{v.details?.numRooms}</td>
+                <td className="p-2 border-r border-slate-300">{v.details?.numNights}</td>
                 <td className="p-2 font-black text-right">{totalSAR.toLocaleString(undefined, { minimumFractionDigits: 0 })}</td>
               </tr>
             )}
             <tr className="bg-slate-50 font-black">
-              <td colSpan={5} className="p-2 text-right uppercase">Total:</td>
+              <td colSpan={6} className="p-2 text-right uppercase">Total:</td>
               <td className="p-2 text-right">SAR {totalSAR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
             </tr>
           </tbody>
@@ -740,11 +743,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN / CHECK-OUT</p>
                     <p className="text-[12px] font-black text-[#0f172a]">{formatDate(item.fromDate)} - {formatDate(item.toDate)}</p>
                   </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">ROOM(S) / NIGHT(S)</p>
-                    <p className="text-[12px] font-black text-slate-700">
-                      {item.numRooms || 1} / {item.numNights || 1}
-                    </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-0.5">
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">ROOM(S)</p>
+                      <p className="text-[12px] font-black text-slate-700">{item.numRooms || 1}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">NIGHT(S)</p>
+                      <p className="text-[12px] font-black text-slate-700">{item.numNights || 1}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -796,7 +803,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">HOTEL / CITY</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">ROOM TYPE</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">MEAL</th>
-                <th className="py-1.5 px-3 text-left border-r border-slate-700">RMS/NTS</th>
+                <th className="py-1.5 px-3 text-left border-r border-slate-700">RMS</th>
+                <th className="py-1.5 px-3 text-left border-r border-slate-700">NTS</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">ADULT(S)</th>
                 <th className="py-1.5 px-3 text-left">CHILDREN</th>
               </tr>
@@ -808,7 +816,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.hotelName} ({item.city})</td>
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.roomType}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(item.meals)}</td>
-                    <td className="py-1.5 px-3 border-r border-slate-200">{item.numRooms} / {item.numNights}</td>
+                    <td className="py-1.5 px-3 border-r border-slate-200">{item.numRooms}</td>
+                    <td className="py-1.5 px-3 border-r border-slate-200">{item.numNights}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200">{item.adults || 2}</td>
                     <td className="py-1.5 px-3">{item.children || 0}</td>
                   </tr>
@@ -818,7 +827,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{v.details?.hotelName} ({v.details?.city})</td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{v.details?.roomType || 'TRIPLE'}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(v.details?.meals)}</td>
-                  <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numRooms || 1} / {v.details?.numNights || 1}</td>
+                  <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numRooms || 1}</td>
+                  <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numNights || 1}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.adults || 2}</td>
                   <td className="py-1.5 px-3">{v.details?.children || 0}</td>
                 </tr>
