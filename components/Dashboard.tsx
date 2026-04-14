@@ -7,7 +7,7 @@ import { formatCurrency, formatDate } from '../utils/format';
 import DateInput from './DateInput';
 import { getVouchers, getAccounts } from '../services/db';
 import { supabase } from '../services/supabase';
-import { VoucherType, AccountType, Voucher, Account, AppConfig } from '../types';
+import { VoucherType, AccountType, Voucher, Account, AppConfig, Currency } from '../types';
 
 /**
  * Custom hook for smooth animated numbers (Running numbers effect)
@@ -207,53 +207,121 @@ const Dashboard: React.FC<{
 
     return vouchers
       .filter(v => [VoucherType.HOTEL, VoucherType.TRANSPORT, VoucherType.VISA, VoucherType.TICKET].includes(v.type))
-      .map(v => {
+      .flatMap(v => {
         const vendor = accounts.find(a => a.id === v.vendorId);
         const customer = accounts.find(a => a.id === v.customerId);
         
-        // For Hotel, use fromDate if available, otherwise voucher date
-        let bookingDate = new Date(v.date);
-        if (v.type === VoucherType.HOTEL && v.details?.fromDate) {
-          bookingDate = new Date(v.details.fromDate);
+        const items = v.details?.items || [];
+        
+        // If no items, treat as a single entry (legacy or single-item vouchers like Ticket)
+        if (items.length === 0) {
+          let bookingDate = new Date(v.date);
+          if (v.type === VoucherType.HOTEL && v.details?.fromDate) {
+            bookingDate = new Date(v.details.fromDate);
+          }
+
+          let statusColor = 'text-slate-600 dark:text-slate-400';
+          let bgColor = 'bg-white dark:bg-slate-900';
+          let isToday = isSameDay(bookingDate, today);
+          let isTomorrow = isSameDay(bookingDate, tomorrow);
+          let isPrevious = bookingDate < today;
+          let isAfterTomorrow = bookingDate >= afterTomorrow;
+
+          if (isToday) {
+            statusColor = 'text-emerald-600 dark:text-emerald-400';
+            bgColor = 'bg-emerald-50/50 dark:bg-emerald-900/10';
+          } else if (isTomorrow) {
+            statusColor = 'text-amber-600 dark:text-amber-400';
+            bgColor = 'bg-amber-50/50 dark:bg-amber-900/10';
+          } else if (isPrevious) {
+            statusColor = 'text-rose-600 dark:text-rose-400';
+            bgColor = 'bg-rose-50/50 dark:bg-rose-900/10';
+          } else if (isAfterTomorrow) {
+            statusColor = 'text-purple-600 dark:text-purple-400';
+            bgColor = 'bg-purple-50/50 dark:bg-purple-900/10';
+          }
+
+          return [{
+            ...v,
+            vendorName: vendor?.name || 'N/A',
+            customerName: customer?.name || 'N/A',
+            bookingDate,
+            statusColor,
+            bgColor,
+            isToday,
+            isTomorrow,
+            isPrevious,
+            isAfterTomorrow,
+            paxName: v.details?.paxName || v.details?.headName || 'N/A',
+            hotelName: v.details?.hotelName || v.details?.airline || 'N/A',
+            roomType: v.details?.roomType || v.details?.sector || '-',
+            numNights: v.details?.numNights || '-',
+            totalAmountPKR: v.totalAmountPKR
+          }];
         }
 
-        let statusColor = 'text-slate-600 dark:text-slate-400';
-        let bgColor = 'bg-white dark:bg-slate-900';
-        let isToday = isSameDay(bookingDate, today);
-        let isTomorrow = isSameDay(bookingDate, tomorrow);
-        let isPrevious = bookingDate < today;
-        let isAfterTomorrow = bookingDate >= afterTomorrow;
+        // Process multiple items
+        return items.map((item: any, idx: number) => {
+          let bookingDate = new Date(v.date);
+          if (v.type === VoucherType.HOTEL && item.fromDate) {
+            bookingDate = new Date(item.fromDate);
+          } else if (v.type === VoucherType.HOTEL && v.details?.fromDate) {
+            bookingDate = new Date(v.details.fromDate);
+          }
 
-        if (isToday) {
-          statusColor = 'text-emerald-600 dark:text-emerald-400';
-          bgColor = 'bg-emerald-50/50 dark:bg-emerald-900/10';
-        } else if (isTomorrow) {
-          statusColor = 'text-amber-600 dark:text-amber-400';
-          bgColor = 'bg-amber-50/50 dark:bg-amber-900/10';
-        } else if (isPrevious) {
-          statusColor = 'text-rose-600 dark:text-rose-400';
-          bgColor = 'bg-rose-50/50 dark:bg-rose-900/10';
-        } else if (isAfterTomorrow) {
-          statusColor = 'text-purple-600 dark:text-purple-400';
-          bgColor = 'bg-purple-50/50 dark:bg-purple-900/10';
-        }
+          let statusColor = 'text-slate-600 dark:text-slate-400';
+          let bgColor = 'bg-white dark:bg-slate-900';
+          let isToday = isSameDay(bookingDate, today);
+          let isTomorrow = isSameDay(bookingDate, tomorrow);
+          let isPrevious = bookingDate < today;
+          let isAfterTomorrow = bookingDate >= afterTomorrow;
 
-        return {
-          ...v,
-          vendorName: vendor?.name || 'N/A',
-          customerName: customer?.name || 'N/A',
-          bookingDate,
-          statusColor,
-          bgColor,
-          isToday,
-          isTomorrow,
-          isPrevious,
-          isAfterTomorrow,
-          paxName: v.details?.paxName || v.details?.headName || (v.type === VoucherType.VISA ? v.details?.items?.map((i: any) => i.paxName).filter(Boolean).join(', ') : 'N/A') || 'N/A',
-          hotelName: v.details?.hotelName || v.details?.airline || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : v.details?.items?.[0]?.vehicle) || 'N/A',
-          roomType: v.details?.roomType || (v.type === VoucherType.VISA ? v.details?.items?.map((i: any) => i.description).filter(Boolean).join(', ') : v.details?.items?.[0]?.sector) || '-',
-          numNights: v.details?.numNights || '-',
-        };
+          if (isToday) {
+            statusColor = 'text-emerald-600 dark:text-emerald-400';
+            bgColor = 'bg-emerald-50/50 dark:bg-emerald-900/10';
+          } else if (isTomorrow) {
+            statusColor = 'text-amber-600 dark:text-amber-400';
+            bgColor = 'bg-amber-50/50 dark:bg-amber-900/10';
+          } else if (isPrevious) {
+            statusColor = 'text-rose-600 dark:text-rose-400';
+            bgColor = 'bg-rose-50/50 dark:bg-rose-900/10';
+          } else if (isAfterTomorrow) {
+            statusColor = 'text-purple-600 dark:text-purple-400';
+            bgColor = 'bg-purple-50/50 dark:bg-purple-900/10';
+          }
+
+          // Calculate line amount
+          let lineAmount = 0;
+          const rate = v.currency === Currency.SAR ? v.roe : 1;
+          if (v.type === VoucherType.HOTEL) {
+            lineAmount = (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)) * rate;
+          } else if (v.type === VoucherType.TRANSPORT) {
+            lineAmount = Number(item.amount) * rate;
+          } else if (v.type === VoucherType.VISA) {
+            lineAmount = (Number(item.quantity) * Number(item.rate)) * rate;
+          } else {
+            lineAmount = v.totalAmountPKR / items.length;
+          }
+
+          return {
+            ...v,
+            id: `${v.id}-${idx}`, // Unique ID for the row
+            vendorName: vendor?.name || 'N/A',
+            customerName: customer?.name || 'N/A',
+            bookingDate,
+            statusColor,
+            bgColor,
+            isToday,
+            isTomorrow,
+            isPrevious,
+            isAfterTomorrow,
+            paxName: item.paxName || v.details?.paxName || 'N/A',
+            hotelName: item.hotelName || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : item.vehicle) || 'N/A',
+            roomType: item.roomType || item.sector || item.description || '-',
+            numNights: item.numNights || '-',
+            totalAmountPKR: lineAmount
+          };
+        });
       })
       .filter(b => {
         if (filters.fromDate && filters.toDate) {

@@ -139,20 +139,22 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
     
     switch (v.type) {
       case VoucherType.HOTEL:
-        const pax = v.details.paxName || 'N/A';
         const hItems = v.details.items || [];
+        const firstHItem = hItems[0] || {};
+        const pax = (v.details.paxName || firstHItem.paxName || 'N/A').toUpperCase();
+        
         if (hItems.length > 0) {
           const hSummary = hItems.map((i: any) => `${i.hotelName} (${i.city})`).join(' | ');
-          return `${pax.toUpperCase()} | ${hSummary.toUpperCase()}`;
+          return `${pax} | ${hSummary.toUpperCase()}`;
         }
-        const hotel = v.details.hotelName || 'N/A';
+        const hotel = (v.details.hotelName || 'N/A').toUpperCase();
         const ci = v.details.fromDate || '-';
         const co = v.details.toDate || '-';
         const rb = v.details.numRooms || '0';
         const ngt = v.details.numNights || '0';
         const loc = v.details.city || 'N/A';
         const countrySuffix = (loc.toLowerCase().includes('makkah') || loc.toLowerCase().includes('madinah') || loc.toLowerCase().includes('jeddah')) ? '-KSA' : '';
-        return `${pax.toUpperCase()} | ${hotel.toUpperCase()} |Checkin: ${ci} | Checkout: ${co} | R/B: ${rb} | Nights:${ngt} | ${loc.toUpperCase()} ${countrySuffix}`;
+        return `${pax} | ${hotel} |Checkin: ${ci} | Checkout: ${co} | R/B: ${rb} | Nights:${ngt} | ${loc.toUpperCase()} ${countrySuffix}`;
       case VoucherType.TRANSPORT:
         const tPax = v.details.paxName || '-';
         const tItems = v.details.items || [];

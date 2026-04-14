@@ -169,15 +169,23 @@ import DateInput from './DateInput';
     }, [viewCurrency, currentROE]);
 
     const getNarrativeForLedger = (entry: any, voucher: Voucher | undefined) => {
+      // Prioritize the stored description if it's already detailed or exists
+      if (entry.description && entry.description !== '-' && entry.description.trim() !== '') {
+        return entry.description;
+      }
+
       if (!voucher || !voucher.details) return entry.description || '-';
       
       if (voucher.type === VoucherType.HOTEL) {
-        const pax = (voucher.details.paxName || 'N/A').toUpperCase();
-        const hotel = (voucher.details.hotelName || 'N/A').toUpperCase();
-        const ci = voucher.details.fromDate || '-';
-        const co = voucher.details.toDate || '-';
-        const nights = voucher.details.numNights || '0';
-        const mealsRaw = voucher.details.meals;
+        const items = voucher.details.items || [];
+        const firstItem = items[0] || {};
+        
+        const pax = (voucher.details.paxName || firstItem.paxName || 'N/A').toUpperCase();
+        const hotel = (firstItem.hotelName || voucher.details.hotelName || 'N/A').toUpperCase();
+        const ci = firstItem.fromDate || voucher.details.fromDate || '-';
+        const co = firstItem.toDate || voucher.details.toDate || '-';
+        const nights = firstItem.numNights || voucher.details.numNights || '0';
+        const mealsRaw = firstItem.meals || voucher.details.meals;
         const meals = Array.isArray(mealsRaw) 
           ? mealsRaw.join(', ') 
           : (mealsRaw && mealsRaw !== 'NONE' ? mealsRaw : 'N/A');
@@ -633,7 +641,7 @@ import DateInput from './DateInput';
                                 {isSar ? (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
                               </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {voucher?.type === VoucherType.HOTEL ? (voucher.details?.numNights || '-') : '-'}
+                                {voucher?.type === VoucherType.HOTEL ? (voucher.details?.items?.[0]?.numNights || voucher.details?.numNights || '-') : '-'}
                               </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
                                 {isSar ? itemRoe : '-'}

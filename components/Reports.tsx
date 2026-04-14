@@ -453,15 +453,23 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
                           const isOpening = (entry as any).isOpening;
 
                           const getNarrative = () => {
+                            // Prioritize the stored description if it's already detailed or exists
+                            if (entry.description && entry.description !== '-' && entry.description.trim() !== '') {
+                              return entry.description;
+                            }
+
                             if (!voucher || !voucher.details) return entry.description || '-';
                             
                             if (voucher.type === VoucherType.HOTEL) {
-                              const pax = (voucher.details.paxName || 'N/A').toUpperCase();
-                              const hotel = (voucher.details.hotelName || 'N/A').toUpperCase();
-                              const ci = voucher.details.fromDate || '-';
-                              const co = voucher.details.toDate || '-';
-                              const nights = voucher.details.numNights || '0';
-                              const mealsRaw = voucher.details.meals;
+                              const items = voucher.details.items || [];
+                              const firstItem = items[0] || {};
+                              
+                              const pax = (voucher.details.paxName || firstItem.paxName || 'N/A').toUpperCase();
+                              const hotel = (firstItem.hotelName || voucher.details.hotelName || 'N/A').toUpperCase();
+                              const ci = firstItem.fromDate || voucher.details.fromDate || '-';
+                              const co = firstItem.toDate || voucher.details.toDate || '-';
+                              const nights = firstItem.numNights || voucher.details.numNights || '0';
+                              const mealsRaw = firstItem.meals || voucher.details.meals;
                               const meals = Array.isArray(mealsRaw) 
                                 ? mealsRaw.join(', ') 
                                 : (mealsRaw && mealsRaw !== 'NONE' ? mealsRaw : 'N/A');

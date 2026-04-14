@@ -33,7 +33,7 @@ export class AccountingService {
   }
 
   private static formatDate(dateStr: string): string {
-    if (!dateStr) return 'N/A';
+    if (!dateStr || dateStr === '') return '-';
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
     const day = String(d.getDate()).padStart(2, '0');
@@ -287,12 +287,12 @@ export class AccountingService {
       if (items.length > 0) {
         items.forEach((item: any) => {
           const itemAmountPKR = (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)) * rate;
-          const paxName = voucher.details?.paxName || 'N/A';
+          const paxName = voucher.details?.paxName || item.paxName || 'N/A';
           const checkIn = this.formatDate(item.fromDate);
           const checkOut = this.formatDate(item.toDate);
           const meals = this.formatMeals(item.meals);
           
-          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${item.numNights} | Meals: ${meals} | Rooms: ${item.numRooms}`;
+          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${item.numNights} | Meals: ${meals} | NORs: ${item.numRooms}`;
           
           if (customerId) {
             entries.push({ 
@@ -327,7 +327,7 @@ export class AccountingService {
         const nights = voucher.details?.numNights || 1;
         const rooms = voucher.details?.numRooms || 1;
         
-        const legacyDesc = `${paxName} | ${hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${nights} | Meals: ${meals} | Rooms: ${rooms}`;
+        const legacyDesc = `${paxName} | ${hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${nights} | Meals: ${meals} | NORs: ${rooms}`;
         
         const vendorAmount = Number(voucher.details?.vendorAmountPKR) || amount;
         if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: legacyDesc, voucher_num: voucher.voucher_num });
