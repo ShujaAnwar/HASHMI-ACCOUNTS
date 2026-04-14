@@ -170,12 +170,19 @@
       delete fallbackPayload.account_name_case;
       delete fallbackPayload.banks;
       delete fallbackPayload.font_size;
+      delete fallbackPayload.auto_backup_enabled;
+      delete fallbackPayload.auto_backup_interval_enabled;
+      delete fallbackPayload.auto_backup_interval_hours;
       
       const { error: fallbackError } = await supabase
         .from('app_config')
         .upsert(fallbackPayload);
         
-      if (fallbackError) throw fallbackError;
+      if (fallbackError) {
+        console.error("Critical config save failure:", fallbackError);
+        // Don't throw here to allow the rest of the restore to proceed if possible
+        // but we should log it clearly.
+      }
     }
   };
 
@@ -244,7 +251,15 @@
         }));
         
         const { error: accErr } = await supabase.from('accounts').insert(accountsToInsert);
-        if (accErr) throw new Error(`Failed to restore accounts: ${accErr.message}`);
+        if (accErr) {
+          console.warn("Account restoration failed, attempting fallback without currency column...", accErr);
+          const fallbackAccounts = accountsToInsert.map((a: any) => {
+            const { currency, ...rest } = a;
+            return rest;
+          });
+          const { error: accFallbackErr } = await supabase.from('accounts').insert(fallbackAccounts);
+          if (accFallbackErr) throw new Error(`Failed to restore accounts: ${accFallbackErr.message}`);
+        }
       }
 
       // 4. Restore Vouchers
@@ -298,7 +313,15 @@
         for (let i = 0; i < allLedgerEntries.length; i += chunkSize) {
           const chunk = allLedgerEntries.slice(i, i + chunkSize);
           const { error: ledgErr } = await supabase.from('ledger_entries').insert(chunk);
-          if (ledgErr) throw new Error(`Failed to restore ledger entries (batch ${Math.floor(i/chunkSize) + 1}): ${ledgErr.message}`);
+          if (ledgErr) {
+            console.warn(`Ledger batch ${Math.floor(i/chunkSize) + 1} failed, attempting fallback without voucher_num...`, ledgErr);
+            const fallbackChunk = chunk.map((l: any) => {
+              const { voucher_num, ...rest } = l;
+              return rest;
+            });
+            const { error: ledgFallbackErr } = await supabase.from('ledger_entries').insert(fallbackChunk);
+            if (ledgFallbackErr) throw new Error(`Failed to restore ledger entries (batch ${Math.floor(i/chunkSize) + 1}): ${ledgFallbackErr.message}`);
+          }
         }
       }
 

@@ -273,8 +273,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
         }, 500);
       } catch (err: any) { 
         console.error("Restore Error:", err);
-        setSaveStatus(`Restore Failed: ${err.message}`);
-        alert(`Restore Failed: ${err.message || "Unknown error occurred during restoration."}`); 
+        const errorMsg = err.message || "Unknown error occurred during restoration.";
+        setSaveStatus(`Restore Failed: ${errorMsg}`);
+        
+        if (errorMsg.includes('column') || errorMsg.includes('schema cache')) {
+          alert(`Restore Failed: ${errorMsg}\n\nThis usually means your database schema is outdated. Please go to the 'Diagnostics' tab, copy the SQL code, and run it in your Supabase SQL Editor to fix this.`);
+        } else {
+          alert(`Restore Failed: ${errorMsg}`); 
+        }
       } finally {
         if (restoreInputRef.current) {
           restoreInputRef.current.value = '';
