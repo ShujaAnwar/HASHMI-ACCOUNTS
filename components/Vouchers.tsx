@@ -44,6 +44,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [allVouchers, setAllVouchers] = useState<Voucher[]>([]);
@@ -199,6 +200,59 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
       console.error("PDF Export Error:", err);
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleWhatsAppShare = async () => {
+    if (!viewingVoucher || !voucherRef.current) return;
+    
+    setIsSharing(true);
+    const element = voucherRef.current;
+    
+    const paxName = viewingVoucher.details?.paxName?.replace(/\s+/g, '_') || 'Guest';
+    const voucherNum = viewingVoucher.voucherNum;
+    const typeLabel = viewingVoucher.type === VoucherType.HOTEL ? 'HotelVoucher' : 
+                     viewingVoucher.type === VoucherType.TRANSPORT ? 'TransportVoucher' : 
+                     viewingVoucher.type === VoucherType.VISA ? 'VisaVoucher' : 'Voucher';
+    const fileName = `${typeLabel}_${voucherNum}_${paxName}.pdf`;
+
+    const opt = {
+      margin: 0,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 1.0 },
+      html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      // @ts-ignore
+      const blob = await html2pdf().set(opt).from(element).output('blob');
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: fileName,
+          text: `Please find the attached ${typeLabel} for ${paxName}.`,
+        });
+      } else {
+        // Fallback for desktop or unsupported browsers
+        // Download the file
+        // @ts-ignore
+        await html2pdf().set(opt).from(element).save();
+        
+        // Then open WhatsApp
+        const message = encodeURIComponent(`I've sent you the ${typeLabel} (${voucherNum}). Please check your downloads and attach the file.`);
+        const whatsappUrl = /Android|iPhone|iPad/i.test(navigator.userAgent) 
+          ? `whatsapp://send?text=${message}`
+          : `https://web.whatsapp.com/send?text=${message}`;
+        
+        window.open(whatsappUrl, '_blank');
+      }
+    } catch (err) {
+      console.error("WhatsApp Share Error:", err);
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -1302,6 +1356,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
                   >
                     <span>{isDownloading ? '⏳' : '📥'}</span> 
                     <span>{isDownloading ? 'Downloading...' : 'Download PDF'}</span>
+                  </button>
+                  <button 
+                    onClick={handleWhatsAppShare} 
+                    disabled={isSharing}
+                    className="bg-emerald-600 text-white px-8 py-2 rounded-xl font-black uppercase text-[10px] transition-all flex items-center space-x-2 disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                  >
+                    <span>{isSharing ? '⏳' : '🟢'}</span> 
+                    <span>{isSharing ? 'Share WhatsApp' : 'Share WhatsApp'}</span>
                   </button>
                   <button onClick={() => setViewingVoucher(null)} className="p-2 bg-slate-200 dark:bg-slate-700 text-slate-500 rounded-xl">✕</button>
                </div>

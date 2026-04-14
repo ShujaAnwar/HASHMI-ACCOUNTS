@@ -26,6 +26,7 @@ import DateInput from './DateInput';
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [isSharing, setIsSharing] = useState(false);
     
     const [viewCurrency, setViewCurrency] = useState<Currency>(Currency.PKR);
     const [fromDate, setFromDate] = useState<string>('');
@@ -303,6 +304,60 @@ import DateInput from './DateInput';
       }
     };
 
+    const handleWhatsAppShare = async () => {
+      if (!pdfRef.current || !selectedAccount) return;
+      
+      setIsSharing(true);
+      const element = pdfRef.current;
+      const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${formatDate(new Date())}.pdf`;
+      
+      const opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true, 
+          logging: false,
+          backgroundColor: '#ffffff',
+          width: 1122, 
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      };
+
+      try {
+        // @ts-ignore
+        const blob = await html2pdf().set(opt).from(element).output('blob');
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: fileName,
+            text: `Please find the attached Ledger for ${selectedAccount.name}.`,
+          });
+        } else {
+          // Fallback for desktop or unsupported browsers
+          // Download the file
+          // @ts-ignore
+          await html2pdf().set(opt).from(element).save();
+          
+          // Then open WhatsApp
+          const message = encodeURIComponent(`I've sent you the Ledger for ${selectedAccount.name}. Please check your downloads and attach the file.`);
+          const whatsappUrl = /Android|iPhone|iPad/i.test(navigator.userAgent) 
+            ? `whatsapp://send?text=${message}`
+            : `https://web.whatsapp.com/send?text=${message}`;
+          
+          window.open(whatsappUrl, '_blank');
+        }
+      } catch (err) {
+        console.error("WhatsApp Share Error:", err);
+      } finally {
+        setIsSharing(false);
+      }
+    };
+
     const handleFormSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSubmitting(true);
@@ -540,6 +595,13 @@ import DateInput from './DateInput';
                   className="px-4 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50"
                 >
                   {isExporting ? 'Preparing...' : 'Export PDF'}
+                </button>
+                <button 
+                  onClick={handleWhatsAppShare} 
+                  disabled={isSharing}
+                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isSharing ? 'Sharing...' : 'Share WhatsApp'}
                 </button>
               </div>
             </div>
