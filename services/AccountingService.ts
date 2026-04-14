@@ -32,6 +32,22 @@ export class AccountingService {
     return `${type}-${year}-${randomStr}`;
   }
 
+  private static formatDate(dateStr: string): string {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  private static formatMeals(meals: any): string {
+    if (!meals) return 'Room Only';
+    if (Array.isArray(meals)) return meals.length > 0 ? meals.join(', ') : 'Room Only';
+    return String(meals);
+  }
+
   static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string, currency: Currency = Currency.PKR) {
     const sanitizedCode = (code && code.trim() !== '') ? code.trim() : null;
     const formattedName = await this.formatAccountName(name);
@@ -271,7 +287,12 @@ export class AccountingService {
       if (items.length > 0) {
         items.forEach((item: any) => {
           const itemAmountPKR = (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)) * rate;
-          const itemDesc = `Hotel Voucher – ${voucher.details?.paxName || 'N/A'} – ${item.hotelName} (${item.city}) – ${item.numNights} Nights`;
+          const paxName = voucher.details?.paxName || 'N/A';
+          const checkIn = this.formatDate(item.fromDate);
+          const checkOut = this.formatDate(item.toDate);
+          const meals = this.formatMeals(item.meals);
+          
+          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${item.numNights} | Meals: ${meals} | Rooms: ${item.numRooms}`;
           
           if (customerId) {
             entries.push({ 
@@ -298,9 +319,19 @@ export class AccountingService {
         });
       } else {
         // Fallback for legacy vouchers
+        const paxName = voucher.details?.paxName || 'N/A';
+        const hotelName = voucher.details?.hotelName || 'N/A';
+        const checkIn = this.formatDate(voucher.details?.fromDate);
+        const checkOut = this.formatDate(voucher.details?.toDate);
+        const meals = this.formatMeals(voucher.details?.meals);
+        const nights = voucher.details?.numNights || 1;
+        const rooms = voucher.details?.numRooms || 1;
+        
+        const legacyDesc = `${paxName} | ${hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${nights} | Meals: ${meals} | Rooms: ${rooms}`;
+        
         const vendorAmount = Number(voucher.details?.vendorAmountPKR) || amount;
-        if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
-        if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: voucher.description, voucher_num: voucher.voucher_num });
+        if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: legacyDesc, voucher_num: voucher.voucher_num });
+        if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: vendorAmount, description: legacyDesc, voucher_num: voucher.voucher_num });
       }
       
       const incomeAmount = Number(voucher.details?.incomeAmountPKR) || 0;
