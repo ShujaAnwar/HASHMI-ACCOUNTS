@@ -16,6 +16,74 @@ const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Room Only'];
 const CITIES = ['Karachi', 'Lahore', 'Islamabad', 'Makkah', 'Madinah', 'Jeddah', 'Riyadh', 'Dubai'];
 const COUNTRIES = ['Pakistan', 'Saudi Arabia', 'UAE', 'Turkey', 'USA', 'UK'];
 
+const MAKKAH_HOTELS = [
+  { name: 'Anwar Deafah', cat: 'Gold' }, { name: 'Nada Deafah', cat: 'Gold' }, { name: 'Mira Ajyaad', cat: 'Gold' }, 
+  { name: 'Sunood Ajyaad', cat: 'Gold' }, { name: 'Barka Mawadda', cat: 'Gold' }, 
+  { name: 'Grand Massa (Shohda Side)', cat: 'Gold' }, { name: 'Rihab Taqwa (Hijra)', cat: 'Gold' }, 
+  { name: 'Waha Deafah', cat: 'Silver' }, { name: 'Mather Jawar (Hijra)', cat: 'Silver' }, 
+  { name: 'Dar Al Khalil (Misfala)', cat: 'Silver' }, { name: 'Awtad Makkah', cat: 'Silver' }, 
+  { name: 'Fajar Badee 5 (Misfala)', cat: 'Silver' }, { name: 'Tara Ajyad (Bir Barila)', cat: 'Silver' }, 
+  { name: 'Jaad Ajyad', cat: 'Silver' }, { name: 'Burj Deafah', cat: 'Bronze' }, 
+  { name: 'Sharooq Al Misq', cat: 'Bronze' }, { name: 'Keyan Al Dana', cat: 'Shuttle' }, 
+  { name: 'Asfaar Al Hijjaz 1', cat: 'Shuttle' }, { name: 'Asfaar Al Hijjaz 2', cat: 'Shuttle' }, 
+  { name: 'Asfaar Al Hijjaz 3', cat: 'Shuttle' }, { name: 'Johra Mayassar', cat: 'Shuttle' }, 
+  { name: 'Dorrat Al Khayr', cat: 'Shuttle' }, { name: 'Makkah Clock Tower', cat: 'Premium' }, 
+  { name: 'Pullman Zamzam Makkah', cat: 'Premium' }, { name: 'Swissotel Makkah', cat: 'Premium' }, 
+  { name: 'Swissotel Al Maqam', cat: 'Premium' }, { name: 'Raffles Makkah Palace', cat: 'Premium' }, 
+  { name: 'Movenpick Hajar Tower', cat: 'Premium' }, { name: 'Al Safwah Tower', cat: 'Premium' }, 
+  { name: 'Dorrar Aleiman', cat: 'Premium' }, { name: 'Elaf Kinda', cat: 'Premium' }, 
+  { name: 'Makkah Tower', cat: 'Premium' }, { name: 'Intercontinental Dar Al Tawhid', cat: 'Premium' }, 
+  { name: 'Jumeirah Jabal Omar', cat: 'Premium' }, { name: 'Address Jabal Omar', cat: 'Premium' }, 
+  { name: 'DoubleTree by Hilton', cat: 'Premium' }, { name: 'Anjum Makkah', cat: 'Premium' }, 
+  { name: 'Sheraton Jabal Al Kaaba', cat: 'Premium' }, { name: 'Le Meridien Makkah', cat: 'Premium' }, 
+  { name: 'Kunuz Ajyad', cat: 'Premium' }, { name: 'Azka Al Safa', cat: 'Premium' }, 
+  { name: 'Makarem Ajyad', cat: 'Premium' }, { name: 'Elaf Ajyad', cat: 'Premium' }, 
+  { name: 'Emaar Andalusia', cat: 'Premium' }, { name: 'Areej Al Wafa', cat: 'Premium' }, 
+  { name: 'Nawarat Shams 3', cat: 'Premium' }, { name: 'Emaar Khalil', cat: 'Premium' }, 
+  { name: 'Emaar Grand', cat: 'Premium' }, { name: 'Al Massa Badar', cat: 'Premium' }, 
+  { name: 'Yasmeen Al Majd', cat: 'Premium' }, { name: 'Le Meridien Towers', cat: 'Premium' }, 
+  { name: 'Saja Makkah', cat: 'Premium' }, { name: 'Voco Makkah', cat: 'Premium' }, 
+  { name: 'Holiday Inn', cat: 'Premium' }, { name: 'Kiswah Tower', cat: 'Premium' }, 
+  { name: 'Hidaya Tower', cat: 'Premium' }
+];
+
+const MADINAH_HOTELS = [
+  { name: 'Rose Holiday', cat: 'Gold' }, { name: 'Masa Bustan', cat: 'Gold' }, { name: 'Gulnar Taiba', cat: 'Gold' }, 
+  { name: 'Diyar Taiba', cat: 'Gold' }, { name: 'Diyar Al Habib', cat: 'Gold' }, 
+  { name: 'Karam Al Hajjaz', cat: 'Gold' }, { name: 'Karam Al Khair', cat: 'Gold' }, 
+  { name: 'Erjwan Sada', cat: 'Silver' }, { name: 'Sebal Plus', cat: 'Silver' }, 
+  { name: 'Al Zahra', cat: 'Silver' }, { name: 'Raiz Al Zahra', cat: 'Silver' }, 
+  { name: 'Al Madina Star', cat: 'Silver' }, { name: 'Guest Time', cat: 'Silver' }, 
+  { name: 'Mona Salam', cat: 'Bronze' }, { name: 'Karam Sada', cat: 'Bronze' }, 
+  { name: 'Burj Mawadda', cat: 'Bronze' }, { name: 'Riyaz Al Madina', cat: 'Bronze' }, 
+  { name: 'Rua Al Khair', cat: 'Bronze' }, { name: 'Jood Al Marjan 1', cat: 'Shuttle' }, 
+  { name: 'Jood Al Marjan 2', cat: 'Shuttle' }, { name: 'Jood Al Marjan 3', cat: 'Shuttle' }, 
+  { name: 'Marina Golden', cat: 'Shuttle' }, { name: 'Hilton Madina', cat: 'Premium' }, 
+  { name: 'Al Haram Madina', cat: 'Premium' }, { name: 'Anwar Al Madina', cat: 'Premium' }, 
+  { name: 'Shaza Regency', cat: 'Premium' }, { name: 'Al Aqeeq', cat: 'Premium' }, 
+  { name: 'Pullman Zamzam Madina', cat: 'Premium' }, { name: 'Al Ansar Golden Tulip', cat: 'Premium' }, 
+  { name: 'Valley Madina', cat: 'Premium' }, { name: 'Saja Al Madina', cat: 'Premium' }, 
+  { name: 'Dallah Taibah', cat: 'Premium' }, { name: 'Rua Al Hijra', cat: 'Premium' }, 
+  { name: 'Province Al Sham', cat: 'Premium' }, { name: 'Grand Plaza Badar Al Maqam', cat: 'Premium' }, 
+  { name: 'Ritz Al Madina', cat: 'Premium' }, { name: 'Al Muna Kareem', cat: 'Premium' }, 
+  { name: 'Golden Tulip Zahabi', cat: 'Premium' }, { name: 'Mokhtara International', cat: 'Premium' }, 
+  { name: 'Andalus Golden', cat: 'Premium' }, { name: 'Dar Al Naeem', cat: 'Premium' }, 
+  { name: 'Zowar International', cat: 'Premium' }, { name: 'Sonabel Al Madina', cat: 'Premium' }, 
+  { name: 'Arkan Al Manar', cat: 'Premium' }, { name: 'Qasar Al Ansar Golden Tulip', cat: 'Premium' }, 
+  { name: 'Golden Tulip Shufra', cat: 'Premium' }, { name: 'Anwar Al Madinah Movenpick', cat: 'Premium' }, 
+  { name: 'Concorde Dar Al Khair', cat: 'Premium' }, { name: 'Emaar Elite Madinah', cat: 'Premium' }, 
+  { name: 'Dar Al Iman InterContinental', cat: 'Premium' }, { name: 'Frontel Al Harithia', cat: 'Premium' }, 
+  { name: 'Taiba Front & Suites', cat: 'Premium' }, { name: 'Maden Madinah', cat: 'Premium' }, 
+  { name: 'Madinah Hilton', cat: 'Premium' }, { name: 'Sofitel Shad Al Madinah', cat: 'Premium' }, 
+  { name: 'Grand Plaza Madinah', cat: 'Premium' }, { name: 'Dar Al Eiman Al Haram', cat: 'Premium' }, 
+  { name: 'Oberoi', cat: 'Premium' }, { name: 'Safwat Al Madinah', cat: 'Premium' }, 
+  { name: 'Ruve Al Madinah', cat: 'Premium' }, { name: 'Artal International', cat: 'Premium' }, 
+  { name: 'Odst Al Madinah', cat: 'Premium' }, { name: 'Waqf Outhman', cat: 'Premium' }, 
+  { name: 'Verta Al Madinah', cat: 'Premium' }, { name: 'Jawhrat Al Rasheed', cat: 'Premium' }, 
+  { name: 'Plaza Inn Ohud', cat: 'Premium' }, { name: 'Valy Madinah', cat: 'Premium' }, 
+  { name: 'Sky View', cat: 'Premium' }
+];
+
 const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave, onCancel, isClone }) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -102,8 +170,18 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
   const updateItem = (index: number, field: string, value: any) => {
     setFormData(prev => {
       const newItems = [...prev.items];
-      const updatedItem = { ...newItems[index], [field]: value };
+      let updatedItem = { ...newItems[index], [field]: value };
       
+      if (field === 'hotelName') {
+        if (MAKKAH_HOTELS.some(h => h.name === value)) {
+          updatedItem.city = 'Makkah';
+          updatedItem.country = 'Saudi Arabia';
+        } else if (MADINAH_HOTELS.some(h => h.name === value)) {
+          updatedItem.city = 'Madinah';
+          updatedItem.country = 'Saudi Arabia';
+        }
+      }
+
       if (field === 'fromDate' || field === 'toDate') {
         updatedItem.numNights = calculateNights(updatedItem.fromDate, updatedItem.toDate);
       }
@@ -261,7 +339,37 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">HOTEL NAME</label>
-                        <input required className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100" placeholder="Hotel Name" value={item.hotelName} onChange={e => updateItem(idx, 'hotelName', e.target.value)} />
+                        <div className="flex gap-2">
+                          <select 
+                            className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100"
+                            value={MAKKAH_HOTELS.some(h => h.name === item.hotelName) || MADINAH_HOTELS.some(h => h.name === item.hotelName) ? item.hotelName : 'Other Hotel'}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === 'Other Hotel') {
+                                updateItem(idx, 'hotelName', '');
+                              } else {
+                                updateItem(idx, 'hotelName', val);
+                              }
+                            }}
+                          >
+                            <option value="Other Hotel">Other Hotel / Manual Entry</option>
+                            <optgroup label="🕋 MAKKAH HOTELS">
+                              {MAKKAH_HOTELS.map(h => <option key={h.name} value={h.name}>{h.name} ({h.cat})</option>)}
+                            </optgroup>
+                            <optgroup label="🕌 MADINAH HOTELS">
+                              {MADINAH_HOTELS.map(h => <option key={h.name} value={h.name}>{h.name} ({h.cat})</option>)}
+                            </optgroup>
+                          </select>
+                        </div>
+                        {(!MAKKAH_HOTELS.some(h => h.name === item.hotelName) && !MADINAH_HOTELS.some(h => h.name === item.hotelName)) && (
+                          <input 
+                            required 
+                            className="w-full mt-2 bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100 animate-in fade-in slide-in-from-top-1" 
+                            placeholder="Type Hotel Name..." 
+                            value={item.hotelName} 
+                            onChange={e => updateItem(idx, 'hotelName', e.target.value)} 
+                          />
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -293,11 +401,11 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">NIGHTS</label>
-                          <input type="number" readOnly className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black outline-none ring-1 ring-slate-100" value={item.numNights} />
+                          <input type="number" readOnly className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.numNights} />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOMS</label>
-                          <input type="number" min="1" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={item.numRooms} onChange={e => updateItem(idx, 'numRooms', Number(e.target.value))} />
+                          <input type="number" min="1" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.numRooms} onChange={e => updateItem(idx, 'numRooms', Number(e.target.value))} />
                         </div>
                       </div>
                     </div>
@@ -306,7 +414,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">RATE / NIGHT</label>
-                          <input type="number" step="0.01" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black text-blue-600 outline-none ring-1 ring-slate-100" value={item.unitRate} onChange={e => updateItem(idx, 'unitRate', Number(e.target.value))} />
+                          <input type="number" step="0.01" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black text-blue-600 outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.unitRate} onChange={e => updateItem(idx, 'unitRate', Number(e.target.value))} />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">AMOUNT ({formData.currency})</label>
@@ -331,9 +439,30 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                   <div className="mt-3 pt-3 border-t border-slate-50 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOM TYPE</label>
-                      <select className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100" value={item.roomType} onChange={e => updateItem(idx, 'roomType', e.target.value)}>
+                      <select 
+                        className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100" 
+                        value={ROOM_TYPES.includes(item.roomType) ? item.roomType : 'Other Type'} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === 'Other Type') {
+                            updateItem(idx, 'roomType', '');
+                          } else {
+                            updateItem(idx, 'roomType', val);
+                          }
+                        }}
+                      >
                         {ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
+                        <option value="Other Type">Other Type / Manual Entry</option>
                       </select>
+                      {!ROOM_TYPES.includes(item.roomType) && (
+                        <input 
+                          required 
+                          className="w-full mt-2 bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100 animate-in fade-in slide-in-from-top-1" 
+                          placeholder="Type Room Type..." 
+                          value={item.roomType} 
+                          onChange={e => updateItem(idx, 'roomType', e.target.value)} 
+                        />
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ADULTS</label>
