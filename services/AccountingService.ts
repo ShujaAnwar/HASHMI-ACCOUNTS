@@ -213,12 +213,13 @@ export class AccountingService {
       const rate = voucher.currency === Currency.SAR ? voucher.roe : 1;
       const incomeAccountId = voucher.details?.incomeAccountId;
       const incomeAmountPKR = Number(voucher.details?.incomeAmountPKR) || 0;
+      const paxName = voucher.details?.paxName || 'N/A';
 
       // 1. Post each transport item separately
       items.forEach((item: any) => {
         const itemRatePKR = Number(item.rate) * rate;
         const sectorName = item.sector === 'CUSTOM' ? (item.customLabel || 'Custom Route') : item.sector;
-        const itemDesc = `${sectorName} (${item.vehicle}) - ${voucher.description || ''}`;
+        const itemDesc = `${paxName} | ${sectorName} (${item.vehicle}) | ${voucher.description || ''}`;
         
         if (customerId) {
           entries.push({ 
@@ -252,7 +253,7 @@ export class AccountingService {
           targetIncomeId = incomeAcc?.id;
         }
         
-        const incomeDesc = `Service Fee: ${voucher.description || voucher.voucher_num}`;
+        const incomeDesc = `${paxName} | Service Fee | ${voucher.description || voucher.voucher_num}`;
         
         if (customerId) {
           entries.push({ 
@@ -391,8 +392,14 @@ export class AccountingService {
       }
       
     } else if (voucher.type === 'TK' || voucher.type === 'TICKET') {
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
-      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: voucher.voucher_num });
+      const paxName = voucher.details?.paxName || 'N/A';
+      const airline = voucher.details?.airline || 'N/A';
+      const sector = voucher.details?.sector || 'N/A';
+      const pnr = voucher.reference || 'N/A';
+      const ticketDesc = `${paxName} | ${airline} | ${sector} | PNR: ${pnr} | ${voucher.description || ''}`;
+
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: ticketDesc, voucher_num: voucher.voucher_num });
+      if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: ticketDesc, voucher_num: voucher.voucher_num });
     } else if (voucher.type === 'PV') {
       const bankId = voucher.details?.bankId;
       const items = voucher.details?.items || [];
