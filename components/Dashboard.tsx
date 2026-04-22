@@ -368,8 +368,11 @@ const Dashboard: React.FC<{
     };
 
     try {
+      // Small delay to allow classes like 'exporting' to apply and DOM to settle
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // @ts-ignore
-      await html2pdf().set(opt).from(element).toPdf().get('pdf').save();
+      await html2pdf().set(opt).from(element).save();
     } catch (err) {
       console.error("Dashboard Export Error:", err);
     } finally {
@@ -384,6 +387,13 @@ const Dashboard: React.FC<{
     
     const element = bookingScheduleRef.current;
     element.classList.add('exporting', 'pdf-export-container');
+    
+    // Force auto height and visible overflow to ensure full table capture
+    const originalStyle = element.style.height;
+    const originalOverflow = element.style.overflow;
+    element.style.height = 'auto';
+    element.style.overflow = 'visible';
+
     const fileName = `Booking_Schedule_${formatDate(new Date())}.pdf`;
 
     const opt = {
@@ -396,18 +406,26 @@ const Dashboard: React.FC<{
         logging: false,
         letterRendering: true,
         backgroundColor: '#ffffff',
-        width: 1200 // Force wide width for complete table capture
+        width: 1200,
+        scrollY: 0,
+        scrollX: 0,
+        windowWidth: 1200
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true }
     };
 
     try {
+      // Delay to allow layout settling
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // @ts-ignore
-      await html2pdf().set(opt).from(element).toPdf().get('pdf').save();
+      await html2pdf().set(opt).from(element).save();
     } catch (err) {
       console.error("Booking Schedule Export Error:", err);
     } finally {
       element.classList.remove('exporting', 'pdf-export-container');
+      element.style.height = originalStyle;
+      element.style.overflow = originalOverflow;
       setIsExportingSchedule(false);
     }
   };
@@ -620,7 +638,8 @@ const Dashboard: React.FC<{
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue vs Exposure</span>
                 </div>
                 <div className="h-72 w-full min-h-[300px] min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                  {vouchers.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768 && (
+                    <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={lineData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                       <XAxis 
@@ -671,6 +690,7 @@ const Dashboard: React.FC<{
                       />
                     </LineChart>
                   </ResponsiveContainer>
+                )}
                 </div>
               </div>
 
@@ -681,7 +701,8 @@ const Dashboard: React.FC<{
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liability Ratio</span>
                 </div>
                 <div className="flex-1 w-full h-72 min-h-[300px] relative">
-                  <ResponsiveContainer width="100%" height="100%">
+                  {vouchers.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768 && (
+                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie 
                         data={pieData} 
@@ -712,6 +733,7 @@ const Dashboard: React.FC<{
                       <Tooltip formatter={(value: number) => `PKR ${value.toLocaleString()}`} />
                     </PieChart>
                   </ResponsiveContainer>
+                )}
                 </div>
                 <div className="grid grid-cols-2 gap-4 w-full mt-2 px-4">
                   {pieData.map((item, i) => (
