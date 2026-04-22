@@ -121,5 +121,14 @@
     -- Run it once to fix current data
     SELECT public.recalculate_all_balances();
 
-    -- 9. CRITICAL: FORCE SCHEMA CACHE RELOAD
+    -- 9. UPDATE BRANDING (Optional, sets new defaults)
+    UPDATE public.app_config 
+    SET company_name = 'Hashmi Travel Solutions',
+        app_subtitle = 'Travel Solutions by Shuja Anwar',
+        company_phone = '0313-2710182',
+        company_cell = '0313-2710182',
+        company_email = 'Shujaanwaar@gmail.com'
+    WHERE id = '00000000-0000-0000-0000-000000000001';
+
+    -- 10. CRITICAL: FORCE SCHEMA CACHE RELOAD
     NOTIFY pgrst, 'reload schema';

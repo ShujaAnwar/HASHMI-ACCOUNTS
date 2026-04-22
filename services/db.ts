@@ -124,12 +124,12 @@
       };
     } catch (err) {
       return {
-        companyName: "TRAVELLDGER",
-        appSubtitle: "Travels Services",
+        companyName: "Hashmi Travel Solutions",
+        appSubtitle: "Travel Solutions by Shuja Anwar",
         companyAddress: "Karachi, Pakistan",
-        companyPhone: "021000000",
-        companyCell: "0334 3666777",
-        companyEmail: "info@example.com",
+        companyPhone: "0313-2710182",
+        companyCell: "0313-2710182",
+        companyEmail: "Shujaanwaar@gmail.com",
         defaultROE: 74.5,
         logoSize: 80,
         fontSize: 16,

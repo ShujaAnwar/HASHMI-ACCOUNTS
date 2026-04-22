@@ -86,7 +86,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard config={config} refreshKey={refreshKey} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} onNavigate={setActiveTab} />;
+        return <Dashboard config={config} refreshKey={refreshKey} onRefresh={handleGlobalRefresh} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} onNavigate={setActiveTab} />;
       case 'coa':
         return <ChartOfAccounts config={config} refreshKey={refreshKey} onNavigateToLedger={handleNavigateToLedger} />;
       case 'ledger':

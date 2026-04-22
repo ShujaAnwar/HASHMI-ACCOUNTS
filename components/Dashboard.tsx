@@ -45,10 +45,11 @@ const useAnimatedNumber = (targetValue: number, duration: number = 1000) => {
 const Dashboard: React.FC<{ 
   config: AppConfig; 
   refreshKey?: number;
+  onRefresh?: () => void;
   onEditVoucher?: (v: Voucher) => void; 
   onViewVoucher?: (v: Voucher) => void;
   onNavigate?: (tab: string) => void;
-}> = ({ config, refreshKey, onEditVoucher, onViewVoucher, onNavigate }) => {
+}> = ({ config, refreshKey, onRefresh, onEditVoucher, onViewVoucher, onNavigate }) => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -431,6 +432,13 @@ const Dashboard: React.FC<{
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button 
+            onClick={onRefresh}
+            className="no-print flex items-center space-x-2 bg-emerald-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-600/10"
+          >
+            <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
+            <span>Refresh Database</span>
+          </button>
           <button 
             onClick={handleExportPDF}
             disabled={isExporting}
