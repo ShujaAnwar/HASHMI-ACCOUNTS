@@ -70,11 +70,26 @@
 
         /* High Fidelity Styles for PDF Capture */
         .pdf-export-container {
-            background: white;
-            color: #0f172a;
+            background: white !important;
+            color: #0f172a !important;
+            padding: 20px !important;
         }
+        .pdf-export-container * {
+            color: #0f172a !important;
+            border-color: #e2e8f0 !important;
+        }
+        .pdf-export-container .bg-white,
+        .pdf-export-container .dark\:bg-slate-900,
+        .pdf-export-container .bg-slate-50\/50 {
+            background-color: white !important;
+        }
+        .pdf-export-container .no-print {
+            display: none !important;
+        }
+        
         .show-on-export { display: none; }
         .exporting .show-on-export { display: block !important; }
+        .exporting .no-print { display: none !important; }
     </style>
 <script type="importmap">
 {

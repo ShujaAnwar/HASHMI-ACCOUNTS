@@ -350,41 +350,8 @@ const Dashboard: React.FC<{
     setIsExporting(true);
     
     const element = dashboardDataRef.current;
-    element.classList.add('exporting');
+    element.classList.add('exporting', 'pdf-export-container');
     const fileName = `Dashboard_Metrics_${formatDate(new Date())}.pdf`;
-
-    const opt = {
-      margin: [10, 10, 10, 10],
-      filename: fileName,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        letterRendering: true,
-        backgroundColor: '#f8fafc'
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
-
-    try {
-      // @ts-ignore
-      await html2pdf().set(opt).from(element).save();
-    } catch (err) {
-      console.error("Dashboard Export Error:", err);
-    } finally {
-      element.classList.remove('exporting');
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportBookingSchedulePDF = async () => {
-    if (!bookingScheduleRef.current) return;
-    setIsExportingSchedule(true);
-    
-    const element = bookingScheduleRef.current;
-    element.classList.add('exporting');
-    const fileName = `Booking_Schedule_${formatDate(new Date())}.pdf`;
 
     const opt = {
       margin: [10, 10, 10, 10],
@@ -402,11 +369,45 @@ const Dashboard: React.FC<{
 
     try {
       // @ts-ignore
-      await html2pdf().set(opt).from(element).save();
+      await html2pdf().set(opt).from(element).toPdf().get('pdf').save();
+    } catch (err) {
+      console.error("Dashboard Export Error:", err);
+    } finally {
+      element.classList.remove('exporting', 'pdf-export-container');
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportBookingSchedulePDF = async () => {
+    if (!bookingScheduleRef.current) return;
+    setIsExportingSchedule(true);
+    
+    const element = bookingScheduleRef.current;
+    element.classList.add('exporting', 'pdf-export-container');
+    const fileName = `Booking_Schedule_${formatDate(new Date())}.pdf`;
+
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        letterRendering: true,
+        backgroundColor: '#ffffff',
+        width: 1200 // Force wide width for complete table capture
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    try {
+      // @ts-ignore
+      await html2pdf().set(opt).from(element).toPdf().get('pdf').save();
     } catch (err) {
       console.error("Booking Schedule Export Error:", err);
     } finally {
-      element.classList.remove('exporting');
+      element.classList.remove('exporting', 'pdf-export-container');
       setIsExportingSchedule(false);
     }
   };
@@ -446,7 +447,19 @@ const Dashboard: React.FC<{
           <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">Booking Schedule</h3>
           <p className="text-[9px] text-slate-400 font-bold uppercase leading-tight mt-1">View live operational feed</p>
         </div>
-        <button className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-blue-500/20">Open List</button>
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleExportBookingSchedulePDF();
+            }}
+            disabled={isExportingSchedule}
+            className="w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center rounded-xl shadow-sm active:scale-95 transition-all disabled:opacity-50"
+          >
+            {isExportingSchedule ? '⏳' : '📥'}
+          </button>
+          <button className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-blue-500/20">Open List</button>
+        </div>
       </div>
 
       {/* Action Grid: Create */}
@@ -523,200 +536,202 @@ const Dashboard: React.FC<{
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div>
               <h2 className="text-2xl font-black font-orbitron text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Intelligence Hub</h2>
-          <div className="flex items-center space-x-2 mt-2">
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-              Data Refresh: {lastUpdated.toLocaleTimeString()}
-            </p>
-            {isRefreshing && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button 
-            onClick={onRefresh}
-            className="no-print flex items-center space-x-2 bg-emerald-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-600/10"
-          >
-            <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
-            <span>Refresh Database</span>
-          </button>
-          <button 
-            onClick={handleExportPDF}
-            disabled={isExporting}
-            className="no-print flex items-center space-x-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-900/10"
-          >
-            <span>{isExporting ? '⏳' : '📥'}</span>
-            <span>{isExporting ? 'Exporting...' : 'Export Dashboard'}</span>
-          </button>
-          <button 
-            onClick={handleExportBookingSchedulePDF}
-            disabled={isExportingSchedule}
-            className="no-print flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/10"
-          >
-            <span>{isExportingSchedule ? '⏳' : '📅'}</span>
-            <span>{isExportingSchedule ? 'Exporting...' : 'Export Booking Schedule PDF'}</span>
-          </button>
-          <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30">
-            <div className={`w-2 h-2 rounded-full bg-emerald-500 animate-blink shadow-[0_0_8px_rgba(16,185,129,0.5)]`}></div>
-            <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 dark:text-blue-400">Live Sync Enabled</span>
-          </div>
-        </div>
-      </div>
-
-      <div ref={dashboardDataRef} className="space-y-6">
-        {/* Hidden Export Header */}
-        <div className="hidden show-on-export bg-white p-8 border-b-2 border-slate-900 mb-6 flex flex-col items-center text-center">
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">{config.companyName}</h1>
-          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">{config.appSubtitle}</p>
-          <div className="flex gap-4 mt-2 text-[10px] font-bold text-slate-400 uppercase">
-            <span>{config.companyCell}</span>
-            <span>|</span>
-            <span>{config.companyEmail}</span>
-          </div>
-          <h2 className="text-xl font-black mt-6 uppercase tracking-tight text-blue-600">Dashboard Financial Metrics</h2>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: 'Total Receivables', value: animReceivables, icon: '↗️', color: 'text-blue-600', tab: 'customers' },
-            { label: 'Total Payables', value: animPayables, icon: '↘️', color: 'text-rose-500', tab: 'vendors' },
-            { label: 'Total Revenue', value: animIncome, icon: '💰', color: 'text-emerald-500', tab: 'reports' },
-            { label: 'Cash/Bank', value: animCash, icon: '🏦', color: 'text-blue-500', tab: 'ledger' }
-          ].map((card, i) => (
-            <div 
-              key={i} 
-              onClick={() => onNavigate?.(card.tab)}
-              className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group cursor-pointer"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
-                <span className="text-[10px] font-black text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">View Details →</span>
+              <div className="flex items-center space-x-2 mt-2">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
+                  Data Refresh: {lastUpdated.toLocaleTimeString()}
+                </p>
+                {isRefreshing && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>}
               </div>
-              <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{card.label}</h3>
-              <p className={`text-2xl font-orbitron font-bold mt-1 tracking-tighter uppercase ${card.color}`}>
-                PKR {formatCurrency(Math.floor(card.value))}
-              </p>
             </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Income Trends Chart */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold">Consolidated Trends</h3>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue vs Exposure</span>
-            </div>
-            <div className="h-72 w-full min-h-[300px] min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={lineData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
-                    dy={10}
-                  />
-                  <YAxis 
-                    axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
-                    tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip 
-                    formatter={(value: number) => [`PKR ${value.toLocaleString()}`]}
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} 
-                  />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '10px' }} />
-                  
-                  <Line 
-                    name="Revenue" 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#3B82F6" 
-                    strokeWidth={4} 
-                    dot={{ r: 4, fill: '#3B82F6', strokeWidth: 0 }} 
-                    activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} 
-                  />
-                  <Line 
-                    name="Receivables" 
-                    type="monotone" 
-                    dataKey="receivables" 
-                    stroke="#10B981" 
-                    strokeWidth={2} 
-                    strokeDasharray="5 5"
-                    dot={{ r: 3, fill: '#10B981', strokeWidth: 0 }} 
-                  />
-                  <Line 
-                    name="Payables" 
-                    type="monotone" 
-                    dataKey="payables" 
-                    stroke="#F43F5E" 
-                    strokeWidth={2} 
-                    strokeDasharray="3 3"
-                    dot={{ r: 3, fill: '#F43F5E', strokeWidth: 0 }} 
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="flex flex-wrap items-center gap-3">
+              <button 
+                onClick={onRefresh}
+                className="no-print flex items-center space-x-2 bg-emerald-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-600/10"
+              >
+                <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
+                <span>Refresh Database</span>
+              </button>
+              <button 
+                onClick={handleExportPDF}
+                disabled={isExporting}
+                className="no-print flex items-center space-x-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-900/10"
+              >
+                <span>{isExporting ? '⏳' : '📥'}</span>
+                <span>{isExporting ? 'Exporting...' : 'Export Dashboard'}</span>
+              </button>
+              <button 
+                onClick={handleExportBookingSchedulePDF}
+                disabled={isExportingSchedule}
+                className="no-print flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/10"
+              >
+                <span>{isExportingSchedule ? '⏳' : '📅'}</span>
+                <span>{isExportingSchedule ? 'Exporting...' : 'Export Booking Schedule PDF'}</span>
+              </button>
+              <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                <div className={`w-2 h-2 rounded-full bg-emerald-500 animate-blink shadow-[0_0_8px_rgba(16,185,129,0.5)]`}></div>
+                <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 dark:text-blue-400">Live Sync Enabled</span>
+              </div>
             </div>
           </div>
 
-          {/* Exposure Breakdown Chart */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center min-w-0">
-            <div className="w-full flex justify-between items-center mb-2 px-2">
-              <h3 className="text-lg font-bold">Exposure Donut</h3>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liability Ratio</span>
+          <div ref={dashboardDataRef} className="space-y-6">
+            {/* Hidden Export Header */}
+            <div className="hidden show-on-export bg-white p-8 border-b-2 border-slate-900 mb-6 flex flex-col items-center text-center">
+              <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">{config.companyName}</h1>
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">{config.appSubtitle}</p>
+              <div className="flex gap-4 mt-2 text-[10px] font-bold text-slate-400 uppercase">
+                <span>{config.companyCell}</span>
+                <span>|</span>
+                <span>{config.companyEmail}</span>
+              </div>
+              <h2 className="text-xl font-black mt-6 uppercase tracking-tight text-blue-600">Dashboard Financial Metrics</h2>
             </div>
-            <div className="flex-1 w-full h-72 min-h-[300px] relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie 
-                    data={pieData} 
-                    innerRadius={70} 
-                    outerRadius={95} 
-                    paddingAngle={8} 
-                    dataKey="value"
-                    animationDuration={1500}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
-                    ))}
-                    <Label 
-                      value="Exposure" 
-                      position="center" 
-                      fill="#94a3b8" 
-                      style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }} 
-                      dy={-10}
-                    />
-                    <Label 
-                      value={`${((stats.totalReceivables / (stats.totalReceivables + stats.totalPayables || 1)) * 100).toFixed(0)}% DR`} 
-                      position="center" 
-                      fill="#3B82F6" 
-                      style={{ fontSize: '16px', fontWeight: 900 }} 
-                      dy={12}
-                    />
-                  </Pie>
-                  <Tooltip formatter={(value: number) => `PKR ${value.toLocaleString()}`} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-2 gap-4 w-full mt-2 px-4">
-              {pieData.map((item, i) => (
-                <div key={i} className="flex flex-col items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{item.name}</p>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Receivables', value: animReceivables, icon: '↗️', color: 'text-blue-600', tab: 'customers' },
+                { label: 'Total Payables', value: animPayables, icon: '↘️', color: 'text-rose-500', tab: 'vendors' },
+                { label: 'Total Revenue', value: animIncome, icon: '💰', color: 'text-emerald-500', tab: 'reports' },
+                { label: 'Cash/Bank', value: animCash, icon: '🏦', color: 'text-blue-500', tab: 'ledger' }
+              ].map((card, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => onNavigate?.(card.tab)}
+                  className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all hover:-translate-y-1 relative overflow-hidden group cursor-pointer"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xl group-hover:scale-110 transition-transform">{card.icon}</span>
+                    <span className="text-[10px] font-black text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">View Details →</span>
                   </div>
-                  <p className="text-xs font-black uppercase truncate">PKR {formatCurrency(Math.floor(item.value))}</p>
+                  <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{card.label}</h3>
+                  <p className={`text-2xl font-orbitron font-bold mt-1 tracking-tighter uppercase ${card.color}`}>
+                    PKR {formatCurrency(Math.floor(card.value))}
+                  </p>
                 </div>
               ))}
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Income Trends Chart */}
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold">Consolidated Trends</h3>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue vs Exposure</span>
+                </div>
+                <div className="h-72 w-full min-h-[300px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={lineData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
+                        tickLine={false} 
+                        tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
+                        dy={10}
+                      />
+                      <YAxis 
+                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
+                        tickLine={false} 
+                        tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
+                        tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [`PKR ${value.toLocaleString()}`]}
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} 
+                      />
+                      <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '10px' }} />
+                      
+                      <Line 
+                        name="Revenue" 
+                        type="monotone" 
+                        dataKey="revenue" 
+                        stroke="#3B82F6" 
+                        strokeWidth={4} 
+                        dot={{ r: 4, fill: '#3B82F6', strokeWidth: 0 }} 
+                        activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} 
+                      />
+                      <Line 
+                        name="Receivables" 
+                        type="monotone" 
+                        dataKey="receivables" 
+                        stroke="#10B981" 
+                        strokeWidth={2} 
+                        strokeDasharray="5 5"
+                        dot={{ r: 3, fill: '#10B981', strokeWidth: 0 }} 
+                      />
+                      <Line 
+                        name="Payables" 
+                        type="monotone" 
+                        dataKey="payables" 
+                        stroke="#F43F5E" 
+                        strokeWidth={2} 
+                        strokeDasharray="3 3"
+                        dot={{ r: 3, fill: '#F43F5E', strokeWidth: 0 }} 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Exposure Breakdown Chart */}
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center min-w-0">
+                <div className="w-full flex justify-between items-center mb-2 px-2">
+                  <h3 className="text-lg font-bold">Exposure Donut</h3>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liability Ratio</span>
+                </div>
+                <div className="flex-1 w-full h-72 min-h-[300px] relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie 
+                        data={pieData} 
+                        innerRadius={70} 
+                        outerRadius={95} 
+                        paddingAngle={8} 
+                        dataKey="value"
+                        animationDuration={1500}
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                        ))}
+                        <Label 
+                          value="Exposure" 
+                          position="center" 
+                          fill="#94a3b8" 
+                          style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }} 
+                          dy={-10}
+                        />
+                        <Label 
+                          value={`${((stats.totalReceivables / (stats.totalReceivables + stats.totalPayables || 1)) * 100).toFixed(0)}% DR`} 
+                          position="center" 
+                          fill="#3B82F6" 
+                          style={{ fontSize: '16px', fontWeight: 900 }} 
+                          dy={12}
+                        />
+                      </Pie>
+                      <Tooltip formatter={(value: number) => `PKR ${value.toLocaleString()}`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-4 w-full mt-2 px-4">
+                  {pieData.map((item, i) => (
+                    <div key={i} className="flex flex-col items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{item.name}</p>
+                      </div>
+                      <p className="text-xs font-black uppercase truncate">PKR {formatCurrency(Math.floor(item.value))}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Booking Schedule Table */}
-      <div ref={bookingScheduleRef} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+      {/* Booking Schedule Table - Visible on ALL screens */}
+      <div id="booking-schedule-section" ref={bookingScheduleRef} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
         {/* Hidden Export Header */}
         <div className="hidden show-on-export bg-white p-8 border-b-2 border-slate-900 mb-6 flex flex-col items-center text-center">
           <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">{config.companyName}</h1>
@@ -730,9 +745,19 @@ const Dashboard: React.FC<{
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div className="px-1">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Booking Schedule</h3>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Live Operational Feed</p>
+          <div className="w-full flex justify-between items-center px-1">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Booking Schedule</h3>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Live Operational Feed</p>
+            </div>
+            <button 
+              onClick={handleExportBookingSchedulePDF}
+              disabled={isExportingSchedule}
+              className="md:hidden flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-xl shadow-lg active:scale-95 transition-all disabled:opacity-50"
+              title="Download PDF"
+            >
+              {isExportingSchedule ? <span className="animate-spin text-xs">⏳</span> : <span>📥</span>}
+            </button>
           </div>
           <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-4 bg-slate-50 dark:bg-slate-800/50 p-2 md:p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
             {[
@@ -836,15 +861,13 @@ const Dashboard: React.FC<{
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+                  <td colSpan={8} className="px-4 py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
                     No bookings found for the selected filters.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
-      </div>
         </div>
       </div>
     </div>

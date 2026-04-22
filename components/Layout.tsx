@@ -149,6 +149,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   }, []);
 
   const handleNavClick = (id: string) => {
+    if (id === 'schedule') {
+      setActiveTab('dashboard');
+      setTimeout(() => {
+        const el = document.getElementById('booking-schedule-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+      return;
+    }
     setActiveTab(id);
   };
 
@@ -193,12 +201,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
         <h2 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tracking-normal animate-in fade-in slide-in-from-top-1 duration-1000" dir="rtl">
           بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
         </h2>
-        <div className="flex-1 flex justify-end items-center space-x-3">
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+        <div className="flex-1 flex justify-end items-center space-x-3 pr-2">
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)} 
+            className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-95 flex items-center justify-center min-w-[40px] min-h-[40px] shadow-sm"
+            title="Toggle theme"
+          >
             {isDarkMode ? '🌞' : '🌙'}
           </button>
-          <button onClick={onLogout} className="p-2 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-500 border border-rose-100 dark:border-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors">
-            🚪 <span className="text-[10px] font-black uppercase ml-1">Logout</span>
+          <button 
+            onClick={onLogout} 
+            className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-500 border border-rose-100 dark:border-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all active:scale-95 flex items-center justify-center min-h-[40px] px-4 shadow-sm"
+          >
+            <span className="text-lg">🚪</span>
+            <span className="text-[10px] font-black uppercase ml-2 tracking-widest">Logout</span>
           </button>
         </div>
       </header>
@@ -254,13 +270,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
             { id: 'vouchers', label: 'Vouchers', icon: '📝' },
             { id: 'reports', label: 'Reports', icon: '📉' },
             { id: 'coa', label: 'Masters', icon: '📁' },
-            { id: 'help', label: 'Help', icon: '💡' },
+            { id: 'schedule', label: 'Schedule', icon: '📅' },
           ].map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleNavClick(item.id)}
               className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[2rem] transition-all duration-300 ${
-                activeTab === item.id 
+                (activeTab === item.id || (item.id === 'schedule' && activeTab === 'dashboard' && false)) 
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 -translate-y-1' 
                   : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'
               }`}
