@@ -398,6 +398,113 @@ import DateInput from './DateInput';
     const totalVisibleCredit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening).reduce((sum, entry) => sum + entry.credit, 0);
     const totalTransactions = ledgerWithRunningBalance.filter(e => e.voucherId).length;
 
+    const renderMobileAccounts = () => (
+      <div className="md:hidden space-y-4">
+        {filteredAccounts.map((acc) => (
+          <div 
+            key={acc.id} 
+            onClick={() => setSelectedAccount(acc)}
+            className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex-1">
+                <span className="text-[8px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg uppercase tracking-widest">{acc.code || 'NO CODE'}</span>
+                <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1 truncate">{acc.name}</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{acc.location || 'Location Independent'}</p>
+              </div>
+              <div className="text-right">
+                <p className={`text-lg font-orbitron font-black tracking-tighter ${acc.balance >= 0 ? 'text-blue-600' : 'text-rose-500'}`}>
+                  {formatCurrency(Math.floor(acc.balance))}
+                </p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{acc.balance >= 0 ? 'Debit (Dr)' : 'Credit (Cr)'}</p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-50 dark:border-slate-800">
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleEditAccount(acc); }}
+                className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-blue-600 active:text-white transition-colors"
+              >✏️</button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleCloneAccount(acc); }}
+                className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-blue-600 active:text-white transition-colors"
+              >👯</button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleDeleteAccount(acc.id); }}
+                className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-rose-600 active:text-white transition-colors"
+              >🗑️</button>
+            </div>
+          </div>
+        ))}
+        {filteredAccounts.length === 0 && (
+          <div className="py-20 text-center">
+            <span className="text-3xl block mb-4">🔍</span>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No accounts found</p>
+          </div>
+        )}
+      </div>
+    );
+
+    const renderMobileLedger = () => (
+      <div className="md:hidden space-y-4">
+        {ledgerWithRunningBalance.map((entry, idx) => (
+          <div 
+            key={idx}
+            className={`p-5 rounded-[2rem] border transition-all ${
+              (entry as any).isOpening 
+                ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' 
+                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+            }`}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{formatDate(entry.date)}</span>
+              {entry.voucherId && (
+                <button 
+                  onClick={() => onViewVoucher?.(vouchers.find(v => v.id === entry.voucherId)!)}
+                  className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full text-[8px] font-black uppercase tracking-widest"
+                >
+                  View Ref
+                </button>
+              )}
+            </div>
+            
+            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-relaxed mb-4">
+              {getNarrativeForLedger(entry, vouchers.find(v => v.id === entry.voucherId))}
+            </p>
+            
+            <div className="flex justify-between items-end">
+              <div className="space-y-1">
+                {entry.debit > 0 && (
+                  <div>
+                    <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest block">Debit (+)</span>
+                    <span className="text-sm font-orbitron font-black text-emerald-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal(entry.debit))}</span>
+                  </div>
+                )}
+                {entry.credit > 0 && (
+                  <div>
+                    <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest block">Credit (-)</span>
+                    <span className="text-sm font-orbitron font-black text-rose-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal(entry.credit))}</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="text-right">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Running Bal</span>
+                <span className="text-md font-orbitron font-bold text-slate-800 dark:text-white">
+                  {viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal((entry as any).balanceAfter))}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+        {ledgerWithRunningBalance.length === 0 && (
+          <div className="py-20 text-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No transaction history</p>
+          </div>
+        )}
+      </div>
+    );
+
     return (
       <div className="space-y-6 max-w-full">
         {!selectedAccount ? (
@@ -407,15 +514,14 @@ import DateInput from './DateInput';
                 <input 
                   type="text" 
                   placeholder={`Search ${type ? type.toLowerCase() + 's' : 'all accounts'}...`} 
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 pl-10 outline-none shadow-sm text-sm focus:ring-2 focus:ring-blue-500/20 transition-all" 
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] md:rounded-xl px-4 py-3 md:py-3 pl-10 md:pl-10 outline-none shadow-sm text-sm focus:ring-2 focus:ring-blue-500/20 transition-all" 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
                 />
                 <span className="absolute left-3.5 top-3.5 text-sm opacity-40">🔍</span>
               </div>
               
-              {/* Sorting Controls */}
-              <div className="flex bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm no-print">
+              <div className="hidden md:flex bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm no-print">
                 <button 
                   onClick={() => setSortOrder('none')}
                   className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${sortOrder === 'none' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
@@ -436,13 +542,13 @@ import DateInput from './DateInput';
                 </button>
               </div>
               
-              <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-                <div className="bg-white dark:bg-slate-900 p-2.5 px-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[90px]">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Heads</p>
+              <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scroll-smooth no-scrollbar">
+                <div className="bg-white dark:bg-slate-900 p-2.5 px-5 rounded-[1.5rem] md:rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[90px] md:min-w-[90px]">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Heads</p>
                     <p className="text-lg font-orbitron font-bold text-blue-600 leading-none mt-1">{listStats.count}</p>
                 </div>
-                <div className="bg-white dark:bg-slate-900 p-2.5 px-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[160px]">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aggregated Exposure</p>
+                <div className="bg-white dark:bg-slate-900 p-2.5 px-6 rounded-[1.5rem] md:rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-w-[160px] md:min-w-[160px]">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Exposure (PKR)</p>
                     <p className="text-lg font-orbitron font-bold text-slate-800 dark:text-white leading-none mt-1">
                       {formatCurrency(listStats.totalBalance)}
                       <span className="text-[10px] font-sans ml-1.5 opacity-50 uppercase font-black">{listStats.totalBalance >= 0 ? 'Dr' : 'Cr'}</span>
@@ -461,14 +567,16 @@ import DateInput from './DateInput';
                       });
                       setShowAddModal(true); 
                     }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 whitespace-nowrap"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-[1.5rem] md:rounded-xl font-black shadow-lg shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 whitespace-nowrap"
                   >
-                    + Create {type ? (type === AccountType.CUSTOMER ? 'Customer' : 'Vendor') : 'Account'} Head
+                    + Create Head
                   </button>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm no-print overflow-x-auto">
+            {renderMobileAccounts()}
+
+            <div className="hidden md:block bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm no-print overflow-x-auto">
               <table className="w-full text-left table-auto">
                 <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-[0.2em] font-black border-b border-slate-100 dark:border-slate-800">
                   <tr>
@@ -603,7 +711,9 @@ import DateInput from './DateInput';
               </div>
             </div>
 
-            <div className="flex justify-center items-start py-6 bg-slate-100/30 dark:bg-slate-950/20 rounded-xl overflow-x-auto min-h-screen">
+            {renderMobileLedger()}
+
+            <div className="hidden md:flex justify-center items-start py-6 bg-slate-100/30 dark:bg-slate-950/20 rounded-xl overflow-x-auto min-h-screen">
               <div 
                 ref={pdfRef} 
                 className="bg-white text-[#0f172a] font-inter w-[297mm] mx-auto p-[5mm] box-border overflow-visible flex flex-col items-center"

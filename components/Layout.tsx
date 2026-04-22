@@ -153,7 +153,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-slate-950 transition-colors duration-300 font-inter">
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-slate-950 transition-colors duration-300 font-inter pb-20 md:pb-0">
       {showAdminAuth && (
         <AdminAuthModal 
           onSuccess={() => { setIsAdminUnlocked(true); setShowAdminAuth(false); setActiveTab('control'); }}
@@ -161,16 +161,51 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
         />
       )}
 
-      {/* Absolute Top Header - Bismillah Calligraphy */}
-      <header className="w-full bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 py-2 flex justify-center items-center z-30 transition-colors duration-300 no-print">
-        <h2 className="text-xs md:text-sm font-bold text-emerald-600 dark:text-emerald-400 transition-colors duration-500 tracking-normal animate-in fade-in slide-in-from-top-1 duration-1000" dir="rtl">
+      {/* Modern Mobile Top Bar (Visible only on mobile) */}
+      <header className="md:hidden sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 px-4 py-3 flex justify-between items-center transition-colors duration-300 no-print">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-500/20">
+            {config.companyName.charAt(0)}
+          </div>
+          <div>
+            <h1 className="text-sm font-black font-orbitron text-slate-800 dark:text-white uppercase tracking-tighter truncate max-w-[150px]">
+              {config.companyName}
+            </h1>
+            <div className="flex items-center space-x-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-none">System Operational</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700">
+            {isDarkMode ? '🌞' : '🌙'}
+          </button>
+          <button onClick={onLogout} className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-500 border border-rose-100 dark:border-rose-900/30">
+            🚪
+          </button>
+        </div>
+      </header>
+
+      {/* Desktop Navigation & Calligraphy Header */}
+      <header className="hidden md:flex w-full bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-6 py-2 justify-between items-center z-30 transition-colors duration-300 no-print">
+        <div className="flex-1"></div>
+        <h2 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tracking-normal animate-in fade-in slide-in-from-top-1 duration-1000" dir="rtl">
           بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
         </h2>
+        <div className="flex-1 flex justify-end items-center space-x-3">
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            {isDarkMode ? '🌞' : '🌙'}
+          </button>
+          <button onClick={onLogout} className="p-2 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-500 border border-rose-100 dark:border-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors">
+            🚪 <span className="text-[10px] font-black uppercase ml-1">Logout</span>
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-col md:flex-row flex-1">
-        {/* Sidebar */}
-        <aside className="no-print w-full md:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col md:h-[calc(100vh-48px)] md:sticky md:top-[48px] flex-shrink-0 z-20 transition-colors duration-300">
+        {/* Sidebar (Desktop only) */}
+        <aside className="no-print hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col h-[calc(100vh-48px)] sticky top-[48px] flex-shrink-0 z-20 transition-colors duration-300">
           <div className="p-6 flex-shrink-0">
             {config.companyLogo ? (
               <img src={config.companyLogo} alt="Logo" className="h-10 w-auto mb-2 object-contain" />
@@ -189,11 +224,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onMouseDown={() => startLongPress(item.id)}
-                onMouseUp={cancelLongPress}
-                onMouseLeave={cancelLongPress}
-                onTouchStart={() => startLongPress(item.id)}
-                onTouchEnd={cancelLongPress}
                 onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
                   activeTab === item.id 
@@ -201,48 +231,50 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <span className={`text-lg transition-transform ${isLongPressing && item.id === 'control' ? 'scale-125 animate-pulse' : ''}`}>{item.icon}</span>
+                <span className="text-lg">{item.icon}</span>
                 <span className="text-xs font-bold uppercase tracking-widest">{item.label}</span>
-                { (item as any).isProtected && !isAdminUnlocked && (
-                  <span className="absolute right-4 text-[8px] opacity-30 group-hover:opacity-100 transition-opacity">🔒</span>
-                )}
-                { (item as any).isProtected && isAdminUnlocked && (
-                  <span className="absolute right-4 text-[8px] text-emerald-500">🔓</span>
-                )}
               </button>
             ))}
           </nav>
 
-          <div className="p-4 border-t dark:border-slate-800 flex flex-col space-y-4">
-            <div className="flex items-center justify-between">
-                <button 
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors"
-                title="Toggle Theme"
-                >
-                {isDarkMode ? '🌞' : '🌙'}
-                </button>
-                {onLogout && (
-                    <button 
-                        onClick={onLogout}
-                        className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
-                        title="Sign Out"
-                    >
-                        🚪
-                    </button>
-                )}
-            </div>
+          <div className="p-4 border-t dark:border-slate-800">
             <div 
               onClick={handleSecretClick}
               className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter text-center cursor-default select-none active:opacity-50 transition-opacity"
             >
-              Enterprise v2.5 • {config.companyName}
+              Enterprise v2.6 • {config.companyName}
             </div>
           </div>
         </aside>
 
+        {/* Fixed Bottom Navigation (Mobile only) */}
+        <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 p-1.5 rounded-[2.5rem] shadow-2xl flex items-center justify-between no-print transition-all">
+          {[
+            { id: 'dashboard', label: 'Home', icon: '🏠' },
+            { id: 'vouchers', label: 'Vouchers', icon: '📝' },
+            { id: 'reports', label: 'Reports', icon: '📉' },
+            { id: 'coa', label: 'Masters', icon: '📁' },
+            { id: 'help', label: 'Help', icon: '💡' },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[2rem] transition-all duration-300 ${
+                activeTab === item.id 
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 -translate-y-1' 
+                  : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <span className="text-xl mb-0.5">{item.icon}</span>
+              <span className={`text-[7px] font-black uppercase tracking-widest transition-opacity duration-300 ${activeTab === item.id ? 'opacity-100' : 'opacity-50'}`}>
+                {item.label}
+              </span>
+            </button>
+          ))}
+        </nav>
+
         {/* Main Content Area */}
-        <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-8 overflow-x-hidden md:h-[calc(100vh-48px)] md:overflow-y-auto">
           {children}
         </main>
       </div>

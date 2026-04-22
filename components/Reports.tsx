@@ -256,30 +256,235 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
     </div>
   );
 
+  const renderMobileReport = () => {
+    switch (activeSection) {
+      case 'TB':
+        return (
+          <div className="space-y-4">
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+               <div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Verification Totals</p>
+                 <p className="text-sm font-bold text-slate-500">PKR {trialBalance.totalDr.toLocaleString()}</p>
+               </div>
+               <div className={`w-3 h-3 rounded-full ${trialBalance.diff < 0.01 ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`}></div>
+            </div>
+            {trialBalance.items.map((item, i) => (
+              <div 
+                key={i} 
+                onClick={() => navigateToLedger(item.id)}
+                className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg">{item.code}</span>
+                    <p className="text-base font-bold text-slate-800 dark:text-white mt-1 uppercase leading-tight">{item.name}</p>
+                  </div>
+                  <div className="text-right">
+                    {item.dr > 0 && <p className="text-sm font-orbitron font-bold text-emerald-500 underline underline-offset-4 decoration-emerald-200">{item.dr.toLocaleString()} DR</p>}
+                    {item.cr > 0 && <p className="text-sm font-orbitron font-bold text-rose-500 underline underline-offset-4 decoration-rose-200">{item.cr.toLocaleString()} CR</p>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      case 'PL':
+        return (
+          <div className="space-y-6">
+            <div className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
+               <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-2">Net Period Income</p>
+               <p className={`text-4xl font-orbitron font-bold tracking-tighter ${profitLoss.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                 {formatCurrency(profitLoss.netProfit)}
+               </p>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-4">
+               <div className="bg-emerald-50 dark:bg-emerald-900/10 p-6 rounded-[2rem] border border-emerald-100 dark:border-emerald-900/30">
+                 <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <span>📈</span> Operating Revenues
+                 </h4>
+                 <div className="space-y-3">
+                   {[{ label: 'Hotel Services', type: VoucherType.HOTEL }, { label: 'Visa Services', type: VoucherType.VISA }, { label: 'Transport', type: VoucherType.TRANSPORT }, { label: 'Air Tickets', type: VoucherType.TICKET }].map(inc => {
+                      const val = filteredVouchers.filter(v => v.type === inc.type).reduce((s, v) => s + v.totalAmountPKR, 0);
+                      if (val === 0) return null;
+                      return (
+                        <div key={inc.type} className="flex justify-between items-center text-xs font-bold text-emerald-700">
+                          <span className="opacity-70">{inc.label}</span>
+                          <span>{val.toLocaleString()}</span>
+                        </div>
+                      );
+                   })}
+                   <div className="pt-3 border-t border-emerald-100 dark:border-emerald-800 flex justify-between items-center font-black text-emerald-600">
+                     <span className="text-[10px] uppercase tracking-widest">Total Post Income</span>
+                     <span className="text-xl font-orbitron">{profitLoss.income.toLocaleString()}</span>
+                   </div>
+                 </div>
+               </div>
+
+               <div className="bg-rose-50 dark:bg-rose-900/10 p-6 rounded-[2rem] border border-rose-100 dark:border-rose-900/30">
+                 <h4 className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <span>📉</span> Operating Costs
+                 </h4>
+                 <div className="space-y-3">
+                   <div className="flex justify-between items-center text-xs font-bold text-rose-700">
+                     <span className="opacity-70">General Expenses</span>
+                     <span>{profitLoss.expenses.toLocaleString()}</span>
+                   </div>
+                   <div className="pt-3 border-t border-rose-100 dark:border-rose-800 flex justify-between items-center font-black text-rose-600">
+                     <span className="text-[10px] uppercase tracking-widest">Total Outflow</span>
+                     <span className="text-xl font-orbitron">{profitLoss.expenses.toLocaleString()}</span>
+                   </div>
+                 </div>
+               </div>
+            </div>
+          </div>
+        );
+      case 'BS':
+        return (
+          <div className="space-y-8 pb-10">
+             <div className="bg-blue-600 text-white p-8 rounded-[2.5rem] shadow-xl flex justify-between items-end">
+               <div>
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-70 mb-2">Total Assets</p>
+                 <p className="text-4xl font-orbitron font-bold tracking-tighter">{formatCurrency(balanceSheet.totalAssets)}</p>
+               </div>
+               <div className="text-right">
+                  <p className="text-[9px] font-black uppercase tracking-widest bg-white/20 px-2 py-1 rounded-lg">Position Verified</p>
+               </div>
+             </div>
+
+             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+                <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-6 border-b pb-2">Asset Details</h4>
+                <div className="space-y-4">
+                  {balanceSheet.assets.map(a => (
+                    <div key={a.id} onClick={() => navigateToLedger(a.id)} className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-600 dark:text-slate-400 capitalize">{a.name}</span>
+                      <span className="font-orbitron font-bold text-slate-800 dark:text-white">{Math.abs(a.balance).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+             </div>
+
+             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+                <h4 className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-6 border-b pb-2">Liabilities & Equity</h4>
+                <div className="space-y-4 mb-6">
+                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-2 px-1">Liabilities</p>
+                  {balanceSheet.liabilities.map(a => (
+                    <div key={a.id} onClick={() => navigateToLedger(a.id)} className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-600 dark:text-slate-400 capitalize">{a.name}</span>
+                      <span className="font-orbitron font-bold text-rose-500">{Math.abs(a.balance).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-2 px-1">Equity</p>
+                  {balanceSheet.equity.map(a => (
+                    <div key={a.id} onClick={() => navigateToLedger(a.id)} className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-600 dark:text-slate-400 capitalize">{a.name}</span>
+                      <span className="font-orbitron font-bold text-slate-800 dark:text-white">{Math.abs(a.balance).toLocaleString()}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center text-xs pt-2 bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-xl">
+                    <span className="font-black text-emerald-600 uppercase text-[10px]">Net Profit</span>
+                    <span className="font-orbitron font-bold text-emerald-600">{formatCurrency(balanceSheet.netProfit)}</span>
+                  </div>
+                </div>
+                <div className="mt-8 pt-6 border-t-2 border-slate-900 dark:border-white flex justify-between items-center">
+                   <span className="text-xl font-orbitron font-black uppercase text-slate-900 dark:text-white mr-2">Total L&E</span>
+                   <span className="text-2xl font-orbitron font-black text-slate-900 dark:text-white">{formatCurrency(balanceSheet.totalLE)}</span>
+                </div>
+             </div>
+          </div>
+        );
+      case 'GL':
+        return (
+          <div className="space-y-6 pb-20">
+             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Audit Target</p>
+                <select className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-base shadow-inner appearance-none cursor-pointer" value={selectedLedgerId} onChange={(e) => setSelectedLedgerId(e.target.value)}>
+                  <option value="">Select Account...</option>
+                  {accounts.sort((a,b) => (a.code || '').localeCompare(b.code || '')).map(acc => (<option key={acc.id} value={acc.id}>{acc.code ? `${acc.code} - ` : ''}{acc.name}</option>))}
+                </select>
+             </div>
+
+             {selectedAccount && (
+               <div className="space-y-4">
+                  <div className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-8 rounded-[2.5rem] flex flex-col items-center text-center">
+                    <h5 className="text-xl font-orbitron font-bold uppercase tracking-tighter mb-2">{selectedAccount.name}</h5>
+                    <p className={`text-3xl font-orbitron font-extrabold ${selectedAccount.balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {formatCurrency(selectedAccount.balance)}
+                      <span className="text-xs font-black bg-white/20 px-2 py-1 rounded ml-2 uppercase">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span>
+                    </p>
+                  </div>
+                  
+                  {glLedgerWithAccumulated.map((entry, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => {
+                        const v = vouchers.find(vch => vch.id === entry.voucherId);
+                        if (v) onViewVoucher?.(v);
+                      }}
+                      className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatDate(entry.date)}</p>
+                          <p className="text-sm font-black text-blue-600 uppercase mt-0.5">{entry.voucherNum || 'Opening'}</p>
+                        </div>
+                        <div className="text-right">
+                           <p className="text-lg font-orbitron font-black text-slate-900 dark:text-white tracking-tighter">
+                             {formatCurrency(entry.accumulatedBalance)}
+                             <span className="text-[9px] font-black text-slate-400 ml-1 uppercase">{entry.accumulatedBalance >= 0 ? 'DR' : 'CR'}</span>
+                           </p>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl flex justify-between items-center">
+                         <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-snug flex-1 line-clamp-2 mr-4">
+                           {entry.description || '-'}
+                         </p>
+                         <div className="flex flex-col items-end shrink-0">
+                           {entry.debit > 0 && <span className="text-[10px] font-black text-emerald-500">+{entry.debit.toLocaleString()} DR</span>}
+                           {entry.credit > 0 && <span className="text-[10px] font-black text-rose-500">-{entry.credit.toLocaleString()} CR</span>}
+                         </div>
+                      </div>
+                    </div>
+                  ))}
+               </div>
+             )}
+          </div>
+        );
+      default: return null;
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-20">
-      <div className="no-print bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-end gap-6">
-        <div className="flex-1 min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Statement From (DD-MM-YYYY)</label><DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={fromDate} onChange={val => setFromDate(val)} /></div>
-        <div className="flex-1 min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Statement To (DD-MM-YYYY)</label><DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={toDate} onChange={val => setToDate(val)} /></div>
+      <div className="no-print bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-end gap-6">
+        <div className="flex-1 min-w-[140px] md:min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">From</label><DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm" value={fromDate} onChange={val => setFromDate(val)} /></div>
+        <div className="flex-1 min-w-[140px] md:min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">To</label><DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm" value={toDate} onChange={val => setToDate(val)} /></div>
         <button 
           onClick={handleExportPDF} 
           disabled={isExporting}
-          className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-xl font-bold shadow-lg hover:scale-105 transition-all flex items-center space-x-2 border border-white/10 disabled:opacity-50"
+          className="w-full md:w-auto bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
         >
           <span>{isExporting ? '⏳' : '📥'}</span> 
-          <span className="uppercase text-xs tracking-widest">{isExporting ? 'Generating...' : 'Export Report'}</span>
+          <span className="uppercase text-[11px] tracking-widest">{isExporting ? 'Building...' : 'Export PDF'}</span>
         </button>
       </div>
       
-      <div className="no-print flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
-        {[{ id: 'TB', label: 'Trial Balance', icon: '⚖️' }, { id: 'PL', label: 'Profit & Loss', icon: '📊' }, { id: 'BS', label: 'Balance Sheet', icon: '🏛️' }, { id: 'GL', label: 'General Ledger', icon: '📖' }].map(tab => (
-          <button key={tab.id} onClick={() => setActiveSection(tab.id as any)} className={`px-6 py-4 rounded-2xl font-bold transition-all flex items-center space-x-3 whitespace-nowrap border-b-4 ${activeSection === tab.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/20 border-blue-700 translate-y-[-2px]' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-            <span className="text-lg">{tab.icon}</span><span className="text-xs uppercase tracking-widest">{tab.label}</span>
+      <div className="no-print flex space-x-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
+        {[{ id: 'TB', label: 'Trial', icon: '⚖️' }, { id: 'PL', label: 'P&L', icon: '📊' }, { id: 'BS', label: 'Position', icon: '🏛️' }, { id: 'GL', label: 'Ledger', icon: '📖' }].map(tab => (
+          <button key={tab.id} onClick={() => setActiveSection(tab.id as any)} className={`px-8 py-5 rounded-[2rem] font-black transition-all flex items-center space-x-3 whitespace-nowrap border-b-4 ${activeSection === tab.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/20 border-blue-700 translate-y-[-2px]' : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+            <span className="text-xl">{tab.icon}</span><span className="text-[10px] uppercase tracking-widest">{tab.label}</span>
           </button>
         ))}
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 min-h-[600px] transition-all relative overflow-hidden">
+      <div className="md:hidden">
+        {renderMobileReport()}
+      </div>
+
+      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 min-h-[600px] transition-all relative overflow-hidden">
         <div ref={reportRef} className="bg-white p-8 md:p-14 text-slate-900">
           {activeSection === 'TB' && (
             <div className="animate-in fade-in duration-500">

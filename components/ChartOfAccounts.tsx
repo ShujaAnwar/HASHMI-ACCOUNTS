@@ -82,32 +82,32 @@ const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ config, refreshKey, o
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h3 className="text-xl font-bold text-slate-500 uppercase tracking-widest">Enterprise Ledger Structure</h3>
-          <p className="text-sm text-slate-400 mt-1">Hierarchical GL classification for IFRS Compliance</p>
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
+        <div className="px-2">
+          <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Enterprise Structure</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">IFRS Hierarchical Classification</p>
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
-          className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-2xl font-bold shadow-xl flex items-center space-x-2 transition-transform active:scale-95"
+          className="w-full md:w-auto bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl flex items-center justify-center space-x-3 transition-all active:scale-95"
         >
-          <span>➕</span>
-          <span className="uppercase text-xs tracking-widest">Add Ledger Head</span>
+          <span className="text-xl">➕</span>
+          <span className="uppercase text-[11px] tracking-widest">New Ledger Head</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-8">
         {categories.map(cat => (
-          <div key={cat.id} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-lg overflow-hidden">
-            <div className={`bg-${cat.color}-500/10 p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center`}>
-              <div className="flex items-center space-x-3">
-                <span className={`w-3 h-3 rounded-full bg-${cat.color}-500 shadow-lg shadow-${cat.color}-500/40`}></span>
-                <h4 className={`text-lg font-orbitron font-bold text-${cat.color}-600 dark:text-${cat.color}-400 uppercase tracking-tight`}>
-                  {cat.label} ({cat.prefix}000 Series)
+          <div key={cat.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden">
+            <div className={`p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30`}>
+              <div className="flex items-center space-x-4">
+                <span className={`w-4 h-4 rounded-full bg-${cat.color}-500 shadow-lg shadow-${cat.color}-500/40`}></span>
+                <h4 className="text-lg font-orbitron font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                  {cat.label} <span className="text-[10px] opacity-30">({cat.prefix}000)</span>
                 </h4>
               </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type Category</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">Hierarchy</span>
             </div>
             
             <div className="divide-y divide-slate-50 dark:divide-slate-800/50">
@@ -115,25 +115,25 @@ const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ config, refreshKey, o
                 <div 
                   key={acc.id} 
                   onClick={() => onNavigateToLedger?.(acc.id, acc.type)}
-                  className="p-6 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all flex justify-between items-center cursor-pointer group"
+                  className="p-6 md:p-6 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all flex justify-between items-center cursor-pointer group active:bg-blue-50 dark:active:bg-blue-900/10"
                 >
-                  <div className="flex items-center space-x-6">
-                    <span className="text-xs font-mono font-bold text-slate-400 w-12 group-hover:text-blue-600 transition-colors">{acc.code}</span>
+                  <div className="flex items-center space-x-4 md:space-x-6">
+                    <span className="text-[10px] font-mono font-black text-slate-400 w-10 md:w-12 group-hover:text-blue-600 transition-colors">{acc.code}</span>
                     <div>
-                      <p className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors">{acc.name}</p>
-                      <p className="text-[10px] text-slate-400 uppercase font-medium tracking-wider">{acc.type.replace('_', ' ')}</p>
+                      <p className="font-black text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors uppercase text-sm md:text-base leading-tight">{acc.name}</p>
+                      <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-0.5">{acc.type.replace('_', ' ')}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`font-orbitron font-bold ${acc.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {formatCurrency(acc.balance)} 
-                      <span className="text-[10px] ml-1 opacity-50 font-sans">{acc.balance >= 0 ? 'DR' : 'CR'}</span>
+                    <p className={`font-orbitron font-black text-sm md:text-lg tracking-tighter ${acc.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {formatCurrency(Math.abs(acc.balance))} 
+                      <span className="text-[8px] md:text-[10px] ml-1 opacity-50 font-sans">{acc.balance >= 0 ? 'DR' : 'CR'}</span>
                     </p>
                   </div>
                 </div>
               ))}
               {getAccountsByCategory(cat.prefix).length === 0 && (
-                <div className="p-10 text-center text-slate-300 italic text-sm">No accounts mapped to this heading.</div>
+                <div className="p-12 text-center text-slate-300 italic text-[11px] uppercase tracking-widest font-black opacity-50">Empty Classification</div>
               )}
             </div>
           </div>

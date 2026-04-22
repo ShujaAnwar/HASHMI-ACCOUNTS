@@ -418,12 +418,111 @@ const Dashboard: React.FC<{
     </div>
   );
 
+  const renderMobileDashboard = () => (
+    <div className="md:hidden space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      {/* Mobile Balance Cards (Horizontal Scroll) */}
+      <div className="flex space-x-3 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4">
+        {[
+          { label: 'CASH (Rs.)', value: animCash, color: 'text-rose-600', bg: 'bg-rose-50/50 dark:bg-rose-900/20' },
+          { label: 'BANK (Rs.)', value: animReceivables, color: 'text-blue-600', bg: 'bg-blue-50/50 dark:bg-blue-900/20' },
+          { label: 'BILLS (Rs.)', value: animPayables, color: 'text-slate-800 dark:text-white', bg: 'bg-slate-50/50 dark:bg-slate-800/50' }
+        ].map((card, idx) => (
+          <div key={idx} className={`flex-shrink-0 w-[240px] p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm ${card.bg}`}>
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{card.label}</p>
+             <p className={`text-2xl font-orbitron font-bold tracking-tighter ${card.color}`}>
+               {formatCurrency(Math.floor(card.value))}
+             </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Booking Schedule Banner */}
+      <div 
+        onClick={() => bookingScheduleRef.current?.scrollIntoView({ behavior: 'smooth' })}
+        className="bg-white dark:bg-slate-900 rounded-[2rem] p-5 shadow-xl border border-blue-50 dark:border-blue-900/20 flex items-center space-x-4 cursor-pointer active:scale-[0.98] transition-all"
+      >
+        <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-2xl shadow-inner">📅</div>
+        <div className="flex-1">
+          <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">Booking Schedule</h3>
+          <p className="text-[9px] text-slate-400 font-bold uppercase leading-tight mt-1">View live operational feed</p>
+        </div>
+        <button className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-blue-500/20">Open List</button>
+      </div>
+
+      {/* Action Grid: Create */}
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-sm font-black text-blue-600 uppercase tracking-wider">Create</h3>
+          <span className="text-slate-300">▼</span>
+        </div>
+        <div className="grid grid-cols-4 gap-y-8 gap-x-4">
+          {[
+            { label: 'Hotel', icon: '🏨', tab: 'vouchers' },
+            { label: 'Ticket', icon: '🎫', tab: 'vouchers' },
+            { label: 'Visa', icon: '🛂', tab: 'vouchers' },
+            { label: 'Transport', icon: '🚌', tab: 'vouchers' },
+            { label: 'Cash In', icon: '📥', tab: 'ledger' },
+            { label: 'Cash Out', icon: '📤', tab: 'ledger' },
+            { label: 'Vendor', icon: '🏢', tab: 'coa' },
+            { label: 'Customer', icon: '👥', tab: 'coa' }
+          ].map((action, idx) => (
+            <button key={idx} onClick={() => onNavigate?.(action.tab)} className="flex flex-col items-center space-y-2 group active:scale-90 transition-transform">
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800/80 flex items-center justify-center text-2xl border border-slate-100 dark:border-slate-800 group-hover:bg-blue-50 transition-colors shadow-sm">
+                {action.icon}
+              </div>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter text-center leading-none">{action.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Action Grid: View & Share */}
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-sm font-black text-emerald-600 uppercase tracking-wider">View & Share</h3>
+          <span className="text-slate-300">▼</span>
+        </div>
+        <div className="grid grid-cols-4 gap-y-8 gap-x-4">
+          {[
+            { label: 'Vouchers', icon: '📋', tab: 'vouchers' },
+            { label: 'Ledger', icon: '📖', tab: 'ledger' },
+            { label: 'Customers', icon: '👥', tab: 'customers' },
+            { label: 'Vendors', icon: '🏢', tab: 'vendors' }
+          ].map((action, idx) => (
+            <button key={idx} onClick={() => onNavigate?.(action.tab)} className="flex flex-col items-center space-y-2 group active:scale-90 transition-transform">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 flex items-center justify-center text-2xl border border-emerald-100 dark:border-emerald-900/20 group-hover:bg-emerald-100 transition-colors shadow-sm">
+                {action.icon}
+              </div>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter text-center leading-none">{action.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Daily Summary Preview */}
+      <div className="bg-slate-900 text-white rounded-[2rem] p-6 shadow-2xl relative overflow-hidden group">
+        <div className="relative z-10">
+          <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-1">Daily Summary</h3>
+          <p className="text-lg font-bold">Know your business in one click</p>
+        </div>
+        <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-emerald-500/20 to-transparent flex items-center justify-center">
+            <span className="text-2xl group-hover:translate-x-2 transition-transform">➔</span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6 p-1">
-      {/* Dashboard Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-2xl font-black font-orbitron text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Intelligence Hub</h2>
+      {renderMobileDashboard()}
+      
+      {/* Desktop Dashboard (Keep existing) */}
+      <div className="hidden md:block">
+        <div className="space-y-6">
+          {/* Dashboard Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div>
+              <h2 className="text-2xl font-black font-orbitron text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Intelligence Hub</h2>
           <div className="flex items-center space-x-2 mt-2">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
               Data Refresh: {lastUpdated.toLocaleTimeString()}
@@ -631,74 +730,58 @@ const Dashboard: React.FC<{
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div>
-            <h3 className="text-lg font-bold">Booking Schedule</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Operational Timeline</p>
+          <div className="px-1">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Booking Schedule</h3>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Live Operational Feed</p>
           </div>
-          <div className="flex flex-wrap items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-4 bg-slate-50 dark:bg-slate-800/50 p-2 md:p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
             {[
               { id: 'today', label: 'Today', color: 'bg-emerald-500' },
-              { id: 'tomorrow', label: 'Tomorrow', color: 'bg-amber-500' },
-              { id: 'afterTomorrow', label: 'After Tomorrow', color: 'bg-purple-500' },
-              { id: 'previous', label: 'Previous', color: 'bg-rose-500' },
-              { id: 'all', label: 'All Bookings', color: 'bg-blue-500' }
+              { id: 'tomorrow', label: 'Tmrw', color: 'bg-amber-500' },
+              { id: 'previous', label: 'Prev', color: 'bg-rose-500' },
+              { id: 'all', label: 'All', color: 'bg-blue-500' }
             ].map(f => (
-              <label key={f.id} className="flex items-center space-x-2 cursor-pointer group">
-                <div className="relative flex items-center">
-                  <input 
-                    type="checkbox" 
-                    checked={filters[f.id as keyof typeof filters] as boolean}
-                    onChange={(e) => setFilters(prev => ({ ...prev, [f.id]: e.target.checked }))}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                </div>
-                <div className="flex items-center space-x-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${f.color}`}></span>
-                  <span className={`text-[10px] font-black uppercase tracking-tight transition-colors ${filters[f.id as keyof typeof filters] ? 'text-slate-900 dark:text-white' : 'text-slate-400 group-hover:text-slate-600'}`}>
-                    {f.label}
-                  </span>
-                </div>
+              <label key={f.id} className="flex items-center space-x-1.5 cursor-pointer group px-2 py-1 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+                <input 
+                  type="checkbox" 
+                  checked={filters[f.id as keyof typeof filters] as boolean}
+                  onChange={(e) => setFilters(prev => ({ ...prev, [f.id]: e.target.checked }))}
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className={`text-[9px] font-black uppercase tracking-tight transition-colors ${filters[f.id as keyof typeof filters] ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                  {f.label}
+                </span>
               </label>
             ))}
 
-            <div className="flex items-center space-x-2 ml-2 pl-4 border-l border-slate-200 dark:border-slate-700">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Range:</span>
+            <div className="w-full md:w-auto flex items-center space-x-2 mt-2 md:mt-0 md:ml-2 md:pl-4 md:border-l border-slate-200 dark:border-slate-700">
               <DateInput 
-                className="bg-white dark:bg-slate-900 border-none rounded-lg p-1.5 text-[10px] font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700"
+                className="flex-1 md:w-28 bg-white dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100 dark:ring-slate-800"
                 value={filters.fromDate}
                 onChange={val => setFilters(prev => ({ ...prev, fromDate: val }))}
               />
-              <span className="text-[9px] font-bold text-slate-400">TO</span>
+              <span className="text-[9px] font-bold text-slate-300">➜</span>
               <DateInput 
-                className="bg-white dark:bg-slate-900 border-none rounded-lg p-1.5 text-[10px] font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700"
+                className="flex-1 md:w-28 bg-white dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100 dark:ring-slate-800"
                 value={filters.toDate}
                 onChange={val => setFilters(prev => ({ ...prev, toDate: val }))}
               />
-              {(filters.fromDate || filters.toDate) && (
-                <button 
-                  onClick={() => setFilters(prev => ({ ...prev, fromDate: '', toDate: '' }))}
-                  className="text-rose-500 hover:text-rose-600 p-1 transition-colors"
-                  title="Clear Range"
-                >
-                  ✕
-                </button>
-              )}
             </div>
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full text-left table-auto border-collapse">
+        <div className="overflow-x-auto -mx-6 px-6 no-scrollbar">
+          <table className="w-full text-left table-auto border-collapse min-w-[800px]">
             <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[9px] uppercase tracking-[0.2em] font-black border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="px-4 py-4">Check-in</th>
-                <th className="px-4 py-4">Pax Name</th>
-                <th className="px-4 py-4">Service/Hotel</th>
-                <th className="px-4 py-4">Vendor</th>
-                <th className="px-4 py-4">Customer</th>
-                <th className="px-4 py-4">Room/Sector</th>
+                <th className="px-4 py-4">In Date</th>
+                <th className="px-4 py-4">Pax Group</th>
+                <th className="px-4 py-4">Service</th>
+                <th className="px-4 py-4">Vendor Partner</th>
+                <th className="px-4 py-4">Client Name</th>
+                <th className="px-4 py-4">Allocation</th>
                 <th className="px-4 py-4 text-center">Nights</th>
-                <th className="px-4 py-4 text-right">Amount</th>
+                <th className="px-4 py-4 text-right">Credit</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -760,6 +843,8 @@ const Dashboard: React.FC<{
               )}
             </tbody>
           </table>
+        </div>
+      </div>
         </div>
       </div>
     </div>

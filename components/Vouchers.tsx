@@ -1226,12 +1226,73 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     }
   };
 
+  const renderMobileVouchers = () => (
+    <div className="md:hidden space-y-4">
+      {filteredVouchers.map((v) => (
+        <div 
+          key={v.id} 
+          onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }}
+          className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all"
+        >
+          <div className="flex justify-between items-start mb-3">
+            <div className="flex-1">
+              <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-lg uppercase tracking-widest">{v.voucherNum}</span>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{formatDate(v.date)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-orbitron font-black text-slate-900 dark:text-white tracking-tighter">
+                Rs {(v.totalAmountPKR || 0).toLocaleString()}
+              </p>
+              {v.currency === Currency.SAR && (
+                <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest mt-0.5">
+                  SAR {((v.totalAmountPKR || 0) / (v.roe || 1)).toLocaleString(undefined, { maximumFractionDigits: 2 })} @ {v.roe}
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl mb-4">
+            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-relaxed line-clamp-2">
+              {getDetailedNarrative(v)}
+            </p>
+          </div>
+
+          <div className="flex justify-between items-center pt-3 border-t border-slate-50 dark:border-slate-800">
+             <div className="flex -space-x-2">
+               <div className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px]">👤</div>
+               {v.type === VoucherType.HOTEL && <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px]">🏨</div>}
+             </div>
+             <div className="flex space-x-2">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); handleEdit(v); }}
+                 className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-blue-600 active:text-white transition-colors"
+               >✏️</button>
+               <button 
+                 onClick={(e) => { e.stopPropagation(); handleClone(v); }}
+                 className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-blue-600 active:text-white transition-colors"
+               >👯</button>
+               <button 
+                 onClick={(e) => { e.stopPropagation(); handleDelete(v.id); }}
+                 className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-rose-600 active:text-white transition-colors"
+               >🗑️</button>
+             </div>
+          </div>
+        </div>
+      ))}
+      {filteredVouchers.length === 0 && (
+        <div className="py-20 text-center">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No vouchers found</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
-        <div className="flex bg-white dark:bg-slate-900 p-2 rounded-2xl border dark:border-slate-800 shadow-sm overflow-x-auto w-full md:w-auto">
+        <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] md:rounded-2xl border dark:border-slate-800 shadow-sm overflow-x-auto w-full md:w-auto no-scrollbar scroll-smooth">
           {Object.values(VoucherType).map(t => (
-            <button key={t} onClick={() => setActiveType(t)} className={`px-6 py-3 rounded-xl font-bold text-xs transition-all uppercase whitespace-nowrap ${activeType === t ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-blue-500'}`}>
+            <button key={t} onClick={() => setActiveType(t)} className={`px-6 py-2.5 rounded-[1.2rem] md:rounded-xl font-black text-[10px] transition-all uppercase whitespace-nowrap ${activeType === t ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-blue-500'}`}>
               {t}
             </button>
           ))}
@@ -1239,13 +1300,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <button 
           disabled={isSaving}
           onClick={() => { setFormMode('CREATE'); setShowForm(true); }} 
-          className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 disabled:opacity-50"
+          className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 disabled:opacity-50"
         >
           {isSaving ? 'Saving...' : '+ New Voucher'}
         </button>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[2rem] border dark:border-slate-800 shadow-xl overflow-hidden no-print">
+      {renderMobileVouchers()}
+
+      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[2rem] border dark:border-slate-800 shadow-xl overflow-hidden no-print">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
@@ -1321,48 +1384,54 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       </div>
 
       {viewingVoucher && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-4 overflow-y-auto print:p-0 print:bg-white print:block">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden print:shadow-none print:rounded-none">
-            <div className="no-print p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-               <div className="flex space-x-2">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl md:p-4 overflow-hidden print:p-0 print:bg-white print:block">
+          <div className="bg-white dark:bg-slate-900 w-full md:max-w-5xl h-full md:h-auto md:max-h-[92vh] md:rounded-[3rem] shadow-2xl flex flex-col print:shadow-none print:rounded-none">
+            <div className="no-print p-4 md:p-6 border-b dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-800/50 shrink-0">
+               <div className="flex overflow-x-auto w-full sm:w-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 space-x-2">
                   {!(viewingVoucher.type === VoucherType.RECEIPT || viewingVoucher.type === VoucherType.PAYMENT) && [
-                    { id: 'SERVICE', label: 'Booking Voucher', icon: '🏨' },
-                    { id: 'OFFICIAL', label: 'Official Invoice', icon: '📄' },
-                    { id: 'PKR', label: 'Confirmation', icon: '✅' },
-                    { id: 'SAR', label: 'SAR Quote', icon: '🇸🇦' }
+                    { id: 'SERVICE', label: 'Booking', icon: '🏨' },
+                    { id: 'OFFICIAL', label: 'Invoice', icon: '📄' },
+                    { id: 'PKR', label: 'Confirm', icon: '✅' },
+                    { id: 'SAR', label: 'Quote', icon: '🇸🇦' }
                   ].map(tab => (
-                    <button key={tab.id} onClick={() => setInspectorView(tab.id as any)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center space-x-2 ${inspectorView === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}>
-                      <span>{tab.icon}</span> <span>{tab.label}</span>
+                    <button key={tab.id} onClick={() => setInspectorView(tab.id as any)} className={`shrink-0 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center space-x-2 ${inspectorView === tab.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                      <span>{tab.icon}</span> <span className="hidden sm:inline">{tab.label}</span>
                     </button>
                   ))}
                   {(viewingVoucher.type === VoucherType.RECEIPT || viewingVoucher.type === VoucherType.PAYMENT) && (
-                    <div className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center space-x-2">
-                      <span>📄</span> <span>Financial Voucher</span>
+                    <div className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg flex items-center space-x-2">
+                      <span>📄</span> <span>Financial Entry</span>
                     </div>
                   )}
                </div>
-               <div className="flex items-center space-x-3">
+               <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
                   <button 
                     onClick={handleDownloadPDF} 
                     disabled={isDownloading}
-                    className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-2 rounded-xl font-black uppercase text-[10px] transition-all flex items-center space-x-2 disabled:opacity-50"
+                    className="flex-1 sm:flex-none justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-3 md:py-2 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center space-x-2 disabled:opacity-50 shadow-xl"
                   >
                     <span>{isDownloading ? '⏳' : '📥'}</span> 
-                    <span>{isDownloading ? 'Downloading...' : 'Download PDF'}</span>
+                    <span className="hidden sm:inline">{isDownloading ? 'Saving...' : 'Download'}</span>
                   </button>
                   <button 
                     onClick={handleWhatsAppShare} 
                     disabled={isSharing}
-                    className="bg-emerald-600 text-white px-8 py-2 rounded-xl font-black uppercase text-[10px] transition-all flex items-center space-x-2 disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                    className="flex-1 sm:flex-none justify-center bg-emerald-600 text-white px-4 py-3 md:py-2 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center space-x-2 disabled:opacity-50 shadow-xl shadow-emerald-500/20"
                   >
                     <span>{isSharing ? '⏳' : '🟢'}</span> 
-                    <span>{isSharing ? 'Share WhatsApp' : 'Share WhatsApp'}</span>
+                    <span className="hidden sm:inline">{isSharing ? 'Share' : 'WhatsApp'}</span>
                   </button>
-                  <button onClick={() => setViewingVoucher(null)} className="p-2 bg-slate-200 dark:bg-slate-700 text-slate-500 rounded-xl">✕</button>
+                  <button onClick={() => setViewingVoucher(null)} className="p-3 bg-slate-200 dark:bg-slate-700 text-slate-500 rounded-xl active:bg-rose-500 active:text-white transition-colors">
+                    <span className="text-sm">✕</span>
+                  </button>
                </div>
             </div>
-            <div className="overflow-y-auto max-h-[80vh] print:max-h-none print:overflow-visible flex justify-center py-10 print:py-0">
-              {renderInspectorContent()}
+            <div className="flex-1 overflow-y-auto no-scrollbar print:overflow-visible flex justify-center py-6 md:py-10 bg-slate-50/30 dark:bg-slate-950/20">
+              <div className="w-full max-w-4xl px-2 sm:px-6">
+                <div className="overflow-x-auto bg-white shadow-2xl md:rounded-2xl border border-slate-100 p-0 sm:p-2">
+                  {renderInspectorContent()}
+                </div>
+              </div>
             </div>
           </div>
         </div>
