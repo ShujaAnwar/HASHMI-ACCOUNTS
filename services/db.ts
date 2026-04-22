@@ -117,7 +117,10 @@
         banks: data.banks || [],
         autoBackupEnabled: data.auto_backup_enabled || false,
         autoBackupIntervalEnabled: data.auto_backup_interval_enabled || false,
-        autoBackupIntervalHours: data.auto_backup_interval_hours || 6
+        autoBackupIntervalHours: data.auto_backup_interval_hours || 6,
+        showHotelsList: data.show_hotels_list !== false,
+        autoRefreshEnabled: data.auto_refresh_enabled || false,
+        autoRefreshIntervalMinutes: data.auto_refresh_interval_minutes || 5
       };
     } catch (err) {
       return {
@@ -134,7 +137,10 @@
         banks: [],
         autoBackupEnabled: false,
         autoBackupIntervalEnabled: false,
-        autoBackupIntervalHours: 6
+        autoBackupIntervalHours: 6,
+        showHotelsList: true,
+        autoRefreshEnabled: false,
+        autoRefreshIntervalMinutes: 5
       };
     }
   };
@@ -156,7 +162,10 @@
       banks: config.banks,
       auto_backup_enabled: config.autoBackupEnabled,
       auto_backup_interval_enabled: config.autoBackupIntervalEnabled,
-      auto_backup_interval_hours: config.autoBackupIntervalHours
+      auto_backup_interval_hours: config.autoBackupIntervalHours,
+      show_hotels_list: config.showHotelsList !== false,
+      auto_refresh_enabled: config.autoRefreshEnabled,
+      auto_refresh_interval_minutes: config.autoRefreshIntervalMinutes
     };
 
     const { error } = await supabase
@@ -164,8 +173,7 @@
       .upsert(payload);
     
     if (error) {
-      console.error("Config save failed, attempting fallback without new columns...", error);
-      // Fallback: Try saving without the newer columns if they are missing in DB
+      console.warn("Config save failed, attempting fallback (Database schema might be outdated)...", error);
       const fallbackPayload = { ...payload };
       delete fallbackPayload.account_name_case;
       delete fallbackPayload.banks;
@@ -173,6 +181,9 @@
       delete fallbackPayload.auto_backup_enabled;
       delete fallbackPayload.auto_backup_interval_enabled;
       delete fallbackPayload.auto_backup_interval_hours;
+      delete fallbackPayload.show_hotels_list;
+      delete fallbackPayload.auto_refresh_enabled;
+      delete fallbackPayload.auto_refresh_interval_minutes;
       
       const { error: fallbackError } = await supabase
         .from('app_config')
@@ -180,8 +191,9 @@
         
       if (fallbackError) {
         console.error("Critical config save failure:", fallbackError);
-        // Don't throw here to allow the rest of the restore to proceed if possible
-        // but we should log it clearly.
+      } else {
+        // Fallback succeeded, but new columns were skipped
+        throw new Error("SCHEMA_OUT_OF_SYNC");
       }
     }
   };

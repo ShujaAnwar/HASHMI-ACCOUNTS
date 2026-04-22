@@ -15,6 +15,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [saveStatus, setSaveStatus] = useState('');
+  const [syncError, setSyncError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'branding' | 'financial' | 'security' | 'disaster' | 'diagnostics'>('branding');
   
@@ -61,12 +62,18 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
 
     try {
       setSaveStatus('Saving changes...');
+      setSyncError(false);
       await saveConfig(config);
       triggerNotification('System configuration updated successfully.');
       if (onConfigUpdate) onConfigUpdate();
-    } catch (err) {
-      console.error("Save failed:", err);
-      triggerNotification('Error: Could not save configuration.');
+    } catch (err: any) {
+      if (err.message === 'SCHEMA_OUT_OF_SYNC') {
+        setSyncError(true);
+        triggerNotification('Warning: Settings saved but some new features are disabled (Sync needed).');
+      } else {
+        console.error("Save failed:", err);
+        triggerNotification('Error: Could not save configuration.');
+      }
     }
   };
 
@@ -319,6 +326,25 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
       </div>
 
       <form onSubmit={handleUpdate} className="space-y-8">
+        {syncError && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-500/50 p-6 rounded-3xl flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 animate-in fade-in slide-in-from-top-4">
+            <div className="flex items-center space-x-4">
+              <span className="text-3xl">⚠️</span>
+              <div className="flex flex-col">
+                <span className="text-amber-800 dark:text-amber-400 font-black uppercase text-xs tracking-widest">Database Sync Required</span>
+                <p className="text-[10px] text-amber-700 dark:text-amber-500 font-medium max-w-md">Your database is missing new configuration columns (Hotel List, Auto Refresh, etc.). Changes to these features will be lost until you run the SQL update in Diagnostics.</p>
+              </div>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => setActiveTab('diagnostics')}
+              className="bg-amber-500 text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg"
+            >
+              Fix Database Now
+            </button>
+          </div>
+        )}
+
         {activeTab === 'branding' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-6">
@@ -404,6 +430,21 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Corporate Address</label>
                     <textarea className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 h-24 font-medium text-sm shadow-inner resize-none outline-none" value={config.companyAddress} onChange={e => setConfig({...config, companyAddress: e.target.value})} />
                   </div>
+                  <div className="md:col-span-2 bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl flex items-center justify-between border border-blue-100 dark:border-blue-900/30">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Smart Hotel Lists</span>
+                      <span className="text-[8px] text-slate-500 uppercase font-bold">Show Makkah/Madinah dropdown list in vouchers</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={config.showHotelsList !== false} 
+                        onChange={e => setConfig({...config, showHotelsList: e.target.checked})} 
+                      />
+                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -411,18 +452,61 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
         )}
 
         {activeTab === 'financial' && (
-           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8 border border-slate-100 dark:border-slate-800">
-              <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">Exchange Rate Controls</h3>
-              <div className="w-64">
-                <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Default SAR Rate (PKR/1 SAR)</label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  className="w-full bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-100 dark:border-blue-900/30 rounded-2xl p-6 font-orbitron font-black text-3xl text-center text-blue-600 shadow-sm outline-none focus:border-blue-500 transition-all" 
-                  value={config.defaultROE} 
-                  onChange={e => setConfig({...config, defaultROE: Number(e.target.value)})} 
-                />
-              </div>
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8 border border-slate-100 dark:border-slate-800">
+                <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">Exchange Rate Controls</h3>
+                <div className="w-full">
+                  <label className="text-[10px] font-bold text-blue-600 uppercase mb-2 block tracking-widest">Default SAR Rate (PKR/1 SAR)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    className="w-full bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-100 dark:border-blue-900/30 rounded-2xl p-6 font-orbitron font-black text-3xl text-center text-blue-600 shadow-sm outline-none focus:border-blue-500 transition-all" 
+                    value={config.defaultROE} 
+                    onChange={e => setConfig({...config, defaultROE: Number(e.target.value)})} 
+                  />
+                </div>
+             </div>
+
+             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-xl space-y-8 border border-slate-100 dark:border-slate-800">
+                <h3 className="text-2xl font-orbitron font-bold uppercase tracking-tighter">Live Data Engine</h3>
+                <div className="space-y-6">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl flex items-center justify-between border border-slate-100 dark:border-slate-700">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-white">Auto Refresh Database</span>
+                      <span className="text-[8px] text-slate-500 uppercase font-bold">Periodically pull fresh cloud data</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={config.autoRefreshEnabled} 
+                        onChange={e => setConfig({...config, autoRefreshEnabled: e.target.checked})} 
+                      />
+                      <div className="w-11 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+
+                  {config.autoRefreshEnabled && (
+                    <div className="animate-in slide-in-from-top-2 duration-300 p-6 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-3xl border border-emerald-100 dark:border-emerald-900/10">
+                      <label className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-4 block">Refresh Cycle (Minutes)</label>
+                      <div className="flex items-center space-x-6">
+                        <input 
+                          type="number" 
+                          min="1" 
+                          max="1440"
+                          className="w-32 bg-white dark:bg-slate-900 border-2 border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-4 font-orbitron font-black text-2xl text-center text-emerald-600 outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={config.autoRefreshIntervalMinutes}
+                          onChange={e => setConfig({...config, autoRefreshIntervalMinutes: Math.max(1, Number(e.target.value))})}
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Minutes</span>
+                          <span className="text-[8px] font-bold text-slate-500 uppercase">Suggested: 5-15 mins</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+             </div>
            </div>
         )}
 
@@ -549,6 +633,19 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                 <div className="grid grid-cols-1 gap-4">
                   <button 
                     type="button" 
+                    onClick={async () => {
+                      await handleBackupJSON();
+                      await handleBackupExcel();
+                      triggerNotification("Auto-Backup Protocol triggered manually.");
+                    }} 
+                    className="w-full py-5 bg-blue-600/20 text-blue-400 border border-blue-600/30 font-black rounded-2xl uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-600/30 transition-all flex flex-col items-center justify-center space-y-1"
+                  >
+                    <span className="text-lg">⚡</span>
+                    <span>Trigger Auto-Backup Protocol</span>
+                    <span className="text-[7px] opacity-60">Downloads Both JSON & Excel</span>
+                  </button>
+                  <button 
+                    type="button" 
                     onClick={handleBackupJSON} 
                     className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center space-x-3"
                   >
@@ -578,6 +675,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                   <span>📤</span> <span>Upload & Restore Backup</span>
                 </button>
                 <p className="text-[10px] text-slate-400 font-bold uppercase text-center">Supports .json and .xlsx formats</p>
+                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/30 text-[10px] font-bold text-amber-700 dark:text-amber-400 text-center uppercase tracking-tight">
+                  ⚠️ Note: After changing "Auto Backup" toggles, you MUST click "Commit Global Changes" at the bottom to save your settings.
+                </div>
               </div>
               <input type="file" hidden ref={restoreInputRef} accept=".json,.xlsx" onChange={handleRestore} />
             </div>
@@ -632,6 +732,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                 <div className="relative group">
                    <pre className="bg-slate-900 text-slate-300 p-8 rounded-3xl text-[11px] font-mono overflow-x-auto border border-white/5">
 {`-- FIX: Add missing columns and reload cache
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS show_hotels_list BOOLEAN DEFAULT TRUE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_refresh_interval_minutes INTEGER DEFAULT 5;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS font_size INTEGER DEFAULT 16;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS account_name_case TEXT DEFAULT 'Sentence Case';
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS banks JSONB DEFAULT '[]';
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
@@ -640,7 +746,18 @@ NOTIFY pgrst, 'reload schema';`}
                    <button 
                       type="button"
                       onClick={() => {
-                         navigator.clipboard.writeText("ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE;\nALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE;\nALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;\nNOTIFY pgrst, 'reload schema';");
+                         const sql = `-- FIX: Add missing columns and reload cache
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS show_hotels_list BOOLEAN DEFAULT TRUE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_refresh_interval_minutes INTEGER DEFAULT 5;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS font_size INTEGER DEFAULT 16;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS account_name_case TEXT DEFAULT 'Sentence Case';
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS banks JSONB DEFAULT '[]';
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
+NOTIFY pgrst, 'reload schema';`;
+                         navigator.clipboard.writeText(sql);
                          triggerNotification("SQL Copied to Clipboard");
                       }}
                       className="absolute top-4 right-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest backdrop-blur-md transition-all"

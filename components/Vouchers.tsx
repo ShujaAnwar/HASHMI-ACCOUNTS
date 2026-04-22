@@ -30,18 +30,19 @@ const amountToWords = (num: number): string => {
 
 interface VouchersProps {
   config: AppConfig;
+  refreshKey?: number;
   externalIntent?: { type: 'EDIT' | 'VIEW', voucher: Voucher } | null;
   clearIntent?: () => void;
 }
 
-const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent }) => {
+const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKey, externalIntent, clearIntent }) => {
   const [activeType, setActiveType] = useState<VoucherType>(VoucherType.HOTEL);
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<'CREATE' | 'EDIT' | 'CLONE'>('CREATE');
   const [viewingVoucher, setViewingVoucher] = useState<Voucher | null>(null);
   const [inspectorView, setInspectorView] = useState<'OFFICIAL' | 'PKR' | 'SAR' | 'SERVICE'>('OFFICIAL');
   const [voucherToEdit, setVoucherToEdit] = useState<Voucher | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -62,15 +63,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
 
   useEffect(() => {
     fetchVoucherData();
-  }, [refreshKey, showForm, fetchVoucherData]);
-
-  // Automatic 5-second sync (User Request)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchVoucherData();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchVoucherData]);
+  }, [globalRefreshKey, localRefreshKey, showForm, fetchVoucherData]);
 
   useEffect(() => {
     if (externalIntent) {
@@ -101,7 +94,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
   const handleDelete = async (id: string) => { 
     if (window.confirm('Delete voucher?')) { 
       await AccountingService.deleteVoucher(id); 
-      setRefreshKey(prev => prev + 1); 
+      setLocalRefreshKey(prev => prev + 1); 
       setViewingVoucher(null); 
     } 
   };
@@ -116,7 +109,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, externalIntent, clearIntent
       }
       setShowForm(false);
       setVoucherToEdit(null);
-      setRefreshKey(prev => prev + 1);
+      setLocalRefreshKey(prev => prev + 1);
     } catch (error: any) {
       console.error("Voucher Save Error:", error);
       alert(`Failed to save voucher: ${error.message || 'Unknown error'}`);

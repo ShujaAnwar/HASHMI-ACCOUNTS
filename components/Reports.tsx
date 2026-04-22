@@ -6,13 +6,14 @@ import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from 
 
 interface ReportsProps {
   config: AppConfig;
+  refreshKey?: number;
   onViewVoucher?: (v: Voucher) => void;
   onEditVoucher?: (v: Voucher) => void;
   initialAccountId?: string | null;
   clearInitialAccount?: () => void;
 }
 
-const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher, initialAccountId, clearInitialAccount }) => {
+const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, onEditVoucher, initialAccountId, clearInitialAccount }) => {
   const [activeSection, setActiveSection] = useState<'TB' | 'PL' | 'BS' | 'GL'>('TB');
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
@@ -40,16 +41,8 @@ const Reports: React.FC<ReportsProps> = ({ config, onViewVoucher, onEditVoucher,
   }, []);
 
   useEffect(() => {
-    fetchReportData();
-  }, [fetchReportData]);
-
-  // Automatic 5-second sync (User Request)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchReportData(true);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchReportData]);
+    fetchReportData(refreshKey !== undefined && refreshKey > 0);
+  }, [fetchReportData, refreshKey]);
 
   useEffect(() => {
     if (initialAccountId) {

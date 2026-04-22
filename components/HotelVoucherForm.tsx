@@ -89,6 +89,10 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const allHotels = useMemo(() => {
+    return [...MAKKAH_HOTELS, ...MADINAH_HOTELS];
+  }, []);
+
   useEffect(() => {
     const load = async () => {
       const [accs, conf] = await Promise.all([getAccounts(), getConfig()]);
@@ -179,6 +183,8 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
         } else if (MADINAH_HOTELS.some(h => h.name === value)) {
           updatedItem.city = 'Madinah';
           updatedItem.country = 'Saudi Arabia';
+        } else if (value === 'Other Hotel') {
+          // Keep existing values or reset if needed
         }
       }
 
@@ -339,37 +345,24 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">HOTEL NAME</label>
-                        <div className="flex gap-2">
-                          <select 
-                            className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100"
-                            value={MAKKAH_HOTELS.some(h => h.name === item.hotelName) || MADINAH_HOTELS.some(h => h.name === item.hotelName) ? item.hotelName : 'Other Hotel'}
-                            onChange={e => {
-                              const val = e.target.value;
-                              if (val === 'Other Hotel') {
-                                updateItem(idx, 'hotelName', '');
-                              } else {
-                                updateItem(idx, 'hotelName', val);
-                              }
-                            }}
-                          >
-                            <option value="Other Hotel">Other Hotel / Manual Entry</option>
-                            <optgroup label="🕋 MAKKAH HOTELS">
-                              {MAKKAH_HOTELS.map(h => <option key={h.name} value={h.name}>{h.name} ({h.cat})</option>)}
-                            </optgroup>
-                            <optgroup label="🕌 MADINAH HOTELS">
-                              {MADINAH_HOTELS.map(h => <option key={h.name} value={h.name}>{h.name} ({h.cat})</option>)}
-                            </optgroup>
-                          </select>
-                        </div>
-                        {(!MAKKAH_HOTELS.some(h => h.name === item.hotelName) && !MADINAH_HOTELS.some(h => h.name === item.hotelName)) && (
+                        <div className="flex flex-col gap-1">
                           <input 
                             required 
-                            className="w-full mt-2 bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100 animate-in fade-in slide-in-from-top-1" 
-                            placeholder="Type Hotel Name..." 
+                            list={`hotels-datalist-${idx}`}
+                            className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100" 
+                            placeholder="Type or select hotel..." 
                             value={item.hotelName} 
                             onChange={e => updateItem(idx, 'hotelName', e.target.value)} 
                           />
-                        )}
+                          <datalist id={`hotels-datalist-${idx}`}>
+                            {MAKKAH_HOTELS.map(h => <option key={`mak-${h.name}`} value={h.name}>{h.name} (Makkah)</option>)}
+                            {MADINAH_HOTELS.map(h => <option key={`mad-${h.name}`} value={h.name}>{h.name} (Madinah)</option>)}
+                          </datalist>
+                          
+                          {(config.showHotelsList !== false && item.hotelName === '') && (
+                            <p className="text-[7px] text-slate-400 uppercase font-black tracking-widest px-1">Start typing for suggestions...</p>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -405,7 +398,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                         </div>
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOMS</label>
-                          <input type="number" min="1" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.numRooms} onChange={e => updateItem(idx, 'numRooms', Number(e.target.value))} />
+                          <input type="number" min="1" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.numRooms} onChange={e => updateItem(idx, 'numRooms', Number(e.target.value))} onWheel={(e) => (e.target as HTMLInputElement).blur()} />
                         </div>
                       </div>
                     </div>
@@ -414,7 +407,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">RATE / NIGHT</label>
-                          <input type="number" step="0.01" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black text-blue-600 outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.unitRate} onChange={e => updateItem(idx, 'unitRate', Number(e.target.value))} />
+                          <input type="number" step="0.01" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-black text-blue-600 outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.unitRate} onChange={e => updateItem(idx, 'unitRate', Number(e.target.value))} onWheel={(e) => (e.target as HTMLInputElement).blur()} />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">AMOUNT ({formData.currency})</label>
@@ -466,11 +459,11 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                     </div>
                     <div className="space-y-1">
                       <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ADULTS</label>
-                      <input type="number" min="1" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100" value={item.adults} onChange={e => updateItem(idx, 'adults', Number(e.target.value))} />
+                      <input type="number" min="1" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.adults} onChange={e => updateItem(idx, 'adults', Number(e.target.value))} onWheel={(e) => (e.target as HTMLInputElement).blur()} />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHILDREN</label>
-                      <input type="number" min="0" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100" value={item.children} onChange={e => updateItem(idx, 'children', Number(e.target.value))} />
+                      <input type="number" min="0" className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-slate-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={item.children} onChange={e => updateItem(idx, 'children', Number(e.target.value))} onWheel={(e) => (e.target as HTMLInputElement).blur()} />
                     </div>
                   </div>
                 </div>

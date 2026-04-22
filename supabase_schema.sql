@@ -20,7 +20,10 @@
     ADD COLUMN IF NOT EXISTS banks JSONB DEFAULT '[]',
     ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
+    ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6,
+    ADD COLUMN IF NOT EXISTS show_hotels_list BOOLEAN DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS auto_refresh_interval_minutes INTEGER DEFAULT 5;
 
     -- 4. Ensure Ledger Entries has the voucher_num column for better tracking
     ALTER TABLE public.ledger_entries 

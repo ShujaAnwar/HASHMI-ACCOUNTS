@@ -84,6 +84,9 @@ export interface AppConfig {
   autoBackupEnabled?: boolean;
   autoBackupIntervalEnabled?: boolean;
   autoBackupIntervalHours?: number;
+  showHotelsList?: boolean;
+  autoRefreshEnabled?: boolean;
+  autoRefreshIntervalMinutes?: number;
 }
 
 export interface DashboardStats {

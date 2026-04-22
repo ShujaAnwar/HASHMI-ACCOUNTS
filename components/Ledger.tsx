@@ -8,6 +8,7 @@ import DateInput from './DateInput';
 
   interface LedgerProps {
     config: AppConfig;
+    refreshKey?: number;
     type?: AccountType;
     onEditVoucher: (v: Voucher) => void;
     onViewVoucher?: (v: Voucher) => void;
@@ -15,7 +16,7 @@ import DateInput from './DateInput';
     clearInitialAccount?: () => void;
   }
 
-  const Ledger: React.FC<LedgerProps> = ({ config, type, onEditVoucher, onViewVoucher, initialAccountId, clearInitialAccount }) => {
+  const Ledger: React.FC<LedgerProps> = ({ config, refreshKey, type, onEditVoucher, onViewVoucher, initialAccountId, clearInitialAccount }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -73,14 +74,10 @@ import DateInput from './DateInput';
       }
     }, [initialAccountId, accountList, clearInitialAccount]);
 
-    // Automatic 5-second sync (User Request)
     useEffect(() => {
-      const interval = setInterval(() => {
-        refreshAccountList();
-        getVouchers().then(setVouchers);
-      }, 5000);
-      return () => clearInterval(interval);
-    }, [refreshAccountList]);
+      refreshAccountList();
+      getVouchers().then(setVouchers);
+    }, [refreshKey, refreshAccountList]);
 
     const generateNextCode = useCallback((targetType?: AccountType) => {
       if (!targetType) return '';

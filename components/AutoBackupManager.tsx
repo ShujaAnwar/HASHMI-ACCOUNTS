@@ -116,7 +116,7 @@ const AutoBackupManager: React.FC<AutoBackupManagerProps> = ({ config }) => {
     checkAndBackup(); // Initial check
 
     return () => clearInterval(interval);
-  }, [config.autoBackupEnabled]);
+  }, [config.autoBackupEnabled, config.autoBackupIntervalEnabled, config.autoBackupIntervalHours]);
 
   return null;
 };

@@ -9,6 +9,7 @@ import ChartOfAccounts from './components/ChartOfAccounts';
 import LoginForm from './components/LoginForm';
 import UserGuide from './components/UserGuide';
 import AutoBackupManager from './components/AutoBackupManager';
+import AutoRefreshManager from './components/AutoRefreshManager';
 import { AccountType, AppConfig, Voucher } from './types';
 import { getConfig } from './services/db';
 import { supabase } from './services/supabase';
@@ -18,6 +19,7 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   // Cross-tab action state
   const [intent, setIntent] = useState<{ type: 'EDIT' | 'VIEW', voucher: Voucher } | null>(null);
@@ -26,6 +28,10 @@ const App: React.FC = () => {
   const refreshConfig = useCallback(async () => {
     const freshConfig = await getConfig();
     setConfig(freshConfig);
+  }, []);
+
+  const handleGlobalRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
   }, []);
 
   useEffect(() => {
@@ -80,19 +86,19 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard config={config} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} onNavigate={setActiveTab} />;
+        return <Dashboard config={config} refreshKey={refreshKey} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} onNavigate={setActiveTab} />;
       case 'coa':
-        return <ChartOfAccounts config={config} onNavigateToLedger={handleNavigateToLedger} />;
+        return <ChartOfAccounts config={config} refreshKey={refreshKey} onNavigateToLedger={handleNavigateToLedger} />;
       case 'ledger':
-        return <Ledger config={config} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Ledger config={config} refreshKey={refreshKey} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'customers':
-        return <Ledger config={config} type={AccountType.CUSTOMER} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Ledger config={config} refreshKey={refreshKey} type={AccountType.CUSTOMER} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'vendors':
-        return <Ledger config={config} type={AccountType.VENDOR} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Ledger config={config} refreshKey={refreshKey} type={AccountType.VENDOR} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'vouchers':
-        return <Vouchers config={config} externalIntent={intent} clearIntent={() => setIntent(null)} />;
+        return <Vouchers config={config} refreshKey={refreshKey} externalIntent={intent} clearIntent={() => setIntent(null)} />;
       case 'reports':
-        return <Reports config={config} onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Reports config={config} refreshKey={refreshKey} onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'control':
         return <ControlPanel config={config} onConfigUpdate={refreshConfig} />;
       case 'help':
@@ -118,6 +124,7 @@ const App: React.FC = () => {
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} config={config} onLogout={handleLogout}>
       <AutoBackupManager config={config} />
+      <AutoRefreshManager config={config} onRefresh={handleGlobalRefresh} />
       <div className="animate-in fade-in duration-500">
         {renderContent()}
       </div>

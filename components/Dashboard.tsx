@@ -44,10 +44,11 @@ const useAnimatedNumber = (targetValue: number, duration: number = 1000) => {
 
 const Dashboard: React.FC<{ 
   config: AppConfig; 
+  refreshKey?: number;
   onEditVoucher?: (v: Voucher) => void; 
   onViewVoucher?: (v: Voucher) => void;
   onNavigate?: (tab: string) => void;
-}> = ({ config, onEditVoucher, onViewVoucher, onNavigate }) => {
+}> = ({ config, refreshKey, onEditVoucher, onViewVoucher, onNavigate }) => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,10 +115,12 @@ const Dashboard: React.FC<{
     }
   }, []);
 
-  // Real-time Subscription and Initial Load
   useEffect(() => {
-    fetchData();
+    fetchData(refreshKey !== undefined && refreshKey > 0);
+  }, [fetchData, refreshKey]);
 
+  // Real-time Subscription
+  useEffect(() => {
     const channel = supabase
       .channel('dashboard-realtime-v4')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vouchers' }, () => fetchData(true))
@@ -213,7 +216,7 @@ const Dashboard: React.FC<{
         
         const items = v.details?.items || [];
         
-        // If no items, treat as a single entry (legacy or single-item vouchers like Ticket)
+        // If no items, treat as a single entry
         if (items.length === 0) {
           let bookingDate = new Date(v.date);
           if (v.type === VoucherType.HOTEL && v.details?.fromDate) {
@@ -294,18 +297,18 @@ const Dashboard: React.FC<{
           let lineAmount = 0;
           const rate = v.currency === Currency.SAR ? v.roe : 1;
           if (v.type === VoucherType.HOTEL) {
-            lineAmount = (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)) * rate;
+            lineAmount = (Number(item.unitRate || 0) * Number(item.numRooms || 1) * Number(item.numNights || 1)) * rate;
           } else if (v.type === VoucherType.TRANSPORT) {
-            lineAmount = Number(item.amount) * rate;
+            lineAmount = Number(item.rate || item.amount || 0) * rate;
           } else if (v.type === VoucherType.VISA) {
-            lineAmount = (Number(item.quantity) * Number(item.rate)) * rate;
+            lineAmount = (Number(item.quantity || 1) * Number(item.rate || 0)) * rate;
           } else {
-            lineAmount = v.totalAmountPKR / items.length;
+            lineAmount = v.totalAmountPKR / (items.length || 1);
           }
 
           return {
             ...v,
-            id: `${v.id}-${idx}`, // Unique ID for the row
+            id: `${v.id}-${idx}`, // Unique ID for each row segment
             vendorName: vendor?.name || 'N/A',
             customerName: customer?.name || 'N/A',
             bookingDate,
@@ -316,9 +319,9 @@ const Dashboard: React.FC<{
             isPrevious,
             isAfterTomorrow,
             paxName: item.paxName || v.details?.paxName || 'N/A',
-            hotelName: item.hotelName || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : item.vehicle) || 'N/A',
-            roomType: item.roomType || item.sector || item.description || '-',
-            numNights: item.numNights || '-',
+            hotelName: item.hotelName || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : item.vehicle) || v.details?.hotelName || v.details?.airline || 'N/A',
+            roomType: item.roomType || item.sector || item.description || v.details?.roomType || v.details?.sector || '-',
+            numNights: item.numNights || v.details?.numNights || '-',
             totalAmountPKR: lineAmount
           };
         });

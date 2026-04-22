@@ -1,14 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { formatCurrency } from '../utils/format';
-import { Account, AccountType } from '../types';
+import { Account, AccountType, AppConfig } from '../types';
 import { getAccounts } from '../services/db';
 import { AccountingService } from '../services/AccountingService';
 
 interface ChartOfAccountsProps {
+  config: AppConfig | null;
+  refreshKey?: number;
   onNavigateToLedger?: (accountId: string, type: AccountType) => void;
 }
 
-const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ onNavigateToLedger }) => {
+const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ config, refreshKey, onNavigateToLedger }) => {
   const [accountList, setAccountList] = useState<Account[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ onNavigateToLedger })
 
   useEffect(() => {
     refreshAccounts();
-  }, [showAddModal]);
+  }, [showAddModal, refreshKey]);
 
   const categories = useMemo(() => {
     return [
