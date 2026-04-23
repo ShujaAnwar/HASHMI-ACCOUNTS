@@ -28,12 +28,37 @@ interface HajiStatus {
   isImportant: boolean;
 }
 
+const SummaryCard = ({ label, value, icon, active, onClick, color }: any) => {
+  const colors: Record<string, string> = {
+    emerald: active ? 'bg-emerald-600 text-white shadow-emerald-500/30' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-emerald-600',
+    blue: active ? 'bg-blue-600 text-white shadow-blue-500/30' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-blue-600',
+    green: active ? 'bg-emerald-600 text-white shadow-emerald-500/30' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-emerald-600',
+    indigo: active ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-indigo-600',
+    amber: active ? 'bg-amber-500 text-white shadow-amber-500/30' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-amber-500',
+    rose: active ? 'bg-rose-600 text-white shadow-rose-500/30' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-rose-600',
+  };
+
+  return (
+    <button 
+      onClick={onClick}
+      className={`min-w-[120px] p-4 rounded-3xl border transition-all flex flex-col items-center justify-center text-center space-y-2 group shadow-sm active:scale-95 ${colors[color] || colors.emerald}`}
+    >
+      <span className="text-2xl">{icon}</span>
+      <div>
+        <p className={`text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${active ? 'text-white/70' : 'text-slate-400'}`}>{label}</p>
+        <p className="text-xl font-orbitron font-black leading-none mt-1">{value}</p>
+      </div>
+    </button>
+  );
+};
+
 const HajiTracking: React.FC = () => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHaji, setSelectedHaji] = useState<HajiStatus | null>(null);
+  const [filterType, setFilterType] = useState<'ALL' | 'MAKKAH' | 'MADINA' | 'JEDDAH_AIRPORT' | 'URGENT' | 'UPCOMING' | 'TRANSPORT_REQ'>('ALL');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,8 +109,9 @@ const HajiTracking: React.FC = () => {
             }
             movement.type = VoucherType.HOTEL;
             movement.category = 'HOTEL';
-            movement.location = item?.hotelName || v.details?.hotelName || 'Hotel';
-            movement.details = `${movement.location} (${item?.roomType || v.details?.roomType || 'Standard'})`;
+            const city = v.details?.location || '';
+            movement.location = `${item?.hotelName || v.details?.hotelName || 'Hotel'}${city ? ' (' + city + ')' : ''}`;
+            movement.details = `${item?.hotelName || v.details?.hotelName} (${item?.roomType || v.details?.roomType || 'Standard'})`;
             movement.actionRequired = "Check-in Arrangement";
             allMovements.push(movement as HajiMovement);
           }
@@ -140,33 +166,60 @@ const HajiTracking: React.FC = () => {
         const mToEnd = m.toDate ? new Date(m.toDate) : mDate;
         mToEnd.setHours(23,59,59,999);
 
-        // Current Location logic
-        const isStartDay = today.getTime() === mDate.getTime();
-        const isEndDay = m.toDate && today.getTime() === new Date(m.toDate).setHours(0,0,0,0);
+        const isToday = today.getTime() === mDate.getTime();
+        const isTomorrow = tomorrow.getTime() === mDate.getTime();
+        const isEndToday = m.toDate && today.getTime() === new Date(m.toDate).setHours(0,0,0,0);
+        const isEndTomorrow = m.toDate && tomorrow.getTime() === new Date(m.toDate).setHours(0,0,0,0);
 
+        // Current Location logic (if within range)
         if (today >= mDate && today <= mToEnd) {
           currentLocation = m.location;
-          let activeMovement = { ...m };
-          if (isEndDay && m.category === 'HOTEL') {
-            activeMovement.actionRequired = "Check-out Arrangement";
-          } else if (isStartDay && m.category === 'HOTEL') {
-            activeMovement.actionRequired = "Check-in Arrangement";
+        }
+
+        // New Action Logic based on User Requirements
+        let calculatedAction = null;
+        let p: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
+
+        if (m.category === 'HOTEL') {
+          if (isToday) {
+            calculatedAction = { ...m, actionRequired: "Inform hotel for arrival", p: 'RED' as const };
+          } else if (isTomorrow) {
+            calculatedAction = { ...m, actionRequired: "Confirm booking with hotel", p: 'YELLOW' as const };
           }
-          todayActions.push(activeMovement);
-          alertLevel = 'RED'; // Direct assignment is safe here as RED is highest
+          
+          if (isEndToday) {
+            todayActions.push({ ...m, actionRequired: "Arrange transport at hotel" });
+            alertLevel = 'RED';
+          } else if (isEndTomorrow) {
+            todayActions.push({ ...m, actionRequired: "Prepare transport arrangement" });
+            if (alertLevel !== 'RED') alertLevel = 'YELLOW';
+          }
+        } else if (m.category === 'TRANSPORT') {
+          if (isToday) {
+            calculatedAction = { ...m, actionRequired: "Ensure vehicle is on location", p: 'RED' as const };
+          } else if (isTomorrow) {
+            calculatedAction = { ...m, actionRequired: "Remind transport provider", p: 'YELLOW' as const };
+          }
+        } else if (m.category === 'FLIGHT') {
+          if (isToday) {
+            calculatedAction = { ...m, actionRequired: "Send passenger to airport", p: 'RED' as const };
+          } else if (isTomorrow) {
+            calculatedAction = { ...m, actionRequired: "Confirm airport transfer", p: 'YELLOW' as const };
+          }
+        }
+
+        if (calculatedAction) {
+          todayActions.push(calculatedAction);
+          if (calculatedAction.p === 'RED') alertLevel = 'RED';
+          else if (calculatedAction.p === 'YELLOW' && alertLevel !== 'RED') alertLevel = 'YELLOW';
         }
 
         // Next Movement logic
         if (mDate > today && !nextMovement) {
           nextMovement = m;
-          const diffHours = (mDate.getTime() - today.getTime()) / (1000 * 60 * 60);
-          if (diffHours <= 24 && (alertLevel as string) !== 'RED') {
-            alertLevel = 'YELLOW';
-          }
         }
       });
 
-      // If no active today, check if they are in between movements
       if (currentLocation === 'Not Started' && timeline.length > 0) {
         const lastPassed = [...timeline].reverse().find(m => m.date <= today);
         if (lastPassed) currentLocation = `Last at: ${lastPassed.location}`;
@@ -184,15 +237,62 @@ const HajiTracking: React.FC = () => {
     });
   }, [vouchers]);
 
+  const stats = useMemo(() => {
+    const s = {
+      total: hajiTrackingData.length,
+      makkah: 0,
+      madina: 0,
+      jeddahAirport: 0,
+      urgentActions: 0,
+      upcomingActions: 0,
+      transportReq: 0
+    };
+
+    hajiTrackingData.forEach(h => {
+      const loc = h.currentLocation.toLowerCase();
+      if (loc.includes('makkah')) s.makkah++;
+      else if (loc.includes('madina') || loc.includes('madinah')) s.madina++;
+      else if (loc.includes('jeddah') || loc.includes('airport')) s.jeddahAirport++;
+
+      if (h.alertLevel === 'RED') s.urgentActions++;
+      if (h.alertLevel === 'YELLOW') s.upcomingActions++;
+
+      h.todayActions.forEach(action => {
+        if (action.category === 'TRANSPORT') {
+          s.transportReq++;
+        }
+      });
+    });
+
+    return s;
+  }, [hajiTrackingData]);
+
   const filteredHajis = useMemo(() => {
-    return hajiTrackingData.filter(h => 
+    let data = hajiTrackingData.filter(h => 
       h.paxName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       h.currentLocation.toLowerCase().includes(searchQuery.toLowerCase())
-    ).sort((a, b) => {
+    );
+
+    if (filterType !== 'ALL') {
+      data = data.filter(h => {
+        const loc = h.currentLocation.toLowerCase();
+        switch (filterType) {
+          case 'MAKKAH': return loc.includes('makkah');
+          case 'MADINA': return loc.includes('madina') || loc.includes('madinah');
+          case 'JEDDAH_AIRPORT': return loc.includes('jeddah') || loc.includes('airport');
+          case 'URGENT': return h.alertLevel === 'RED';
+          case 'UPCOMING': return h.alertLevel === 'YELLOW';
+          case 'TRANSPORT_REQ': return h.todayActions.some(a => a.category === 'TRANSPORT');
+          default: return true;
+        }
+      });
+    }
+
+    return data.sort((a, b) => {
       const priority = { 'RED': 0, 'YELLOW': 1, 'GREEN': 2 };
       return priority[a.alertLevel] - priority[b.alertLevel];
     });
-  }, [hajiTrackingData, searchQuery]);
+  }, [hajiTrackingData, searchQuery, filterType]);
 
   if (loading) {
     return (
@@ -219,6 +319,78 @@ const HajiTracking: React.FC = () => {
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
         </div>
+      </div>
+
+      {/* Summary Dashboard */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 no-scrollbar overflow-x-auto pb-2">
+        <SummaryCard 
+          label="Total Hajjis" 
+          value={stats.total} 
+          icon="👥" 
+          active={filterType === 'ALL'}
+          onClick={() => setFilterType('ALL')}
+          color="emerald"
+        />
+        <SummaryCard 
+          label="In Makkah" 
+          value={stats.makkah} 
+          icon="🕋" 
+          active={filterType === 'MAKKAH'}
+          onClick={() => setFilterType('MAKKAH')}
+          color="blue"
+        />
+        <SummaryCard 
+          label="In Madina" 
+          value={stats.madina} 
+          icon="🕌" 
+          active={filterType === 'MADINA'}
+          onClick={() => setFilterType('MADINA')}
+          color="green"
+        />
+        <SummaryCard 
+          label="Airport/JED" 
+          value={stats.jeddahAirport} 
+          icon="✈️" 
+          active={filterType === 'JEDDAH_AIRPORT'}
+          onClick={() => setFilterType('JEDDAH_AIRPORT')}
+          color="indigo"
+        />
+        <SummaryCard 
+          label="Urgent (Today)" 
+          value={stats.urgentActions} 
+          icon="🔴" 
+          active={filterType === 'URGENT'}
+          onClick={() => setFilterType('URGENT')}
+          color="rose"
+        />
+        <SummaryCard 
+          label="Upcoming" 
+          value={stats.upcomingActions} 
+          icon="🟡" 
+          active={filterType === 'UPCOMING'}
+          onClick={() => setFilterType('UPCOMING')}
+          color="amber"
+        />
+        <SummaryCard 
+          label="Transport Req" 
+          value={stats.transportReq} 
+          icon="🚐" 
+          active={filterType === 'TRANSPORT_REQ'}
+          onClick={() => setFilterType('TRANSPORT_REQ')}
+          color="rose"
+        />
+      </div>
+
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          Showing: <span className="text-blue-600">{filterType === 'ALL' ? 'All Hajjis' : filterType.replace('_', ' ')}</span> ({filteredHajis.length})
+        </p>
+        {filterType !== 'ALL' && (
+          <button onClick={() => setFilterType('ALL')} className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center space-x-1">
+            <span>↺</span>
+            <span>Clear Filter</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -299,16 +471,33 @@ const HajiTracking: React.FC = () => {
 
               {haji.todayActions.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex flex-wrap gap-2">
-                  {haji.todayActions.map((action, i) => (
-                    <div key={i} className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <span className="text-xs">
-                        {action.category === 'HOTEL' ? '🏨' : action.category === 'TRANSPORT' ? '🚐' : '✈️'}
-                      </span>
-                      <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-tighter">
-                        {action.actionRequired}: {action.location}
-                      </p>
-                    </div>
-                  ))}
+                  {haji.todayActions.map((action, i) => {
+                    // Determine color based on actionRequired text or a property
+                    const isUrgent = action.actionRequired.includes("Inform") || 
+                                     action.actionRequired.includes("Arrange") || 
+                                     action.actionRequired.includes("Ensure") || 
+                                     action.actionRequired.includes("Send");
+                                     
+                    const colorClass = isUrgent 
+                      ? "bg-rose-600 text-white border-rose-500 shadow-sm shadow-rose-500/20" 
+                      : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/50";
+                    
+                    return (
+                      <div key={i} className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border transition-all ${colorClass}`}>
+                        <span className="text-xs">
+                          {action.category === 'HOTEL' ? '🏨' : action.category === 'TRANSPORT' ? '🚐' : '✈️'}
+                        </span>
+                        <div>
+                          <p className={`text-[7px] font-black uppercase tracking-widest leading-none ${isUrgent ? 'text-white/70' : 'text-slate-500'}`}>
+                            Action Required
+                          </p>
+                          <p className="text-[9px] font-black uppercase tracking-tighter mt-0.5">
+                            {action.actionRequired}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </motion.div>

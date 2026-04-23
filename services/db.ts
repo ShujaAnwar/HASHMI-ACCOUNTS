@@ -360,14 +360,17 @@
       const { error: finalErr } = await supabase.rpc('recalculate_all_balances');
       if (finalErr) {
         console.warn("RPC recalculate_all_balances failed, attempting manual update...", finalErr);
-        // Fallback if RPC is not defined
+        // Fallback if RPC is not defined or fails
         const { data: accs } = await supabase.from('accounts').select('id');
-        if (accs) {
+        if (accs && accs.length > 0) {
+          console.log(`Running manual balance recovery for ${accs.length} accounts...`);
           for (const acc of accs) {
+            if (!acc.id) continue;
             const { data: ledger } = await supabase.from('ledger_entries').select('debit, credit').eq('account_id', acc.id);
             const bal = (ledger || []).reduce((s, e) => s + (e.debit - e.credit), 0);
             await supabase.from('accounts').update({ balance: bal }).eq('id', acc.id);
           }
+          console.log("Manual balance recovery complete.");
         }
       }
 

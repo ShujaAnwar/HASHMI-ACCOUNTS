@@ -63,7 +63,8 @@
             SELECT SUM(debit - credit)
             FROM public.ledger_entries
             WHERE account_id = a.id
-        ), 0);
+        ), 0)
+        WHERE true;
 
         -- Update running balances (balance_after) using window functions
         UPDATE public.ledger_entries le
