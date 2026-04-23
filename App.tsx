@@ -39,10 +39,26 @@ const App: React.FC = () => {
     refreshConfig();
 
     // Check current Supabase Auth Session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-      setLoading(false);
-    });
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          if (error.message.includes('Refresh Token Not Found')) {
+             console.warn("Session expired or invalid, forcing logout.");
+             await supabase.auth.signOut();
+             setIsAuthenticated(false);
+          }
+          throw error;
+        }
+        setIsAuthenticated(!!session);
+      } catch (err) {
+        console.error("Session check failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkSession();
 
     // Listen for Auth state changes (Login/Logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

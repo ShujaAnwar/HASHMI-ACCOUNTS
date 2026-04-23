@@ -96,6 +96,10 @@ const Dashboard: React.FC<{
   const animIncome = useAnimatedNumber(stats.totalIncome);
   const animCash = useAnimatedNumber(stats.totalCash);
 
+  const [showMobileDailySummary, setShowMobileDailySummary] = useState(false);
+  const [scheduleClickCount, setScheduleClickCount] = useState(0);
+  const [lastScheduleClick, setLastScheduleClick] = useState(0);
+
   const fetchData = useCallback(async (isBackground = false) => {
     if (isBackground) setIsRefreshing(true);
     else setLoading(true);
@@ -442,11 +446,15 @@ const Dashboard: React.FC<{
       {/* Mobile Balance Cards (Horizontal Scroll) */}
       <div className="flex space-x-3 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4">
         {[
-          { label: 'CASH (Rs.)', value: animCash, color: 'text-rose-600', bg: 'bg-rose-50/50 dark:bg-rose-900/20' },
-          { label: 'BANK (Rs.)', value: animReceivables, color: 'text-blue-600', bg: 'bg-blue-50/50 dark:bg-blue-900/20' },
-          { label: 'BILLS (Rs.)', value: animPayables, color: 'text-slate-800 dark:text-white', bg: 'bg-slate-50/50 dark:bg-slate-800/50' }
+          { label: 'CASH/BANK (Rs.)', value: animCash, color: 'text-rose-600', bg: 'bg-rose-50/50 dark:bg-rose-900/20', tab: 'ledger' },
+          { label: 'RECEIVABLE (Rs.)', value: animReceivables, color: 'text-blue-600', bg: 'bg-blue-50/50 dark:bg-blue-900/20', tab: 'customers' },
+          { label: 'PAYABLE (Rs.)', value: animPayables, color: 'text-slate-800 dark:text-white', bg: 'bg-slate-50/50 dark:bg-slate-800/50', tab: 'vendors' }
         ].map((card, idx) => (
-          <div key={idx} className={`flex-shrink-0 w-[240px] p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm ${card.bg}`}>
+          <div 
+            key={idx} 
+            onClick={() => onNavigate?.(card.tab)}
+            className={`flex-shrink-0 w-[240px] p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer active:scale-95 transition-all ${card.bg}`}
+          >
              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{card.label}</p>
              <p className={`text-2xl font-orbitron font-bold tracking-tighter ${card.color}`}>
                {formatCurrency(Math.floor(card.value))}
@@ -455,9 +463,67 @@ const Dashboard: React.FC<{
         ))}
       </div>
 
+      {/* Daily Summary Toggle */}
+      <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+        <button 
+          onClick={() => setShowMobileDailySummary(!showMobileDailySummary)}
+          className="w-full flex justify-between items-center"
+        >
+          <div className="text-left">
+            <h3 className="text-sm font-black text-emerald-600 uppercase tracking-tight">Daily Summary</h3>
+            <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Graphical Dashboard View</p>
+          </div>
+          <span className={`transition-transform duration-300 text-slate-300 ${showMobileDailySummary ? 'rotate-180' : ''}`}>▼</span>
+        </button>
+
+        {showMobileDailySummary && (
+          <div className="mt-6 space-y-6 animate-in fade-in zoom-in-95 duration-300">
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={lineData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                  <XAxis dataKey="name" hide />
+                  <YAxis hide />
+                  <Tooltip 
+                    formatter={(value: number) => [`PKR ${value.toLocaleString()}`]}
+                    contentStyle={{ borderRadius: '12px', border: 'none', fontSize: '10px' }} 
+                  />
+                  <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={3} dot={false} />
+                  <Line type="monotone" dataKey="receivables" stroke="#10B981" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {pieData.map((item, i) => (
+                <div key={i} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <p className="text-[8px] text-slate-400 font-black uppercase mb-1">{item.name}</p>
+                  <p className="text-xs font-black text-slate-800 dark:text-white uppercase truncate">Rs {formatCurrency(Math.floor(item.value))}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Booking Schedule Banner */}
       <div 
-        onClick={() => bookingScheduleRef.current?.scrollIntoView({ behavior: 'smooth' })}
+        onClick={() => {
+          // Secret Trigger: Control Panel
+          const now = Date.now();
+          if (now - lastScheduleClick < 1000) {
+            const newCount = scheduleClickCount + 1;
+            setScheduleClickCount(newCount);
+            if (newCount >= 8) {
+              onNavigate?.('control');
+              setScheduleClickCount(0);
+            }
+          } else {
+            setScheduleClickCount(1);
+          }
+          setLastScheduleClick(now);
+
+          bookingScheduleRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }}
         className="bg-white dark:bg-slate-900 rounded-[2rem] p-5 shadow-xl border border-blue-50 dark:border-blue-900/20 flex items-center space-x-4 cursor-pointer active:scale-[0.98] transition-all"
       >
         <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-2xl shadow-inner">📅</div>

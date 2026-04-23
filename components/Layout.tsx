@@ -148,8 +148,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
     setIsLongPressing(false);
   }, []);
 
+  const [scheduleClicks, setScheduleClicks] = useState(0);
+  const [lastScheduleClickTime, setLastScheduleClickTime] = useState(0);
+
   const handleNavClick = (id: string) => {
     if (id === 'schedule') {
+      // Secret Trigger: Control Panel
+      const now = Date.now();
+      if (now - lastScheduleClickTime < 1000) {
+        const nextCount = scheduleClicks + 1;
+        setScheduleClicks(nextCount);
+        if (nextCount >= 8) {
+          setActiveTab('control');
+          setScheduleClicks(0);
+          return;
+        }
+      } else {
+        setScheduleClicks(1);
+      }
+      setLastScheduleClickTime(now);
+
       setActiveTab('dashboard');
       setTimeout(() => {
         const el = document.getElementById('booking-schedule-section');
