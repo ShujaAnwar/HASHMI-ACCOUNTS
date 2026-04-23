@@ -23,9 +23,26 @@ import DateInput from './DateInput';
     const [formMode, setFormMode] = useState<'CREATE' | 'EDIT'>('CREATE');
     const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
     const [accountList, setAccountList] = useState<Account[]>([]);
+    const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
     const [allAccountsForCode, setAllAccountsForCode] = useState<Account[]>([]);
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleBulkDelete = async () => {
+      if (selectedAccountIds.length === 0) return;
+      if (window.confirm(`Delete ${selectedAccountIds.length} account heads? This will purge ALL history for these IDs.`)) {
+        setIsSubmitting(true);
+        try {
+          await AccountingService.deleteAccounts(selectedAccountIds);
+          setSelectedAccountIds([]);
+          await refreshAccountList();
+        } catch (err: any) {
+          alert(`Bulk Deletion Error: ${err.message}`);
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    };
     const [isExporting, setIsExporting] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
     
@@ -61,6 +78,7 @@ import DateInput from './DateInput';
     useEffect(() => {
       setSelectedAccount(null);
       setSearchTerm('');
+      setSelectedAccountIds([]);
       refreshAccountList();
     }, [type, refreshAccountList]);
 
@@ -404,9 +422,22 @@ import DateInput from './DateInput';
           <div 
             key={acc.id} 
             onClick={() => setSelectedAccount(acc)}
-            className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all"
+            className={`bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all relative ${selectedAccountIds.includes(acc.id) ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
           >
-            <div className="flex justify-between items-start mb-3">
+            <div className="absolute top-4 left-4 z-10">
+              <input 
+                type="checkbox" 
+                className="w-5 h-5 rounded-full border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm"
+                checked={selectedAccountIds.includes(acc.id)}
+                onChange={(e) => { 
+                  e.stopPropagation(); 
+                  setSelectedAccountIds(prev => 
+                    prev.includes(acc.id) ? prev.filter(i => i !== acc.id) : [...prev, acc.id]
+                  ); 
+                }}
+              />
+            </div>
+            <div className="flex justify-between items-start mb-3 ml-8">
               <div className="flex-1">
                 <span className="text-[8px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg uppercase tracking-widest">{acc.code || 'NO CODE'}</span>
                 <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1 truncate">{acc.name}</h3>
@@ -554,6 +585,14 @@ import DateInput from './DateInput';
                       <span className="text-[10px] font-sans ml-1.5 opacity-50 uppercase font-black">{listStats.totalBalance >= 0 ? 'Dr' : 'Cr'}</span>
                     </p>
                 </div>
+                {selectedAccountIds.length > 0 && (
+                  <button 
+                    onClick={handleBulkDelete}
+                    className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-3 rounded-[1.5rem] md:rounded-xl font-black shadow-lg shadow-rose-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 whitespace-nowrap flex items-center"
+                  >
+                    🗑️ Delete ({selectedAccountIds.length})
+                  </button>
+                )}
                 <button 
                     onClick={() => { 
                       setFormMode('CREATE'); 
@@ -580,6 +619,21 @@ import DateInput from './DateInput';
               <table className="w-full text-left table-auto">
                 <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-[0.2em] font-black border-b border-slate-100 dark:border-slate-800">
                   <tr>
+                    <th className="px-5 py-6 w-10">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        checked={filteredAccounts.length > 0 && selectedAccountIds.length === filteredAccounts.length}
+                        onChange={() => {
+                          if (selectedAccountIds.length === filteredAccounts.length) {
+                            setSelectedAccountIds([]);
+                          } else {
+                            setSelectedAccountIds(filteredAccounts.map(a => a.id));
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </th>
                     <th className="px-8 py-6 w-32">G/L Code</th>
                     <th className="px-8 py-6">Account Designation</th>
                     <th className="px-8 py-6">Origin/Location</th>
@@ -596,9 +650,21 @@ import DateInput from './DateInput';
                   {filteredAccounts.map((acc) => (
                     <tr 
                       key={acc.id} 
-                      className="group hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-all cursor-pointer" 
+                      className={`group hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-all cursor-pointer ${selectedAccountIds.includes(acc.id) ? 'bg-blue-50/20 dark:bg-blue-900/10 border-l-4 border-blue-500' : ''}`} 
                       onClick={() => setSelectedAccount(acc)}
                     >
+                      <td className="px-5 py-7" onClick={(e) => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          checked={selectedAccountIds.includes(acc.id)}
+                          onChange={() => {
+                            setSelectedAccountIds(prev => 
+                              prev.includes(acc.id) ? prev.filter(i => i !== acc.id) : [...prev, acc.id]
+                            );
+                          }}
+                        />
+                      </td>
                       <td className="px-8 py-7 font-mono text-[13px] font-bold text-blue-600 group-hover:scale-110 origin-left transition-transform">{acc.code || '-'}</td>
                       <td className="px-8 py-7">
                         <p className="font-black text-slate-800 dark:text-white text-base leading-none tracking-tight">{acc.name}</p>

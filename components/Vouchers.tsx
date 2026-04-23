@@ -49,8 +49,32 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [allVouchers, setAllVouchers] = useState<Voucher[]>([]);
+  const [selectedVoucherIds, setSelectedVoucherIds] = useState<string[]>([]);
 
   const voucherRef = useRef<HTMLDivElement>(null);
+  
+  const toggleSelection = (id: string) => {
+    setSelectedVoucherIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedVoucherIds.length === 0) return;
+    if (window.confirm(`Delete ${selectedVoucherIds.length} vouchers?`)) {
+      setIsSaving(true);
+      try {
+        await AccountingService.deleteVouchers(selectedVoucherIds);
+        setSelectedVoucherIds([]);
+        setLocalRefreshKey(prev => prev + 1);
+      } catch (err) {
+        console.error("Bulk Delete Error:", err);
+        alert("Failed to delete some vouchers.");
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
 
   const fetchVoucherData = useCallback(async () => {
     const [accs, vchs] = await Promise.all([
@@ -1232,9 +1256,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div 
           key={v.id} 
           onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }}
-          className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all"
+          className={`bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all relative ${selectedVoucherIds.includes(v.id) ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
         >
-          <div className="flex justify-between items-start mb-3">
+          <div className="absolute top-4 left-4 z-10">
+            <input 
+              type="checkbox" 
+              className="w-5 h-5 rounded-full border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm"
+              checked={selectedVoucherIds.includes(v.id)}
+              onChange={(e) => { e.stopPropagation(); toggleSelection(v.id); }}
+            />
+          </div>
+          <div className="flex justify-between items-start mb-3 ml-8">
             <div className="flex-1">
               <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-lg uppercase tracking-widest">{v.voucherNum}</span>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{formatDate(v.date)}</p>
@@ -1294,7 +1326,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           {Object.values(VoucherType).map(t => {
             const count = allVouchers.filter(v => v.type === t).length;
             return (
-              <button key={t} onClick={() => setActiveType(t)} className={`px-6 py-2.5 rounded-[1.2rem] md:rounded-xl font-black text-[10px] transition-all uppercase whitespace-nowrap group relative ${activeType === t ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-blue-500'}`}>
+              <button key={t} onClick={() => { setActiveType(t); setSelectedVoucherIds([]); }} className={`px-6 py-2.5 rounded-[1.2rem] md:rounded-xl font-black text-[10px] transition-all uppercase whitespace-nowrap group relative ${activeType === t ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-blue-500'}`}>
                 {count > 0 && (
                   <span className={`absolute -top-1 -right-1 flex items-center justify-center px-1.5 py-0.5 rounded-full text-[7px] font-black leading-none min-w-[14px] ${activeType === t ? 'bg-white text-blue-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
                     {count}
@@ -1305,13 +1337,23 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             );
           })}
         </div>
-        <button 
-          disabled={isSaving}
-          onClick={() => { setFormMode('CREATE'); setShowForm(true); }} 
-          className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 disabled:opacity-50"
-        >
-          {isSaving ? 'Saving...' : '+ New Voucher'}
-        </button>
+        <div className="flex items-center space-x-3 w-full md:w-auto">
+          {selectedVoucherIds.length > 0 && (
+            <button 
+              onClick={handleBulkDelete}
+              className="flex-1 md:flex-none bg-rose-600 hover:bg-rose-700 text-white px-6 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl shadow-rose-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 flex items-center justify-center"
+            >
+              <span className="mr-2">🗑️</span> Delete ({selectedVoucherIds.length})
+            </button>
+          )}
+          <button 
+            disabled={isSaving}
+            onClick={() => { setFormMode('CREATE'); setShowForm(true); }} 
+            className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl shadow-blue-500/20 uppercase tracking-widest text-[11px] transition-all active:scale-95 disabled:opacity-50"
+          >
+            {isSaving ? 'Saving...' : '+ New Voucher'}
+          </button>
+        </div>
       </div>
 
       {renderMobileVouchers()}
@@ -1321,6 +1363,20 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <table className="w-full text-left border-separate border-spacing-0">
             <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[10px] uppercase font-black tracking-widest">
               <tr>
+                <th className="px-5 py-5 border-b dark:border-slate-800 w-10">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    checked={filteredVouchers.length > 0 && selectedVoucherIds.length === filteredVouchers.length}
+                    onChange={() => {
+                      if (selectedVoucherIds.length === filteredVouchers.length) {
+                        setSelectedVoucherIds([]);
+                      } else {
+                        setSelectedVoucherIds(filteredVouchers.map(v => v.id));
+                      }
+                    }}
+                  />
+                </th>
                 <th className="px-5 py-5 border-b dark:border-slate-800">S.No</th>
                 <th className="px-5 py-5 border-b dark:border-slate-800">Date / Number</th>
                 <th className="px-5 py-5 border-b dark:border-slate-800">Particulars</th>
@@ -1331,7 +1387,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             </thead>
             <tbody className="divide-y dark:divide-slate-800">
               {filteredVouchers.map((v, idx) => (
-                <tr key={v.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all">
+                <tr key={v.id} className={`group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all ${selectedVoucherIds.includes(v.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                  <td className="px-5 py-6 border-b dark:border-slate-800">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      checked={selectedVoucherIds.includes(v.id)}
+                      onChange={() => toggleSelection(v.id)}
+                    />
+                  </td>
                   <td className="px-5 py-6 text-[10px] font-black text-slate-400">
                     {idx + 1}
                   </td>

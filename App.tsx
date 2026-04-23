@@ -6,6 +6,7 @@ import Vouchers from './components/Vouchers';
 import Reports from './components/Reports';
 import ControlPanel from './components/ControlPanel';
 import ChartOfAccounts from './components/ChartOfAccounts';
+import HajiTracking from './components/HajiTracking';
 import LoginForm from './components/LoginForm';
 import UserGuide from './components/UserGuide';
 import AutoBackupManager from './components/AutoBackupManager';
@@ -113,6 +114,8 @@ const App: React.FC = () => {
         return <Ledger config={config} refreshKey={refreshKey} type={AccountType.VENDOR} onEditVoucher={handleEditVoucher} onViewVoucher={handleViewVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'vouchers':
         return <Vouchers config={config} refreshKey={refreshKey} externalIntent={intent} clearIntent={() => setIntent(null)} />;
+      case 'haji-tracking':
+        return <HajiTracking />;
       case 'reports':
         return <Reports config={config} refreshKey={refreshKey} onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'control':

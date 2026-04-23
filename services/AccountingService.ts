@@ -163,10 +163,24 @@ export class AccountingService {
     if (error) throw error;
   }
 
+  static async deleteAccounts(ids: string[]) {
+    if (!ids || ids.length === 0) return;
+    const { error } = await supabase.from('accounts').delete().in('id', ids);
+    if (error) throw error;
+  }
+
   static async deleteVoucher(id: string) {
     // Manually delete ledger entries first to ensure no orphans
     await supabase.from('ledger_entries').delete().eq('voucher_id', id);
     const { error } = await supabase.from('vouchers').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  static async deleteVouchers(ids: string[]) {
+    if (!ids || ids.length === 0) return;
+    // Batch delete ledger entries
+    await supabase.from('ledger_entries').delete().in('voucher_id', ids);
+    const { error } = await supabase.from('vouchers').delete().in('id', ids);
     if (error) throw error;
   }
 

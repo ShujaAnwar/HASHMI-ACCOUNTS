@@ -117,6 +117,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'haji-tracking', label: 'Haji Tracking', icon: '☪️' },
     { id: 'coa', label: 'Chart of Accounts', icon: '📁' },
     { id: 'ledger', label: 'General Ledger', icon: '📖' },
     { id: 'customers', label: 'Customers', icon: '👥' },
@@ -304,9 +305,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
         <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 p-1.5 rounded-[2.5rem] shadow-2xl flex items-center justify-between no-print transition-all">
           {[
             { id: 'dashboard', label: 'Home', icon: '🏠' },
+            { id: 'haji-tracking', label: 'Tracking', icon: '☪️' },
             { id: 'vouchers', label: 'Vouchers', icon: '📝', count: voucherCount },
             { id: 'reports', label: 'Reports', icon: '📈' },
-            { id: 'coa', label: 'Masters', icon: '📁' },
             { id: 'schedule', label: 'Schedule', icon: '📅' },
           ].map(item => (
             <button
