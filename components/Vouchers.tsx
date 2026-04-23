@@ -1291,11 +1291,19 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
         <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] md:rounded-2xl border dark:border-slate-800 shadow-sm overflow-x-auto w-full md:w-auto no-scrollbar scroll-smooth">
-          {Object.values(VoucherType).map(t => (
-            <button key={t} onClick={() => setActiveType(t)} className={`px-6 py-2.5 rounded-[1.2rem] md:rounded-xl font-black text-[10px] transition-all uppercase whitespace-nowrap ${activeType === t ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-blue-500'}`}>
-              {t}
-            </button>
-          ))}
+          {Object.values(VoucherType).map(t => {
+            const count = allVouchers.filter(v => v.type === t).length;
+            return (
+              <button key={t} onClick={() => setActiveType(t)} className={`px-6 py-2.5 rounded-[1.2rem] md:rounded-xl font-black text-[10px] transition-all uppercase whitespace-nowrap group relative ${activeType === t ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-blue-500'}`}>
+                {count > 0 && (
+                  <span className={`absolute -top-1 -right-1 flex items-center justify-center px-1.5 py-0.5 rounded-full text-[7px] font-black leading-none min-w-[14px] ${activeType === t ? 'bg-white text-blue-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                    {count}
+                  </span>
+                )}
+                {t}
+              </button>
+            );
+          })}
         </div>
         <button 
           disabled={isSaving}
@@ -1309,27 +1317,31 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       {renderMobileVouchers()}
 
       <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[2rem] border dark:border-slate-800 shadow-xl overflow-hidden no-print">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
+        <div className="overflow-x-auto max-h-[70vh]">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[10px] uppercase font-black tracking-widest">
               <tr>
-                <th className="px-8 py-5">Date / Number</th>
-                <th className="px-8 py-5">Particulars</th>
-                <th className="px-8 py-5">Narrative</th>
-                <th className="px-8 py-5 text-right">Aggregate (PKR)</th>
-                <th className="px-8 py-5 text-center">Command</th>
+                <th className="px-5 py-5 border-b dark:border-slate-800">S.No</th>
+                <th className="px-5 py-5 border-b dark:border-slate-800">Date / Number</th>
+                <th className="px-5 py-5 border-b dark:border-slate-800">Particulars</th>
+                <th className="px-5 py-5 border-b dark:border-slate-800">Narrative</th>
+                <th className="px-5 py-5 border-b dark:border-slate-800 text-right">Aggregate (PKR)</th>
+                <th className="px-5 py-5 border-b dark:border-slate-800 text-center">Command</th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-slate-800">
-              {filteredVouchers.map(v => (
+              {filteredVouchers.map((v, idx) => (
                 <tr key={v.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all">
-                  <td className="px-8 py-6">
+                  <td className="px-5 py-6 text-[10px] font-black text-slate-400">
+                    {idx + 1}
+                  </td>
+                  <td className="px-5 py-6">
                     <div>
                       <p className="font-black text-slate-900 dark:text-white leading-none text-sm">{v.voucherNum}</p>
                       <p className="text-[10px] text-slate-400 mt-1 font-bold">{formatDate(v.date)}</p>
                     </div>
                   </td>
-                  <td className="px-8 py-6">
+                  <td className="px-5 py-6">
                     <div className="space-y-1">
                       {v.type === VoucherType.RECEIPT ? (
                         <>
@@ -1356,19 +1368,19 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                           </p>
                         </>
                       ) : (
-                        <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
+                        <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300 text-wrap max-w-[200px]">
                           {accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}
                         </p>
                       )}
                     </div>
                   </td>
-                  <td className="px-8 py-6 max-w-xs truncate">
+                  <td className="px-5 py-6 max-w-xs truncate">
                     <p className="text-[11px] font-medium text-slate-500 italic" title={getDetailedNarrative(v)}>{getDetailedNarrative(v)}</p>
                   </td>
-                  <td className="px-8 py-6 text-right">
+                  <td className="px-5 py-6 text-right">
                     <p className="font-black text-slate-900 dark:text-white text-base leading-none">{v.totalAmountPKR.toLocaleString()}</p>
                   </td>
-                  <td className="px-8 py-6">
+                  <td className="px-5 py-6">
                     <div className="flex justify-center space-x-2">
                        <button onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all text-xs">👁️</button>
                        <button onClick={() => handleEdit(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs">✏️</button>

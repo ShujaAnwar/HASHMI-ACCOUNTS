@@ -421,34 +421,43 @@ const Dashboard: React.FC<{
     const originalOverflow = element.style.overflow;
     const originalWidth = element.style.width;
     const originalMaxW = element.style.maxWidth;
+    const originalMinW = element.style.minWidth;
     const originalPos = element.style.position;
     const originalMarg = element.style.margin;
+    const originalPadding = element.style.padding;
+    const originalLeft = element.style.left;
+    const originalTop = element.style.top;
     
     element.style.height = 'auto';
     element.style.overflow = 'visible';
-    element.style.width = '1050px'; // Optimization for A4 Landscape
-    element.style.maxWidth = 'none';
+    element.style.width = '1050px'; // Safer width for A4 Landscape with margins
+    element.style.maxWidth = '1050px';
+    element.style.minWidth = '1050px';
     element.style.position = 'relative';
-    element.style.margin = '0 auto';
+    element.style.left = '0';
+    element.style.top = '0';
+    element.style.margin = '0';
+    element.style.padding = '0';
     element.style.backgroundColor = 'white';
 
     const fileName = `Booking_Schedule_${formatDate(new Date())}.pdf`;
 
     const opt = {
-      margin: [10, 5, 10, 5],
+      margin: [10, 10, 10, 10], // Balanced 10mm margins
       filename: fileName,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { 
         scale: 2, 
         useCORS: true, 
         logging: false,
-        letterRendering: true,
         backgroundColor: '#ffffff',
         scrollY: 0,
         scrollX: 0,
-        windowWidth: 1100
+        x: 0,
+        windowWidth: 1050 
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
     try {
@@ -465,8 +474,12 @@ const Dashboard: React.FC<{
       element.style.overflow = originalOverflow;
       element.style.width = originalWidth;
       element.style.maxWidth = originalMaxW;
+      element.style.minWidth = originalMinW;
       element.style.position = originalPos;
       element.style.margin = originalMarg;
+      element.style.padding = originalPadding;
+      element.style.left = originalLeft;
+      element.style.top = originalTop;
       setIsExportingSchedule(false);
     }
   };

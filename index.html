@@ -87,19 +87,40 @@
             display: none !important;
         }
 
+        .pdf-export-container {
+            width: 1050px !important;
+            min-width: 1050px !important;
+            max-width: 1050px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            background: white !important;
+        }
+
         .pdf-export-container div.overflow-x-auto {
             overflow: visible !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
             width: 100% !important;
+            display: block !important;
+            transform: none !important; 
+        }
+
+        .pdf-export-container table tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .pdf-export-container thead {
+            display: table-header-group !important;
         }
 
         /* Forces standardized layout during export, bypassing desktop-specific md: classes */
         .pdf-export-container .md\:flex-row { flex-direction: column !important; }
         .pdf-export-container .md\:flex-nowrap { flex-wrap: wrap !important; }
-        .pdf-export-container .md\:items-center { items: flex-start !important; }
+        .pdf-export-container .md\:items-center { align-items: flex-start !important; }
         .pdf-export-container .md\:justify-between { justify-content: flex-start !important; }
         .pdf-export-container .md\:w-auto { width: 100% !important; }
         .pdf-export-container .md\:ml-2 { margin-left: 0 !important; }
@@ -108,30 +129,33 @@
         
         .pdf-export-container table {
             width: 100% !important;
-            table-layout: fixed !important; /* Force fixed layout for predictable column widths */
-            min-width: 1000px !important; /* Ensure table gets its full width during capture */
+            table-layout: fixed !important; 
             border-collapse: collapse !important;
+            margin: 0 !important;
+            background-color: white !important;
         }
 
         .pdf-export-container table th,
         .pdf-export-container table td {
-            padding: 6px 8px !important; /* Slightly more breathable than before */
-            font-size: 9px !important; /* Standardized small but readable font */
+            padding: 4px 6px !important; /* Tighter padding for 9 columns */
+            font-size: 8px !important; /* Slightly smaller for 9 columns */
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
-            border: 1px solid #e2e8f0 !important; /* Better contrast in PDF */
+            white-space: normal !important; /* Allow text to wrap within columns */
+            border: 0.5px solid #e2e8f0 !important; 
+            vertical-align: middle !important;
         }
 
-        /* Specifically target columns for perfect 9-column fit */
-        .pdf-export-container table th:nth-child(1), .pdf-export-container table td:nth-child(1) { width: 9% !important; }
-        .pdf-export-container table th:nth-child(2), .pdf-export-container table td:nth-child(2) { width: 9% !important; }
-        .pdf-export-container table th:nth-child(3), .pdf-export-container table td:nth-child(3) { width: 12% !important; }
-        .pdf-export-container table th:nth-child(4), .pdf-export-container table td:nth-child(4) { width: 18% !important; }
-        .pdf-export-container table th:nth-child(5), .pdf-export-container table td:nth-child(5) { width: 14% !important; }
-        .pdf-export-container table th:nth-child(6), .pdf-export-container table td:nth-child(6) { width: 13% !important; }
-        .pdf-export-container table th:nth-child(7), .pdf-export-container table td:nth-child(7) { width: 10% !important; }
-        .pdf-export-container table th:nth-child(8), .pdf-export-container table td:nth-child(8) { width: 5% !important; }
-        .pdf-export-container table th:nth-child(9), .pdf-export-container table td:nth-child(9) { width: 10% !important; }
+        /* Precise 9-column distribution for Booking Schedule */
+        .pdf-export-container table th:nth-child(1), .pdf-export-container table td:nth-child(1) { width: 10% !important; text-align: left !important; }  /* Check In */
+        .pdf-export-container table th:nth-child(2), .pdf-export-container table td:nth-child(2) { width: 10% !important; text-align: left !important; }  /* Check Out */
+        .pdf-export-container table th:nth-child(3), .pdf-export-container table td:nth-child(3) { width: 10% !important; } /* Pax Group */
+        .pdf-export-container table th:nth-child(4), .pdf-export-container table td:nth-child(4) { width: 14% !important; } /* Service */
+        .pdf-export-container table th:nth-child(5), .pdf-export-container table td:nth-child(5) { width: 11% !important; } /* Vendor */
+        .pdf-export-container table th:nth-child(6), .pdf-export-container table td:nth-child(6) { width: 11% !important; } /* Client */
+        .pdf-export-container table th:nth-child(7), .pdf-export-container table td:nth-child(7) { width: 11% !important; } /* Allocation */
+        .pdf-export-container table th:nth-child(8), .pdf-export-container table td:nth-child(8) { width: 7% !important; text-align: center !important; }  /* Nights */
+        .pdf-export-container table th:nth-child(9), .pdf-export-container table td:nth-child(9) { width: 16% !important; text-align: right !important; } /* Credit */
 
         .show-on-export { display: none; }
         .exporting .show-on-export { display: block !important; }

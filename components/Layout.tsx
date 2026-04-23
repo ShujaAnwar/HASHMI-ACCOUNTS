@@ -88,6 +88,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [isLongPressing, setIsLongPressing] = useState(false);
   const [secretClickCount, setSecretClickCount] = useState(0);
+  const [voucherCount, setVoucherCount] = useState<number | null>(null);
   const longPressTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -101,13 +102,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
     }
   }, [isDarkMode]);
 
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const { data } = await supabase.from('vouchers').select('id', { count: 'exact', head: true });
+        setVoucherCount(data?.length || 0);
+      } catch (err) {
+        console.error("Failed to fetch voucher count:", err);
+      }
+    };
+    fetchCount();
+    // Refresh count occasionally or on certain events if needed
+  }, []);
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'coa', label: 'Chart of Accounts', icon: '📁' },
     { id: 'ledger', label: 'General Ledger', icon: '📖' },
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'vendors', label: 'Vendors', icon: '🏢' },
-    { id: 'vouchers', label: 'Vouchers', icon: '📝' },
+    { id: 'vouchers', label: 'Vouchers', icon: '📝', count: voucherCount },
     { id: 'reports', label: 'Reports', icon: '📈' },
     { id: 'help', label: 'Help / Guide', icon: '📖' },
     ...(isAdminUnlocked ? [{ id: 'control', label: 'Control Panel', icon: '⚙️' }] : []),
@@ -266,7 +280,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
                 }`}
               >
                 <span className="text-lg">{item.icon}</span>
-                <span className="text-xs font-bold uppercase tracking-widest">{item.label}</span>
+                <span className="text-xs font-bold uppercase tracking-widest flex-1 text-left">{item.label}</span>
+                {(item as any).count !== undefined && (item as any).count !== null && (
+                  <span className={`px-2 py-0.5 rounded-full text-[8px] font-black leading-none ${activeTab === item.id ? 'bg-white text-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:bg-blue-50'}`}>
+                    {(item as any).count}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -285,20 +304,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
         <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 p-1.5 rounded-[2.5rem] shadow-2xl flex items-center justify-between no-print transition-all">
           {[
             { id: 'dashboard', label: 'Home', icon: '🏠' },
-            { id: 'vouchers', label: 'Vouchers', icon: '📝' },
-            { id: 'reports', label: 'Reports', icon: '📉' },
+            { id: 'vouchers', label: 'Vouchers', icon: '📝', count: voucherCount },
+            { id: 'reports', label: 'Reports', icon: '📈' },
             { id: 'coa', label: 'Masters', icon: '📁' },
             { id: 'schedule', label: 'Schedule', icon: '📅' },
           ].map(item => (
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id)}
-              className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[2rem] transition-all duration-300 ${
+              className={`flex-1 flex flex-col items-center justify-center py-3 rounded-[2rem] transition-all duration-300 relative ${
                 (activeTab === item.id || (item.id === 'schedule' && activeTab === 'dashboard' && false)) 
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 -translate-y-1' 
                   : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'
               }`}
             >
+              {item.count !== undefined && item.count !== null && (
+                <span className={`absolute top-2 right-4 flex items-center justify-center px-1.5 py-0.5 rounded-full text-[7px] font-black leading-none min-w-[14px] ${activeTab === item.id ? 'bg-white text-blue-600' : 'bg-rose-500 text-white shadow-sm ring-1 ring-white/20'}`}>
+                  {item.count}
+                </span>
+              )}
               <span className="text-xl mb-0.5">{item.icon}</span>
               <span className={`text-[7px] font-black uppercase tracking-widest transition-opacity duration-300 ${activeTab === item.id ? 'opacity-100' : 'opacity-50'}`}>
                 {item.label}
