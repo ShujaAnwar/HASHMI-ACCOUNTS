@@ -43,35 +43,51 @@
 
   export const getAccounts = async (): Promise<Account[]> => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await retryFetch(() => supabase
         .from('accounts')
         .select('*, ledger:ledger_entries(*)')
-        .order('code', { ascending: true });
+        .order('code', { ascending: true }));
       
       if (error) {
         console.error("Error fetching accounts:", error);
         return [];
       }
-      return (data || []).map(mapAccount);
+      return ((data as any) || []).map(mapAccount);
     } catch (err) {
       console.error("System error fetching accounts:", err);
       return [];
     }
   };
 
+  const retryFetch = async (fn: () => PromiseLike<any>, retries = 3, delay = 1000): Promise<any> => {
+    let lastError: any;
+    for (let i = 0; i < retries; i++) {
+      try {
+        const result = await fn();
+        if (!result.error) return result;
+        lastError = result.error;
+        if (result.error.message !== 'TypeError: Failed to fetch') return result; // Don't retry auth errors
+      } catch (err) {
+        lastError = err;
+      }
+      if (i < retries - 1) await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
+    }
+    return { data: null, error: lastError };
+  };
+
   export const getVouchers = async (): Promise<Voucher[]> => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await retryFetch(() => supabase
         .from('vouchers')
         .select('*')
         .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }));
       
       if (error) {
         console.error("Error fetching vouchers:", error);
         return [];
       }
-      return (data || []).map(mapVoucher);
+      return ((data as any) || []).map(mapVoucher);
     } catch (err) {
       console.error("System error fetching vouchers:", err);
       return [];
@@ -80,11 +96,11 @@
 
   export const getConfig = async (): Promise<AppConfig & { fontSize?: number }> => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await retryFetch(() => supabase
         .from('app_config')
         .select('*')
         .limit(1)
-        .maybeSingle();
+        .maybeSingle());
 
       if (error || !data) {
         return {
@@ -102,25 +118,26 @@
         };
       }
 
+      const d = data as any;
       return {
-        companyName: data.company_name,
-        appSubtitle: data.app_subtitle,
-        companyAddress: data.company_address,
-        companyPhone: data.company_phone,
-        companyCell: data.company_cell,
-        companyEmail: data.company_email,
-        companyLogo: data.company_logo,
-        logoSize: data.logo_size,
-        fontSize: data.font_size || 16,
-        defaultROE: Number(data.default_roe),
-        accountNameCase: data.account_name_case || 'Sentence Case',
-        banks: data.banks || [],
-        autoBackupEnabled: data.auto_backup_enabled || false,
-        autoBackupIntervalEnabled: data.auto_backup_interval_enabled || false,
-        autoBackupIntervalHours: data.auto_backup_interval_hours || 6,
-        showHotelsList: data.show_hotels_list !== false,
-        autoRefreshEnabled: data.auto_refresh_enabled || false,
-        autoRefreshIntervalMinutes: data.auto_refresh_interval_minutes || 5
+        companyName: d.company_name,
+        appSubtitle: d.app_subtitle,
+        companyAddress: d.company_address,
+        companyPhone: d.company_phone,
+        companyCell: d.company_cell,
+        companyEmail: d.company_email,
+        companyLogo: d.company_logo,
+        logoSize: d.logo_size,
+        fontSize: d.font_size || 16,
+        defaultROE: Number(d.default_roe),
+        accountNameCase: d.account_name_case || 'Sentence Case',
+        banks: d.banks || [],
+        autoBackupEnabled: d.auto_backup_enabled || false,
+        autoBackupIntervalEnabled: d.auto_backup_interval_enabled || false,
+        autoBackupIntervalHours: d.auto_backup_interval_hours || 6,
+        showHotelsList: d.show_hotels_list !== false,
+        autoRefreshEnabled: d.auto_refresh_enabled || false,
+        autoRefreshIntervalMinutes: d.auto_refresh_interval_minutes || 5
       };
     } catch (err) {
       return {
@@ -168,9 +185,9 @@
       auto_refresh_interval_minutes: config.autoRefreshIntervalMinutes
     };
 
-    const { error } = await supabase
+    const { error } = await retryFetch(() => supabase
       .from('app_config')
-      .upsert(payload);
+      .upsert(payload));
     
     if (error) {
       console.warn("Config save failed, attempting fallback (Database schema might be outdated)...", error);
@@ -200,13 +217,14 @@
 
   export const getDashboardMetrics = async (): Promise<DashboardStats> => {
     try {
-      const { data, error } = await supabase.from('dashboard_stats').select('*').maybeSingle();
+      const { data, error } = await retryFetch(() => supabase.from('dashboard_stats').select('*').maybeSingle());
       if (error || !data) return { totalReceivables: 0, totalPayables: 0, totalIncome: 0, totalCash: 0 };
+      const d = data as any;
       return {
-        totalReceivables: Number(data.total_receivables),
-        totalPayables: Number(data.total_payables),
-        totalIncome: Number(data.total_revenue),
-        totalCash: Number(data.total_cash_bank)
+        totalReceivables: Number(d.total_receivables),
+        totalPayables: Number(d.total_payables),
+        totalIncome: Number(d.total_revenue),
+        totalCash: Number(d.total_cash_bank)
       };
     } catch (err) {
       return { totalReceivables: 0, totalPayables: 0, totalIncome: 0, totalCash: 0 };

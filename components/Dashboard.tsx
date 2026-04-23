@@ -57,6 +57,7 @@ const Dashboard: React.FC<{
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingSchedule, setIsExportingSchedule] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [dbConnectionError, setDbConnectionError] = useState(false);
   const dashboardDataRef = useRef<HTMLDivElement>(null);
   const bookingScheduleRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState({
@@ -112,8 +113,12 @@ const Dashboard: React.FC<{
       setVouchers(v);
       setAccounts(accs);
       setLastUpdated(new Date());
-    } catch (error) {
+      setDbConnectionError(false);
+    } catch (error: any) {
       console.error("Failed to sync dashboard:", error);
+      if (error?.message === 'TypeError: Failed to fetch') {
+        setDbConnectionError(true);
+      }
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -224,8 +229,15 @@ const Dashboard: React.FC<{
         // If no items, treat as a single entry
         if (items.length === 0) {
           let bookingDate = new Date(v.date);
+          let checkoutDate: Date | null = null;
           if (v.type === VoucherType.HOTEL && v.details?.fromDate) {
             bookingDate = new Date(v.details.fromDate);
+          }
+          if (v.type === VoucherType.HOTEL && v.details?.toDate) {
+            checkoutDate = new Date(v.details.toDate);
+          } else if (v.type === VoucherType.HOTEL && v.details?.numNights) {
+            checkoutDate = new Date(bookingDate);
+            checkoutDate.setDate(checkoutDate.getDate() + Number(v.details.numNights));
           }
 
           let statusColor = 'text-slate-600 dark:text-slate-400';
@@ -260,6 +272,7 @@ const Dashboard: React.FC<{
             isTomorrow,
             isPrevious,
             isAfterTomorrow,
+            checkoutDate,
             paxName: v.details?.paxName || v.details?.headName || 'N/A',
             hotelName: v.details?.hotelName || v.details?.airline || 'N/A',
             roomType: v.details?.roomType || v.details?.sector || '-',
@@ -271,10 +284,20 @@ const Dashboard: React.FC<{
         // Process multiple items
         return items.map((item: any, idx: number) => {
           let bookingDate = new Date(v.date);
+          let checkoutDate: Date | null = null;
           if (v.type === VoucherType.HOTEL && item.fromDate) {
             bookingDate = new Date(item.fromDate);
           } else if (v.type === VoucherType.HOTEL && v.details?.fromDate) {
             bookingDate = new Date(v.details.fromDate);
+          }
+
+          if (v.type === VoucherType.HOTEL && item.toDate) {
+            checkoutDate = new Date(item.toDate);
+          } else if (v.type === VoucherType.HOTEL && v.details?.toDate) {
+            checkoutDate = new Date(v.details.toDate);
+          } else if (v.type === VoucherType.HOTEL && (item.numNights || v.details?.numNights)) {
+            checkoutDate = new Date(bookingDate);
+            checkoutDate.setDate(checkoutDate.getDate() + Number(item.numNights || v.details.numNights));
           }
 
           let statusColor = 'text-slate-600 dark:text-slate-400';
@@ -323,6 +346,7 @@ const Dashboard: React.FC<{
             isTomorrow,
             isPrevious,
             isAfterTomorrow,
+            checkoutDate,
             paxName: item.paxName || v.details?.paxName || 'N/A',
             hotelName: item.hotelName || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : item.vehicle) || v.details?.hotelName || v.details?.airline || 'N/A',
             roomType: item.roomType || item.sector || item.description || v.details?.roomType || v.details?.sector || '-',
@@ -395,13 +419,23 @@ const Dashboard: React.FC<{
     // Force auto height and visible overflow to ensure full table capture
     const originalStyle = element.style.height;
     const originalOverflow = element.style.overflow;
+    const originalWidth = element.style.width;
+    const originalMaxW = element.style.maxWidth;
+    const originalPos = element.style.position;
+    const originalMarg = element.style.margin;
+    
     element.style.height = 'auto';
     element.style.overflow = 'visible';
+    element.style.width = '1050px'; // Optimization for A4 Landscape
+    element.style.maxWidth = 'none';
+    element.style.position = 'relative';
+    element.style.margin = '0 auto';
+    element.style.backgroundColor = 'white';
 
     const fileName = `Booking_Schedule_${formatDate(new Date())}.pdf`;
 
     const opt = {
-      margin: [10, 10, 10, 10],
+      margin: [10, 5, 10, 5],
       filename: fileName,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { 
@@ -410,10 +444,9 @@ const Dashboard: React.FC<{
         logging: false,
         letterRendering: true,
         backgroundColor: '#ffffff',
-        width: 1200,
         scrollY: 0,
         scrollX: 0,
-        windowWidth: 1200
+        windowWidth: 1100
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true }
     };
@@ -430,6 +463,10 @@ const Dashboard: React.FC<{
       element.classList.remove('exporting', 'pdf-export-container');
       element.style.height = originalStyle;
       element.style.overflow = originalOverflow;
+      element.style.width = originalWidth;
+      element.style.maxWidth = originalMaxW;
+      element.style.position = originalPos;
+      element.style.margin = originalMarg;
       setIsExportingSchedule(false);
     }
   };
@@ -443,6 +480,16 @@ const Dashboard: React.FC<{
 
   const renderMobileDashboard = () => (
     <div className="md:hidden space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      {dbConnectionError && (
+        <div className="bg-rose-100 dark:bg-rose-900/40 p-4 rounded-3xl border border-rose-200 dark:border-rose-900/50 flex items-center space-x-3">
+          <span className="text-xl">📡</span>
+          <div className="flex-1">
+            <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase leading-none">Database Offline</p>
+            <p className="text-[8px] text-rose-500 dark:text-rose-500 font-bold uppercase mt-1">Failed to fetch data from cloud. Check connection.</p>
+          </div>
+          <button onClick={() => fetchData()} className="bg-white/50 dark:bg-rose-900/20 px-3 py-1 rounded-lg text-[9px] font-black text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40">RETRY</button>
+        </div>
+      )}
       {/* Mobile Balance Cards (Horizontal Scroll) */}
       <div className="flex space-x-3 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4">
         {[
@@ -615,6 +662,23 @@ const Dashboard: React.FC<{
       
       {/* Desktop Dashboard (Keep existing) */}
       <div className="hidden md:block">
+        {dbConnectionError && (
+          <div className="mb-6 bg-rose-100 dark:bg-rose-900/40 p-5 rounded-[2rem] border border-rose-200 dark:border-rose-900/50 flex items-center justify-between animate-in fade-in slide-in-from-top-4">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-white dark:bg-rose-900/30 rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-rose-100 dark:border-rose-900/40">📡</div>
+              <div>
+                <h4 className="text-sm font-black text-rose-600 dark:text-rose-400 uppercase tracking-tighter">Connectivity Failure Initialized</h4>
+                <p className="text-[10px] text-rose-500 font-bold uppercase">The system failed to reach the database cluster (Failed to fetch). Retrying automatically...</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => fetchData()} 
+              className="bg-rose-600 text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all shadow-lg shadow-rose-600/20"
+            >
+              Manual Force Sync
+            </button>
+          </div>
+        )}
         <div className="space-y-6">
           {/* Dashboard Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -851,6 +915,7 @@ const Dashboard: React.FC<{
             {[
               { id: 'today', label: 'Today', color: 'bg-emerald-500' },
               { id: 'tomorrow', label: 'Tmrw', color: 'bg-amber-500' },
+              { id: 'afterTomorrow', label: 'Day After', color: 'bg-indigo-500' },
               { id: 'previous', label: 'Prev', color: 'bg-rose-500' },
               { id: 'all', label: 'All', color: 'bg-blue-500' }
             ].map(f => (
@@ -887,7 +952,8 @@ const Dashboard: React.FC<{
           <table className="w-full text-left table-auto border-collapse min-w-[800px]">
             <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 text-[9px] uppercase tracking-[0.2em] font-black border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="px-4 py-4">In Date</th>
+                <th className="px-4 py-4">Check In</th>
+                <th className="px-4 py-4">Check Out</th>
                 <th className="px-4 py-4">Pax Group</th>
                 <th className="px-4 py-4">Service</th>
                 <th className="px-4 py-4">Vendor Partner</th>
@@ -907,6 +973,9 @@ const Dashboard: React.FC<{
                   >
                     <td className={`px-4 py-4 text-[11px] font-bold ${booking.statusColor}`}>
                       {formatDate(booking.bookingDate)}
+                    </td>
+                    <td className="px-4 py-4 text-[11px] font-bold text-slate-500">
+                      {booking.checkoutDate ? formatDate(booking.checkoutDate as Date) : '-'}
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase leading-none">{booking.paxName}</p>
@@ -949,7 +1018,7 @@ const Dashboard: React.FC<{
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+                  <td colSpan={9} className="px-4 py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
                     No bookings found for the selected filters.
                   </td>
                 </tr>

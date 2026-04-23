@@ -86,7 +86,42 @@
         .pdf-export-container .no-print {
             display: none !important;
         }
-        
+
+        .pdf-export-container div.overflow-x-auto {
+            overflow: visible !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            width: 100% !important;
+        }
+
+        .pdf-export-container table {
+            width: 100% !important;
+            table-layout: fixed !important; /* Force fixed layout for predictable column widths */
+            min-width: unset !important;
+            border-collapse: collapse !important;
+        }
+
+        .pdf-export-container table th,
+        .pdf-export-container table td {
+            padding: 4px 6px !important; /* Tighten padding */
+            font-size: 8px !important; /* Shrink text for perfect fit */
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+
+        /* Specifically target columns for perfect 9-column fit */
+        .pdf-export-container table th:nth-child(1), .pdf-export-container table td:nth-child(1) { width: 9% !important; }
+        .pdf-export-container table th:nth-child(2), .pdf-export-container table td:nth-child(2) { width: 9% !important; }
+        .pdf-export-container table th:nth-child(3), .pdf-export-container table td:nth-child(3) { width: 12% !important; }
+        .pdf-export-container table th:nth-child(4), .pdf-export-container table td:nth-child(4) { width: 18% !important; }
+        .pdf-export-container table th:nth-child(5), .pdf-export-container table td:nth-child(5) { width: 14% !important; }
+        .pdf-export-container table th:nth-child(6), .pdf-export-container table td:nth-child(6) { width: 13% !important; }
+        .pdf-export-container table th:nth-child(7), .pdf-export-container table td:nth-child(7) { width: 10% !important; }
+        .pdf-export-container table th:nth-child(8), .pdf-export-container table td:nth-child(8) { width: 5% !important; }
+        .pdf-export-container table th:nth-child(9), .pdf-export-container table td:nth-child(9) { width: 10% !important; }
+
         .show-on-export { display: none; }
         .exporting .show-on-export { display: block !important; }
         .exporting .no-print { display: none !important; }
