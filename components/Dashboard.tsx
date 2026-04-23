@@ -578,7 +578,7 @@ const Dashboard: React.FC<{
           <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">Booking Schedule</h3>
           <p className="text-[9px] text-slate-400 font-bold uppercase leading-tight mt-1">View live operational feed</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 no-print">
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -905,13 +905,13 @@ const Dashboard: React.FC<{
             <button 
               onClick={handleExportBookingSchedulePDF}
               disabled={isExportingSchedule}
-              className="md:hidden flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-xl shadow-lg active:scale-95 transition-all disabled:opacity-50"
+              className="md:hidden flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-xl shadow-lg active:scale-95 transition-all disabled:opacity-50 no-print"
               title="Download PDF"
             >
               {isExportingSchedule ? <span className="animate-spin text-xs">⏳</span> : <span>📥</span>}
             </button>
           </div>
-          <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-4 bg-slate-50 dark:bg-slate-800/50 p-2 md:p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-4 bg-slate-50 dark:bg-slate-800/50 p-2 md:p-3 rounded-2xl border border-slate-100 dark:border-slate-800 no-print">
             {[
               { id: 'today', label: 'Today', color: 'bg-emerald-500' },
               { id: 'tomorrow', label: 'Tmrw', color: 'bg-amber-500' },
