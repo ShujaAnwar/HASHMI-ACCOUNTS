@@ -77,10 +77,24 @@ const HajiTracking: React.FC = () => {
   }, []);
 
   const hajiTrackingData = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const nowTime = new Date().getTime();
+
+    // Helper to check if a date is on a specific day
+    const isSameDay = (d1: Date, d2: Date) => {
+      return d1.getFullYear() === d2.getFullYear() &&
+             d1.getMonth() === d2.getMonth() &&
+             d1.getDate() === d2.getDate();
+    };
+
+    // Helper to get end of day
+    const getEndOfDay = (d: Date) => {
+      const end = new Date(d);
+      end.setHours(23, 59, 59, 999);
+      return end;
+    };
 
     // 1. Extract all movements
     const allMovements: HajiMovement[] = [];
@@ -115,7 +129,7 @@ const HajiTracking: React.FC = () => {
             }
             movement.type = VoucherType.HOTEL;
             movement.category = 'HOTEL';
-            const city = v.details?.location || '';
+            const city = item?.city || v.details?.city || v.details?.location || '';
             movement.location = `${item?.hotelName || v.details?.hotelName || 'Hotel'}${city ? ' (' + city + ')' : ''}`;
             movement.details = `${item?.hotelName || v.details?.hotelName} (${item?.roomType || v.details?.roomType || 'Standard'})`;
             movement.actionRequired = "Check-in Arrangement";
@@ -178,7 +192,6 @@ const HajiTracking: React.FC = () => {
       return Object.keys(grouped).map(paxName => {
         const timeline = grouped[paxName].sort((a, b) => a.date.getTime() - b.date.getTime());
         
-        // Guard against empty timeline to prevent entire processing from crashing
         if (timeline.length === 0) return null;
 
         const now = new Date();
@@ -199,9 +212,9 @@ const HajiTracking: React.FC = () => {
         let alertLevel: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
         let todayActions: HajiMovement[] = [];
 
-        // Check if journey is completed
+        // Check if journey is completed - only if now is after the full last day
         const lastEvent = timeline[timeline.length - 1];
-        const lastEndDate = lastEvent.toDate ? new Date(lastEvent.toDate) : new Date(lastEvent.date);
+        const lastEndDate = getEndOfDay(lastEvent.toDate ? new Date(lastEvent.toDate) : new Date(lastEvent.date));
         if (now > lastEndDate) {
           isCompleted = true;
           currentStatusText = 'Journey Completed / Returned';
@@ -216,22 +229,18 @@ const HajiTracking: React.FC = () => {
         }
 
         // Determine Status and Current Location strictly
-        // We look for what is happening RIGHT NOW
-        
         const hotelStay = timeline.find(m => 
           m.category === 'HOTEL' && 
           now >= new Date(m.date) && 
-          now <= (m.toDate ? new Date(m.toDate) : new Date(m.date))
+          now <= getEndOfDay(m.toDate ? new Date(m.toDate) : new Date(m.date))
         );
 
         const transportToday = timeline.find(m => 
-          m.category === 'TRANSPORT' && 
-          new Date(m.date).setHours(0,0,0,0) === today.getTime()
+          m.category === 'TRANSPORT' && isSameDay(new Date(m.date), today)
         );
 
         const flightToday = timeline.find(m => 
-          m.category === 'FLIGHT' && 
-          new Date(m.date).setHours(0,0,0,0) === today.getTime()
+          m.category === 'FLIGHT' && isSameDay(new Date(m.date), today)
         );
 
         // 1. Determine Current Location and Status
@@ -246,10 +255,10 @@ const HajiTracking: React.FC = () => {
             
             // Destination city = Current location on transport date
             const destLower = destination.toLowerCase();
-            const voucherLoc = (transportToday.rawVoucher.details?.location || '').toLowerCase();
-            if (destLower.includes('makkah') || voucherLoc.includes('makkah')) {
+            const voucherLoc = (transportToday.rawVoucher.details?.location || transportToday.rawVoucher.details?.city || '').toLowerCase();
+            if (destLower.includes('makkah')) {
               currentCity = 'MAKKAH';
-            } else if (destLower.includes('madina') || destLower.includes('madinah') || voucherLoc.includes('madina') || voucherLoc.includes('madinah')) {
+            } else if (destLower.includes('madina') || destLower.includes('madinah')) {
               currentCity = 'MADINA';
             } else {
               currentCity = 'OTHER';
@@ -261,12 +270,12 @@ const HajiTracking: React.FC = () => {
             currentCity = 'OTHER';
           } else if (hotelStay) {
             currentLocation = hotelStay.location;
-            const checkInDate = new Date(hotelStay.date).setHours(0,0,0,0);
-            const checkOutDate = hotelStay.toDate ? new Date(hotelStay.toDate).setHours(0,0,0,0) : checkInDate;
+            const hotelStartDate = new Date(hotelStay.date);
+            const hotelEndDate = hotelStay.toDate ? new Date(hotelStay.toDate) : hotelStartDate;
             
-            if (checkInDate === today.getTime()) {
+            if (isSameDay(hotelStartDate, today)) {
               currentStatusText = `Arriving at ${hotelStay.location} Today`;
-            } else if (checkOutDate === today.getTime()) {
+            } else if (isSameDay(hotelEndDate, today)) {
               currentStatusText = `Checking Out Today from ${hotelStay.location}`;
             } else {
               currentStatusText = `Staying in ${hotelStay.location}`;
@@ -274,7 +283,7 @@ const HajiTracking: React.FC = () => {
 
             // Set current city
             const loc = (hotelStay.location || '').toLowerCase();
-            const voucherLoc = (hotelStay.rawVoucher.details?.location || '').toLowerCase();
+            const voucherLoc = (hotelStay.rawVoucher.details?.location || hotelStay.rawVoucher.details?.city || '').toLowerCase();
             
             if (loc.includes('makkah') || voucherLoc.includes('makkah')) {
               currentCity = 'MAKKAH';
@@ -290,12 +299,11 @@ const HajiTracking: React.FC = () => {
             
             if (pastTransport.length > 0) {
               const lastSector = pastTransport[0].location;
-              // Robust split: handles →, ->, -, and " to "
               const parts = lastSector.split(/→|->|-| to /i).map(p => p.trim());
               const destination = parts[parts.length - 1] || lastSector;
               
               const destLower = destination.toLowerCase();
-              const voucherLoc = (pastTransport[0].rawVoucher.details?.location || '').toLowerCase();
+              const voucherLoc = (pastTransport[0].rawVoucher.details?.location || pastTransport[0].rawVoucher.details?.city || '').toLowerCase();
 
               currentStatusText = `Staying in ${destination}`;
               currentLocation = destination;

@@ -19,6 +19,7 @@ const SECTOR_SUGGESTIONS = [
   { label: 'Jeddah Airport → Makkah', sector: 'Jeddah Airport → Makkah Hotel', vehicle: 'Car', rate: 150 },
   { label: 'Ziyarat Makkah', sector: 'Ziyarat Makkah', vehicle: 'H1', rate: 200 },
   { label: 'Ziyarat Madinah', sector: 'Ziyarat Madinah', vehicle: 'H1', rate: 150 },
+  { label: 'Ziyaraat e Taif', sector: 'Ziyaraat e Taif', vehicle: 'H1', rate: 450 },
 ];
 
 const MULTI_SECTOR_COMBINATIONS = [
@@ -361,7 +362,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
                       </td>
                       <td className="px-6 py-4">
                         <select className="w-full bg-transparent border-none focus:ring-0 text-xs font-semibold cursor-pointer text-slate-600 dark:text-slate-400" value={item.vehicle} onChange={e => updateItem(idx, 'vehicle', e.target.value)}>
-                          {['Car', 'H1', 'GMC', 'Coaster', 'Bus', 'SUV', 'Pickup'].map(v => <option key={v} value={v}>{v}</option>)}
+                          {['Car', 'H1', 'Staria', 'GMC', 'Coaster', 'Bus', 'SUV', 'Pickup', 'Other'].map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                       </td>
                       <td className="px-6 py-4">
