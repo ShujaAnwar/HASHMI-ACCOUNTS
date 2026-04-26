@@ -29,13 +29,28 @@
     ALTER TABLE public.ledger_entries 
     ADD COLUMN IF NOT EXISTS voucher_num TEXT DEFAULT '-';
 
+    -- 4.1 Update voucher_type_enum to include missing types
+    DO $$
+    DECLARE
+        v_type TEXT;
+    BEGIN
+        IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'voucher_type_enum') THEN
+            FOR v_type IN SELECT * FROM unnest(ARRAY['AV', 'RV', 'PV'])
+            LOOP
+                IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'voucher_type_enum' AND e.enumlabel = v_type) THEN
+                    EXECUTE 'ALTER TYPE public.voucher_type_enum ADD VALUE ' || quote_literal(v_type);
+                END IF;
+            END LOOP;
+        END IF;
+    END $$;
+
     -- 5. Re-establish the Dashboard View (depends on currency/balance)
     DROP VIEW IF EXISTS public.dashboard_stats;
     CREATE VIEW public.dashboard_stats AS
     SELECT 
         COALESCE(SUM(CASE WHEN type = 'CUSTOMER' AND balance > 0 THEN balance ELSE 0 END), 0) as total_receivables,
         COALESCE(SUM(CASE WHEN type = 'VENDOR' AND balance < 0 THEN ABS(balance) ELSE 0 END), 0) as total_payables,
-        (SELECT COALESCE(SUM(total_amount_pkr), 0) FROM public.vouchers WHERE type IN ('HV', 'TV', 'VV', 'TK')) as total_revenue,
+        (SELECT COALESCE(SUM(total_amount_pkr), 0) FROM public.vouchers WHERE type IN ('HV', 'TV', 'VV', 'TK', 'AV')) as total_revenue,
         COALESCE(SUM(CASE WHEN type = 'CASH_BANK' THEN balance ELSE 0 END), 0) as total_cash_bank
     FROM public.accounts;
 

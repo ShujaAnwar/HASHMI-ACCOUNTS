@@ -44,7 +44,8 @@ export enum VoucherType {
   TRANSPORT = 'TV',
   VISA = 'VV',
   TICKET = 'TK',
-  PAYMENT = 'PV'
+  PAYMENT = 'PV',
+  ALL_IN_ONE = 'AV'
 }
 
 export enum VoucherStatus {

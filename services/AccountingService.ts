@@ -26,10 +26,32 @@ export class AccountingService {
     }
   }
 
+  static async generateVoucherNumber(type: string, dateInput?: string): Promise<string> {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = String(d.getFullYear()).slice(-2);
+    
+    // Get count of vouchers of this type to determine next serial
+    const { count, error } = await supabase
+      .from('vouchers')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', type);
+      
+    if (error) console.error("Error generating voucher number:", error);
+    
+    const nextSerial = (count || 0) + 1;
+    const serialStr = String(nextSerial).padStart(2, '0');
+    
+    return `${type}${serialStr}${month}${year}`;
+  }
+
+  // Keep for backward compatibility or temporary numbers, but update to the requested format with a random suffix for safety if sync
   static generateUniqueVNum(type: string): string {
-    const year = new Date().getFullYear();
-    const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
-    return `${type}-${year}-${randomStr}`;
+    const d = new Date();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = String(d.getFullYear()).slice(-2);
+    const randomSuffix = Math.floor(Math.random() * 90 + 10); // 2 random digits
+    return `${type}${randomSuffix}${month}${year}`;
   }
 
   private static formatDate(dateStr: string): string {
@@ -185,7 +207,7 @@ export class AccountingService {
   }
 
   static async postVoucher(vData: Partial<Voucher>) {
-    const vNum = vData.voucherNum || this.generateUniqueVNum(vData.type || 'VO');
+    const vNum = vData.voucherNum || await this.generateVoucherNumber(vData.type || 'VO' as any, vData.date);
     
     const { data: voucher, error: vError } = await supabase
       .from('vouchers')
@@ -419,6 +441,90 @@ export class AccountingService {
 
       if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: ticketDesc, voucher_num: voucher.voucher_num });
       if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: ticketDesc, voucher_num: voucher.voucher_num });
+    } else if (voucher.type === 'AV' || voucher.type === 'ALL_IN_ONE') {
+      const details = voucher.details || {};
+      const roe = voucher.roe || 1;
+      const rateMultiplier = voucher.currency === Currency.SAR ? roe : 1;
+      const globalPaxName = details.paxName || 'N/A';
+
+      console.log("Processing All-In-One Voucher Ledger Entries:", { voucherId: voucher.id, details });
+
+      // 1. Process Visa Items
+      if (details.visaItems && Array.isArray(details.visaItems)) {
+        details.visaItems.forEach((item: any, idx: number) => {
+          const itemAmountPKR = (Number(item.quantity || 0) * Number(item.rate || 0)) * rateMultiplier;
+          const itemPax = item.paxName || globalPaxName;
+          const itemDesc = `Visa: ${itemPax} | PP: ${item.passportNumber || details.passportNumber || 'N/A'} | ${voucher.description || ''} (#${idx+1})`;
+          const itemVendorId = item.vendorId || voucher.vendor_id;
+
+          if (customerId && itemAmountPKR > 0) {
+            entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: itemAmountPKR, credit: 0, description: itemDesc, voucher_num: voucher.voucher_num });
+          }
+          if (itemVendorId && itemAmountPKR > 0) {
+            entries.push({ account_id: itemVendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: itemAmountPKR, description: itemDesc, voucher_num: voucher.voucher_num });
+          }
+        });
+      }
+
+      // 2. Process Hotel Items
+      if (details.hotelItems && Array.isArray(details.hotelItems)) {
+        details.hotelItems.forEach((item: any, idx: number) => {
+          const itemAmountPKR = (Number(item.unitRate || 0) * Number(item.numRooms || 1) * Number(item.numNights || 1)) * rateMultiplier;
+          const itemPax = item.paxName || globalPaxName;
+          const hotelDesc = `Hotel: ${itemPax} | ${item.hotelName} (${item.city}) | In: ${this.formatDate(item.fromDate)} | Out: ${this.formatDate(item.toDate)} | ${item.numNights}N | ${item.numRooms}R (#${idx+1})`;
+          const itemVendorId = item.vendorId || voucher.vendor_id;
+
+          if (customerId && itemAmountPKR > 0) {
+            entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: itemAmountPKR, credit: 0, description: hotelDesc, voucher_num: voucher.voucher_num });
+          }
+          if (itemVendorId && itemAmountPKR > 0) {
+            entries.push({ account_id: itemVendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: itemAmountPKR, description: hotelDesc, voucher_num: voucher.voucher_num });
+          }
+        });
+      }
+
+      // 3. Process Transport Items
+      if (details.transportItems && Array.isArray(details.transportItems)) {
+        details.transportItems.forEach((item: any, idx: number) => {
+          const itemAmountPKR = Number(item.rate || 0) * rateMultiplier;
+          const itemPax = item.paxName || globalPaxName;
+          
+          let sectorName = '';
+          if (item.isMultiSector && item.subSectors && Array.isArray(item.subSectors)) {
+            sectorName = item.subSectors.map((ss: any) => ss.route).join(' -> ');
+          } else {
+            sectorName = item.sector === 'CUSTOM' ? (item.customLabel || 'Custom Route') : item.sector;
+          }
+
+          const transportDesc = `Transport: ${itemPax} | ${sectorName} (${item.vehicle}) | Date: ${this.formatDate(item.date)} (#${idx+1})`;
+          const itemVendorId = item.vendorId || voucher.vendor_id;
+
+          if (customerId && itemAmountPKR > 0) {
+            entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: itemAmountPKR, credit: 0, description: transportDesc, voucher_num: voucher.voucher_num });
+          }
+          if (itemVendorId && itemAmountPKR > 0) {
+            entries.push({ account_id: itemVendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: itemAmountPKR, description: transportDesc, voucher_num: voucher.voucher_num });
+          }
+        });
+      }
+
+      // 4. Process Extra Income/Fees if any
+      const incomeAmountPKR = Number(details.incomeAmountPKR || 0);
+      if (incomeAmountPKR !== 0) {
+        let incomeAccountId = details.incomeAccountId;
+        if (!incomeAccountId) {
+          const { data: incomeAcc } = await supabase.from('accounts').select('id').eq('type', 'REVENUE').limit(1).maybeSingle();
+          incomeAccountId = incomeAcc?.id;
+        }
+        const incomeDesc = `${globalPaxName} | All-In-One Service Fee | ${voucher.voucher_num}`;
+        if (customerId) {
+          entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: incomeAmountPKR, credit: 0, description: incomeDesc, voucher_num: voucher.voucher_num });
+        }
+        if (incomeAccountId) {
+          entries.push({ account_id: incomeAccountId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: incomeAmountPKR, description: incomeDesc, voucher_num: voucher.voucher_num });
+        }
+      }
+
     } else if (voucher.type === 'PV') {
       const bankId = voucher.details?.bankId;
       const items = voucher.details?.items || [];

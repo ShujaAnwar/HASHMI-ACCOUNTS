@@ -104,7 +104,8 @@ const HajiTracking: React.FC = () => {
       .forEach(v => {
       const items = v.details?.items || [v.details]; 
       items.forEach((item: any, idx: number) => {
-        const paxName = item?.paxName || v.details?.paxName || v.details?.headName || null;
+        const globalPaxName = item?.paxName || v.details?.paxName || v.details?.headName || null;
+        const paxName = globalPaxName;
         if (!paxName || paxName === 'N/A' || paxName === 'Unknown Pax') return;
 
         let movement: Partial<HajiMovement> = {
@@ -177,6 +178,58 @@ const HajiTracking: React.FC = () => {
           movement.details = `Flight ${item?.flightNum || v.details?.flightNum || ''}: ${movement.location}`;
           movement.actionRequired = "Flight Monitoring";
           allMovements.push(movement as HajiMovement);
+        } else if (v.type === VoucherType.ALL_IN_ONE || (v.type as string) === 'AV') {
+          // 1. Hotel Items
+          (v.details?.hotelItems || []).forEach((hItem: any, hIdx: number) => {
+             if (hItem.fromDate) {
+               const hMovement: Partial<HajiMovement> = {
+                  id: `${v.id}-h-${hIdx}`,
+                  paxName: hItem.paxName || v.details?.paxName || globalPaxName,
+                  date: new Date(hItem.fromDate),
+                  toDate: hItem.toDate ? new Date(hItem.toDate) : undefined,
+                  type: VoucherType.HOTEL,
+                  category: 'HOTEL',
+                  location: `${hItem.hotelName} (${hItem.city || 'KSA'})`,
+                  details: `${hItem.hotelName} (${hItem.roomType || 'Standard'})`,
+                  actionRequired: "Check-in Arrangement",
+                  rawVoucher: v
+               };
+               allMovements.push(hMovement as HajiMovement);
+             }
+          });
+
+          // 2. Transport Items
+          (v.details?.transportItems || []).forEach((tItem: any, tIdx: number) => {
+             const tDate = tItem.date || v.date;
+             const tMovement: Partial<HajiMovement> = {
+                id: `${v.id}-t-${tIdx}`,
+                paxName: tItem.paxName || v.details?.paxName || globalPaxName,
+                date: new Date(tDate),
+                type: VoucherType.TRANSPORT,
+                category: 'TRANSPORT',
+                location: tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector,
+                details: `${tItem.vehicle}: ${tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector}`,
+                actionRequired: "Transport Pickup",
+                rawVoucher: v
+             };
+             allMovements.push(tMovement as HajiMovement);
+          });
+
+          // 3. Visa Items (Optional for tracking, but good for context)
+          (v.details?.visaItems || []).forEach((vItem: any, vIdx: number) => {
+             const vMovement: Partial<HajiMovement> = {
+                id: `${v.id}-v-${vIdx}`,
+                paxName: vItem.paxName || v.details?.paxName || globalPaxName,
+                date: new Date(v.date),
+                type: VoucherType.VISA,
+                category: 'VISA',
+                location: 'Visa Processing',
+                details: `Passport: ${vItem.passportNumber || v.details?.passportNumber || 'N/A'}`,
+                actionRequired: "Visa Status Check",
+                rawVoucher: v
+             };
+             allMovements.push(vMovement as HajiMovement);
+          });
         }
       });
     });

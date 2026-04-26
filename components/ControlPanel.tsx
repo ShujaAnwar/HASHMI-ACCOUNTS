@@ -731,7 +731,20 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                 
                 <div className="relative group">
                    <pre className="bg-slate-900 text-slate-300 p-8 rounded-3xl text-[11px] font-mono overflow-x-auto border border-white/5">
-{`-- FIX: Add missing columns and reload cache
+{`-- FIX: Update Enum Types & Sync Schema
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'voucher_type_enum') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'voucher_type_enum' AND e.enumlabel = 'AV') THEN
+            ALTER TYPE public.voucher_type_enum ADD VALUE 'AV';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'voucher_type_enum' AND e.enumlabel = 'RV') THEN
+            ALTER TYPE public.voucher_type_enum ADD VALUE 'RV';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'voucher_type_enum' AND e.enumlabel = 'PV') THEN
+            ALTER TYPE public.voucher_type_enum ADD VALUE 'PV';
+        END IF;
+    END IF;
+END $$;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS show_hotels_list BOOLEAN DEFAULT TRUE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_refresh_interval_minutes INTEGER DEFAULT 5;
@@ -748,7 +761,20 @@ NOTIFY pgrst, 'reload schema';`}
                    <button 
                       type="button"
                       onClick={() => {
-                         const sql = `-- FIX: Add missing columns and reload cache
+                         const sql = `-- FIX: Update Enum Types & Sync Schema
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'voucher_type_enum') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'voucher_type_enum' AND e.enumlabel = 'AV') THEN
+            ALTER TYPE public.voucher_type_enum ADD VALUE 'AV';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'voucher_type_enum' AND e.enumlabel = 'RV') THEN
+            ALTER TYPE public.voucher_type_enum ADD VALUE 'RV';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'voucher_type_enum' AND e.enumlabel = 'PV') THEN
+            ALTER TYPE public.voucher_type_enum ADD VALUE 'PV';
+        END IF;
+    END IF;
+END $$;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS show_hotels_list BOOLEAN DEFAULT TRUE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_refresh_interval_minutes INTEGER DEFAULT 5;

@@ -98,18 +98,23 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
       const [accs, conf] = await Promise.all([getAccounts(), getConfig()]);
       setAccounts(accs);
       setConfig(conf);
+      
+      // Generate automatic voucher number if creating or cloning
+      if (isClone || !initialData?.voucherNum) {
+        const vNum = await AccountingService.generateVoucherNumber(VoucherType.HOTEL, initialData?.date);
+        setFormData(prev => ({ ...prev, voucherNum: vNum }));
+      }
+      
       setLoading(false);
     };
     load();
-  }, []);
+  }, [isClone, initialData]);
 
   const [formData, setFormData] = useState({
     date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0],
     currency: initialData?.currency || Currency.PKR,
     roe: initialData?.roe || 1,
-    voucherNum: (isClone || !initialData?.voucherNum) 
-      ? AccountingService.generateUniqueVNum('HV')
-      : initialData.voucherNum,
+    voucherNum: initialData?.voucherNum || '', // Placeholder, will be set in useEffect
     customerId: initialData?.customerId || '',
     vendorId: initialData?.vendorId || '',
     description: initialData?.description || '',
