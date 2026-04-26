@@ -134,6 +134,23 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, companyName }) => {
           </button>
         </form>
 
+        <div className="mt-8 flex justify-center">
+          <button 
+            type="button"
+            onClick={async () => {
+              localStorage.removeItem('tlp-sb-auth-token');
+              localStorage.removeItem('tlp-auth-token');
+              localStorage.removeItem('supabase.auth.token');
+              await supabase.auth.signOut();
+              window.location.reload();
+            }}
+            className="text-[9px] font-black text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 uppercase tracking-widest transition-colors flex items-center space-x-2"
+          >
+            <span>🔄</span>
+            <span>Clear Stale Session Cache</span>
+          </button>
+        </div>
+
         <div className="mt-12 text-center">
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
             Security Notice: Authentication via Supabase Auth <br/>

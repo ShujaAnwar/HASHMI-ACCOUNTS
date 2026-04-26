@@ -176,7 +176,12 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       case VoucherType.TRANSPORT:
         const tPax = v.details.paxName || '-';
         const tItems = v.details.items || [];
-        const tSummary = tItems.map((i: any) => `${i.sector === 'CUSTOM' ? i.customLabel : i.sector} (${i.vehicle})`).join(' | ');
+        const tSummary = tItems.map((i: any) => {
+          if (i.isMultiSector && i.subSectors?.length > 0) {
+            return i.subSectors.map((s: any) => s.route).join(' → ');
+          }
+          return `${i.sector === 'CUSTOM' ? i.customLabel : i.sector} (${i.vehicle})`;
+        }).join(' | ');
         return `${tPax.toUpperCase()} | ${tSummary.toUpperCase()}`;
       case VoucherType.VISA:
         const vItems = v.details.items || [];
@@ -446,7 +451,23 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                       {v.details.paxName || 'N/A'}
                     </td>
                     <td className="py-2 px-2 border-r border-slate-300 uppercase text-left">
-                      {item.sector === 'CUSTOM' ? item.customLabel : item.sector}
+                      {item.isMultiSector && item.subSectors?.length > 0 ? (
+                        <div className="space-y-0.5 py-1">
+                          {item.subSectors.map((sub: any, si: number) => (
+                            <div key={si} className="text-[8px] border-b border-slate-50 last:border-0 pb-0.5 whitespace-nowrap">
+                              <span className="font-black text-blue-600">{sub.route}</span>
+                              <span className="text-slate-400 font-bold ml-1 text-[7px]">({sub.date ? new Date(sub.date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''})</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-1">
+                          <span>{item.sector === 'CUSTOM' ? item.customLabel : item.sector}</span>
+                          {item.date && (
+                            <span className="text-slate-400 font-bold ml-2 text-[7px] lowercase">({new Date(item.date).toLocaleDateString('en-GB').replace(/\//g, '-')})</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="py-2 px-2 border-r border-slate-300 uppercase">
                       {item.vehicle}
@@ -1021,7 +1042,25 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <tr key={i} className="bg-white border-b border-slate-200">
                   <td className="py-1.5 px-3 border-r border-slate-200">{i + 1}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">
-                    {item.sector === 'CUSTOM' ? item.customLabel : item.sector}
+                    {item.isMultiSector && item.subSectors?.length > 0 ? (
+                      <div className="space-y-1 py-1">
+                        {item.subSectors.map((sub: any, si: number) => (
+                          <div key={si} className="border-b border-slate-100 last:border-0 pb-1">
+                            <span className="font-black text-blue-600">{sub.route}</span>
+                            <span className="text-slate-400 font-bold ml-2 text-[9px]">({sub.date ? new Date(sub.date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''})</span>
+                            {sub.note && <span className="block text-[8px] text-slate-400 italic lowercase mt-0.5">{sub.note}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-1">
+                        <span>{item.sector === 'CUSTOM' ? item.customLabel : item.sector}</span>
+                        {item.date && (
+                          <span className="text-slate-400 font-bold ml-2 text-[9px] lowercase">({new Date(item.date).toLocaleDateString('en-GB').replace(/\//g, '-')})</span>
+                        )}
+                        {item.note && <span className="block text-[8px] text-slate-400 italic lowercase mt-0.5">{item.note}</span>}
+                      </div>
+                    )}
                   </td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.vehicle}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>

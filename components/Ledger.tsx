@@ -185,12 +185,16 @@ import DateInput from './DateInput';
     }, [viewCurrency, currentROE]);
 
     const getNarrativeForLedger = (entry: any, voucher: Voucher | undefined) => {
-      // Prioritize the stored description if it's already detailed or exists
-      if (entry.description && entry.description !== '-' && entry.description.trim() !== '') {
-        return entry.description;
-      }
-
       if (!voucher || !voucher.details) return entry.description || '-';
+
+      // For Transport and Hotel vouchers, we re-generate the narrative to ensure 
+      // specific details (like multi-sectors) are always up-to-date and displayed.
+      // For others, if we have a stored description, we can use it.
+      if (voucher.type !== VoucherType.TRANSPORT && voucher.type !== VoucherType.HOTEL) {
+        if (entry.description && entry.description !== '-' && entry.description.trim() !== '') {
+          return entry.description;
+        }
+      }
       
       if (voucher.type === VoucherType.HOTEL) {
         const items = voucher.details.items || [];
@@ -211,9 +215,15 @@ import DateInput from './DateInput';
 
       if (voucher.type === VoucherType.TRANSPORT) {
         const tPax = (voucher.details.paxName || '-').toUpperCase();
-        const sector = (voucher.details.items?.[0]?.sector || 'N/A').toUpperCase();
-        const vehicle = (voucher.details.items?.[0]?.vehicle || 'N/A').toUpperCase();
-        return `${tPax} | ${sector} | ${vehicle}`;
+        const firstItem = voucher.details.items?.[0] || {};
+        const vehicle = (firstItem.vehicle || 'N/A').toUpperCase();
+        
+        let sector = (firstItem.sector === 'CUSTOM' ? firstItem.customLabel : (firstItem.sector === 'MULTI_SECTOR' ? 'Multi-Sector' : firstItem.sector)) || 'N/A';
+        if (firstItem.isMultiSector && firstItem.subSectors?.length > 0) {
+          sector = firstItem.subSectors.map((s: any) => s.route).join(' -> ');
+        }
+        
+        return `${tPax} | ${sector.toUpperCase()} (${vehicle})${voucher.description ? ` | ${voucher.description.toUpperCase()}` : ''}`;
       }
 
       if (voucher.type === VoucherType.VISA) {

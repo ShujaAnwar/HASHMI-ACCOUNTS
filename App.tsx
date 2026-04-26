@@ -43,17 +43,37 @@ const App: React.FC = () => {
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
-          if (error.message.includes('Refresh Token Not Found')) {
-             console.warn("Session expired or invalid, forcing logout.");
+          console.error("Supabase Session Error:", error.message);
+          
+          // Handle various forms of "Refresh Token Not Found" or expired session errors
+          if (
+            error.message.includes('Refresh Token Not Found') || 
+            error.message.includes('refresh_token_not_found') ||
+            error.message.includes('invalid_grant')
+          ) {
+             console.warn("Auth session corrupted or expired. Performing emergency clear-down.");
+             
+             // Clear all potential auth storage to prevent loops
+             localStorage.removeItem('tlp-sb-auth-token');
+             localStorage.removeItem('supabase.auth.token');
              await supabase.auth.signOut();
+             
              setIsAuthenticated(false);
+             setLoading(false);
+             return;
           }
           throw error;
         }
+        
         setIsAuthenticated(!!session);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Session check failed:", err);
+        // If we hit a critical auth error, reset state
+        if (err.message && (err.message.includes('Refresh') || err.message.includes('token'))) {
+           setIsAuthenticated(false);
+        }
       } finally {
         setLoading(false);
       }
@@ -61,13 +81,28 @@ const App: React.FC = () => {
     
     checkSession();
 
+    // Global suppression for MetaMask errors within App
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason && (
+        event.reason.message?.includes('MetaMask') || 
+        event.reason.message?.includes('ethereum')
+      )) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleRejection);
+
     // Listen for Auth state changes (Login/Logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
   }, [refreshConfig]);
 
   const handleLogin = (success: boolean) => {

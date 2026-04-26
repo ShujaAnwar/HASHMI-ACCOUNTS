@@ -20,8 +20,14 @@ interface HajiMovement {
 
 interface HajiStatus {
   paxName: string;
+  currentStatusText: string;
   currentLocation: string;
+  currentCity: 'MAKKAH' | 'MADINA' | 'OTHER' | null;
+  isCompleted: boolean;
   nextMovement: HajiMovement | null;
+  nextMovementText: string;
+  nextMovementDate: string;
+  actionRequired: string;
   todayActions: HajiMovement[];
   timeline: HajiMovement[];
   alertLevel: 'RED' | 'YELLOW' | 'GREEN';
@@ -116,20 +122,38 @@ const HajiTracking: React.FC = () => {
             allMovements.push(movement as HajiMovement);
           }
         } else if (v.type === VoucherType.TRANSPORT) {
-          const transportDate = item?.date || v.details?.date || v.date;
-          movement.date = new Date(transportDate);
-          movement.type = VoucherType.TRANSPORT;
-          movement.category = 'TRANSPORT';
-          const sector = item?.sector || v.details?.sector || item?.route || v.details?.route || 'Transit';
-          movement.location = sector;
-          movement.details = `${item?.vehicle || v.details?.vehicle || 'Vehicle'}: ${sector}`;
-          
-          if (sector.toLowerCase().includes('airport')) {
-            movement.actionRequired = "Airport Logistics";
+          if (item?.isMultiSector && item?.subSectors?.length > 0) {
+            item.subSectors.forEach((sub: any) => {
+              const subMovement = { ...movement };
+              subMovement.date = new Date(sub.date || v.date);
+              subMovement.type = VoucherType.TRANSPORT;
+              subMovement.category = 'TRANSPORT';
+              subMovement.location = sub.route;
+              subMovement.details = `${item.vehicle}: ${sub.route}${sub.note ? ' (' + sub.note + ')' : ''}`;
+              
+              if (sub.route.toLowerCase().includes('airport')) {
+                subMovement.actionRequired = "Airport Logistics";
+              } else {
+                subMovement.actionRequired = "Transport Pickup";
+              }
+              allMovements.push(subMovement as HajiMovement);
+            });
           } else {
-            movement.actionRequired = "Transport Pickup";
+            const transportDate = item?.date || v.details?.date || v.date;
+            movement.date = new Date(transportDate);
+            movement.type = VoucherType.TRANSPORT;
+            movement.category = 'TRANSPORT';
+            const sector = item?.sector === 'MULTI_SECTOR' ? item?.customLabel : (item?.sector || v.details?.sector || item?.route || v.details?.route || 'Transit');
+            movement.location = sector;
+            movement.details = `${item?.vehicle || v.details?.vehicle || 'Vehicle'}: ${sector}${item?.note ? ' (' + item.note + ')' : ''}`;
+            
+            if (sector && sector.toLowerCase().includes('airport')) {
+              movement.actionRequired = "Airport Logistics";
+            } else {
+              movement.actionRequired = "Transport Pickup";
+            }
+            allMovements.push(movement as HajiMovement);
           }
-          allMovements.push(movement as HajiMovement);
         } else if (v.type === VoucherType.TICKET) {
           const flightDate = item?.date || v.details?.date || v.date;
           movement.date = new Date(flightDate);
@@ -150,91 +174,210 @@ const HajiTracking: React.FC = () => {
       return acc;
     }, {} as Record<string, HajiMovement[]>);
 
-    // 3. Calculate Status for each Haji
-    return Object.keys(grouped).map(paxName => {
-      const timeline = grouped[paxName].sort((a, b) => a.date.getTime() - b.date.getTime());
-      
-      let currentLocation = 'Not Started';
-      let todayActions: HajiMovement[] = [];
-      let nextMovement: HajiMovement | null = null;
-      let alertLevel: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
-
-      timeline.forEach(m => {
-        const mDate = new Date(m.date);
-        mDate.setHours(0,0,0,0);
+      // 3. Calculate Status for each Haji
+      return Object.keys(grouped).map(paxName => {
+        const timeline = grouped[paxName].sort((a, b) => a.date.getTime() - b.date.getTime());
         
-        const mToEnd = m.toDate ? new Date(m.toDate) : mDate;
-        mToEnd.setHours(23,59,59,999);
+        // Guard against empty timeline to prevent entire processing from crashing
+        if (timeline.length === 0) return null;
 
-        const isToday = today.getTime() === mDate.getTime();
-        const isTomorrow = tomorrow.getTime() === mDate.getTime();
-        const isEndToday = m.toDate && today.getTime() === new Date(m.toDate).setHours(0,0,0,0);
-        const isEndTomorrow = m.toDate && tomorrow.getTime() === new Date(m.toDate).setHours(0,0,0,0);
+        const now = new Date();
+        const today = new Date(now);
+        today.setHours(0, 0, 0, 0);
+        
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
 
-        // Current Location logic (if within range)
-        if (today >= mDate && today <= mToEnd) {
-          currentLocation = m.location;
+        let currentStatusText = 'Waiting for Journey';
+        let currentLocation = 'In Transit / Home';
+        let currentCity: 'MAKKAH' | 'MADINA' | 'OTHER' | null = null;
+        let isCompleted = false;
+        let isTravelingToday = false;
+        let nextMovementText = 'Final Destination Reached';
+        let nextMovementDate = '';
+        let actionRequired = 'No immediate action';
+        let alertLevel: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
+        let todayActions: HajiMovement[] = [];
+
+        // Check if journey is completed
+        const lastEvent = timeline[timeline.length - 1];
+        const lastEndDate = lastEvent.toDate ? new Date(lastEvent.toDate) : new Date(lastEvent.date);
+        if (now > lastEndDate) {
+          isCompleted = true;
+          currentStatusText = 'Journey Completed / Returned';
+          currentLocation = 'Home';
         }
 
-        // New Action Logic based on User Requirements
-        let calculatedAction = null;
-        let p: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
+        // Find Next Segment
+        const nextSegment = timeline.find(m => m.date > now);
+        if (nextSegment) {
+          nextMovementText = nextSegment.location;
+          nextMovementDate = formatDate(nextSegment.date);
+        }
 
-        if (m.category === 'HOTEL') {
-          if (isToday) {
-            calculatedAction = { ...m, actionRequired: "Inform hotel for arrival", p: 'RED' as const };
-          } else if (isTomorrow) {
-            calculatedAction = { ...m, actionRequired: "Confirm booking with hotel", p: 'YELLOW' as const };
+        // Determine Status and Current Location strictly
+        // We look for what is happening RIGHT NOW
+        
+        const hotelStay = timeline.find(m => 
+          m.category === 'HOTEL' && 
+          now >= new Date(m.date) && 
+          now <= (m.toDate ? new Date(m.toDate) : new Date(m.date))
+        );
+
+        const transportToday = timeline.find(m => 
+          m.category === 'TRANSPORT' && 
+          new Date(m.date).setHours(0,0,0,0) === today.getTime()
+        );
+
+        const flightToday = timeline.find(m => 
+          m.category === 'FLIGHT' && 
+          new Date(m.date).setHours(0,0,0,0) === today.getTime()
+        );
+
+        // 1. Determine Current Location and Status
+        if (!isCompleted) {
+          if (transportToday) {
+            const parts = transportToday.location.split(/→|->|-| to /i).map(p => p.trim());
+            const destination = parts[parts.length - 1] || transportToday.location;
+            
+            currentStatusText = `Traveling to ${destination}`;
+            currentLocation = `In Transit (${transportToday.location})`;
+            isTravelingToday = true;
+            
+            // Destination city = Current location on transport date
+            const destLower = destination.toLowerCase();
+            const voucherLoc = (transportToday.rawVoucher.details?.location || '').toLowerCase();
+            if (destLower.includes('makkah') || voucherLoc.includes('makkah')) {
+              currentCity = 'MAKKAH';
+            } else if (destLower.includes('madina') || destLower.includes('madinah') || voucherLoc.includes('madina') || voucherLoc.includes('madinah')) {
+              currentCity = 'MADINA';
+            } else {
+              currentCity = 'OTHER';
+            }
+          } else if (flightToday) {
+            currentStatusText = `Departure Today (Airport Transfer Required)`;
+            currentLocation = `At Airport / Transit`;
+            isTravelingToday = true;
+            currentCity = 'OTHER';
+          } else if (hotelStay) {
+            currentLocation = hotelStay.location;
+            const checkInDate = new Date(hotelStay.date).setHours(0,0,0,0);
+            const checkOutDate = hotelStay.toDate ? new Date(hotelStay.toDate).setHours(0,0,0,0) : checkInDate;
+            
+            if (checkInDate === today.getTime()) {
+              currentStatusText = `Arriving at ${hotelStay.location} Today`;
+            } else if (checkOutDate === today.getTime()) {
+              currentStatusText = `Checking Out Today from ${hotelStay.location}`;
+            } else {
+              currentStatusText = `Staying in ${hotelStay.location}`;
+            }
+
+            // Set current city
+            const loc = (hotelStay.location || '').toLowerCase();
+            const voucherLoc = (hotelStay.rawVoucher.details?.location || '').toLowerCase();
+            
+            if (loc.includes('makkah') || voucherLoc.includes('makkah')) {
+              currentCity = 'MAKKAH';
+            } else if (loc.includes('madina') || loc.includes('madinah') || voucherLoc.includes('madina') || voucherLoc.includes('madinah')) {
+              currentCity = 'MADINA';
+            } else {
+              currentCity = 'OTHER';
+            }
+          } else {
+            // Check if between transport sectors or after a transport sector
+            const pastTransport = timeline.filter(m => m.category === 'TRANSPORT' && new Date(m.date) <= now)
+                                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            if (pastTransport.length > 0) {
+              const lastSector = pastTransport[0].location;
+              // Robust split: handles →, ->, -, and " to "
+              const parts = lastSector.split(/→|->|-| to /i).map(p => p.trim());
+              const destination = parts[parts.length - 1] || lastSector;
+              
+              const destLower = destination.toLowerCase();
+              const voucherLoc = (pastTransport[0].rawVoucher.details?.location || '').toLowerCase();
+
+              currentStatusText = `Staying in ${destination}`;
+              currentLocation = destination;
+              
+              if (destLower.includes('makkah') || voucherLoc.includes('makkah')) {
+                currentCity = 'MAKKAH';
+              } else if (destLower.includes('madina') || destLower.includes('madinah') || voucherLoc.includes('madina') || voucherLoc.includes('madinah')) {
+                currentCity = 'MADINA';
+              } else {
+                currentCity = 'OTHER';
+              }
+            } else {
+              currentStatusText = 'Waiting for Journey';
+              currentLocation = 'In Transit / Home';
+            }
           }
-          
-          if (isEndToday) {
-            todayActions.push({ ...m, actionRequired: "Arrange transport at hotel" });
+
+          // 2. Determine Action Required (Priority)
+          // Check Today's Events first
+          if (transportToday) {
+            actionRequired = "Ensure vehicle is ready";
             alertLevel = 'RED';
-          } else if (isEndTomorrow) {
-            todayActions.push({ ...m, actionRequired: "Prepare transport arrangement" });
-            if (alertLevel !== 'RED') alertLevel = 'YELLOW';
+          } else if (flightToday) {
+            actionRequired = "Send passenger to airport";
+            alertLevel = 'RED';
+          } else if (hotelStay) {
+            const checkInDate = new Date(hotelStay.date).setHours(0,0,0,0);
+            const checkOutDate = hotelStay.toDate ? new Date(hotelStay.toDate).setHours(0,0,0,0) : checkInDate;
+            
+            if (checkInDate === today.getTime()) {
+              actionRequired = "Inform hotel for arrival";
+              alertLevel = 'RED';
+            } else if (checkOutDate === today.getTime()) {
+              actionRequired = "Arrange transport at hotel";
+              alertLevel = 'RED';
+            }
           }
-        } else if (m.category === 'TRANSPORT') {
-          if (isToday) {
-            calculatedAction = { ...m, actionRequired: "Ensure vehicle is on location", p: 'RED' as const };
-          } else if (isTomorrow) {
-            calculatedAction = { ...m, actionRequired: "Remind transport provider", p: 'YELLOW' as const };
-          }
-        } else if (m.category === 'FLIGHT') {
-          if (isToday) {
-            calculatedAction = { ...m, actionRequired: "Send passenger to airport", p: 'RED' as const };
-          } else if (isTomorrow) {
-            calculatedAction = { ...m, actionRequired: "Confirm airport transfer", p: 'YELLOW' as const };
+
+          // If no RED action today, check YELLOW actions for tomorrow
+          if (alertLevel !== 'RED' && nextSegment) {
+            const nDate = new Date(nextSegment.date).setHours(0,0,0,0);
+            if (nDate === tomorrow.getTime()) {
+              if (nextSegment.category === 'TRANSPORT') {
+                actionRequired = "Remind transport provider";
+                alertLevel = 'YELLOW';
+              } else if (nextSegment.category === 'FLIGHT') {
+                actionRequired = "Confirm airport transfer";
+                alertLevel = 'YELLOW';
+              } else if (nextSegment.category === 'HOTEL') {
+                actionRequired = "Confirm hotel booking";
+                alertLevel = 'YELLOW';
+              }
+            }
           }
         }
 
-        if (calculatedAction) {
-          todayActions.push(calculatedAction);
-          if (calculatedAction.p === 'RED') alertLevel = 'RED';
-          else if (calculatedAction.p === 'YELLOW' && alertLevel !== 'RED') alertLevel = 'YELLOW';
-        }
+        // Collect Today's Actions for the badge
+        timeline.forEach(m => {
+          const mDate = new Date(m.date).setHours(0,0,0,0);
+          const mEndDate = m.toDate ? new Date(m.toDate).setHours(0,0,0,0) : mDate;
+          
+          if (mDate === today.getTime() || mEndDate === today.getTime()) {
+            todayActions.push(m);
+          }
+        });
 
-        // Next Movement logic
-        if (mDate > today && !nextMovement) {
-          nextMovement = m;
-        }
-      });
-
-      if (currentLocation === 'Not Started' && timeline.length > 0) {
-        const lastPassed = [...timeline].reverse().find(m => m.date <= today);
-        if (lastPassed) currentLocation = `Last at: ${lastPassed.location}`;
-      }
-
-      return {
-        paxName,
-        currentLocation,
-        nextMovement,
-        todayActions,
-        timeline,
-        alertLevel,
-        isImportant: (alertLevel as string) === 'RED'
-      } as HajiStatus;
-    });
+        return {
+          paxName,
+          currentStatusText,
+          currentLocation,
+          currentCity,
+          isCompleted,
+          nextMovement: nextSegment,
+          nextMovementText,
+          nextMovementDate,
+          actionRequired,
+          todayActions,
+          timeline,
+          alertLevel,
+          isImportant: alertLevel === 'RED'
+        };
+      }).filter((h): h is HajiStatus => h !== null);
   }, [vouchers]);
 
   const stats = useMemo(() => {
@@ -244,20 +387,34 @@ const HajiTracking: React.FC = () => {
       madina: 0,
       jeddahAirport: 0,
       urgentActions: 0,
-      upcomingActions: 0,
+      upcomingMovements: 0,
       transportReq: 0
     };
 
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+
     hajiTrackingData.forEach(h => {
-      const loc = h.currentLocation.toLowerCase();
-      if (loc.includes('makkah')) s.makkah++;
-      else if (loc.includes('madina') || loc.includes('madinah')) s.madina++;
-      else if (loc.includes('jeddah') || loc.includes('airport')) s.jeddahAirport++;
+      // If completed, don't show in active city counts
+      if (h.isCompleted) return;
 
+      // Real-time City presence (Handles hotel stay and between transport gaps)
+      if (h.currentCity === 'MAKKAH') s.makkah++;
+      else if (h.currentCity === 'MADINA') s.madina++;
+      
+      const loc = h.currentStatusText.toLowerCase();
+      if (loc.includes('jeddah') || loc.includes('airport')) s.jeddahAirport++;
+
+      // Actionable counts
       if (h.alertLevel === 'RED') s.urgentActions++;
-      if (h.alertLevel === 'YELLOW') s.upcomingActions++;
+      
+      // Upcoming movements count (any movement in the future)
+      if (h.nextMovement) {
+        s.upcomingMovements++;
+      }
 
-      h.todayActions.forEach(action => {
+      h.todayActions.forEach((action: any) => {
         if (action.category === 'TRANSPORT') {
           s.transportReq++;
         }
@@ -270,19 +427,22 @@ const HajiTracking: React.FC = () => {
   const filteredHajis = useMemo(() => {
     let data = hajiTrackingData.filter(h => 
       h.paxName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      h.currentLocation.toLowerCase().includes(searchQuery.toLowerCase())
+      h.currentStatusText.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      h.nextMovementText.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (filterType !== 'ALL') {
       data = data.filter(h => {
-        const loc = h.currentLocation.toLowerCase();
         switch (filterType) {
-          case 'MAKKAH': return loc.includes('makkah');
-          case 'MADINA': return loc.includes('madina') || loc.includes('madinah');
-          case 'JEDDAH_AIRPORT': return loc.includes('jeddah') || loc.includes('airport');
-          case 'URGENT': return h.alertLevel === 'RED';
-          case 'UPCOMING': return h.alertLevel === 'YELLOW';
-          case 'TRANSPORT_REQ': return h.todayActions.some(a => a.category === 'TRANSPORT');
+          case 'MAKKAH': return h.currentCity === 'MAKKAH' && !h.isCompleted;
+          case 'MADINA': return h.currentCity === 'MADINA' && !h.isCompleted;
+          case 'JEDDAH_AIRPORT': return h.currentStatusText.toLowerCase().includes('airport') || h.currentStatusText.toLowerCase().includes('jeddah');
+          case 'URGENT': return h.alertLevel === 'RED' && !h.isCompleted;
+          case 'UPCOMING': {
+            const now = new Date();
+            return h.nextMovement && new Date(h.nextMovement.date) > now && !h.isCompleted;
+          }
+          case 'TRANSPORT_REQ': return h.todayActions.some((a: any) => a.category === 'TRANSPORT') && !h.isCompleted;
           default: return true;
         }
       });
@@ -365,7 +525,7 @@ const HajiTracking: React.FC = () => {
         />
         <SummaryCard 
           label="Upcoming" 
-          value={stats.upcomingActions} 
+          value={stats.upcomingMovements} 
           icon="🟡" 
           active={filterType === 'UPCOMING'}
           onClick={() => setFilterType('UPCOMING')}
@@ -404,100 +564,115 @@ const HajiTracking: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
               onClick={() => setSelectedHaji(haji)}
-              className={`p-5 rounded-3xl border cursor-pointer transition-all hover:shadow-xl group relative overflow-hidden ${
-                haji.alertLevel === 'RED' ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30' :
-                haji.alertLevel === 'YELLOW' ? 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30' :
+              className={`p-6 rounded-[2rem] border cursor-pointer transition-all hover:shadow-xl group relative overflow-hidden ${
+                haji.alertLevel === 'RED' ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-200 dark:border-rose-900/40' :
+                haji.alertLevel === 'YELLOW' ? 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/40' :
                 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
               } ${selectedHaji?.paxName === haji.paxName ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
             >
-              {haji.isImportant && (
+              {haji.isImportant && !haji.isCompleted && (
                 <div className="absolute top-0 right-0 w-24 h-24 overflow-hidden pointer-events-none">
-                  <div className="bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest py-1 w-[150%] text-center rotate-45 translate-x-[20%] translate-y-[20%] animate-pulse">
+                  <div className="bg-rose-600 text-white text-[8px] font-black uppercase tracking-widest py-1.5 w-[150%] text-center rotate-45 translate-x-[20%] translate-y-[20%] shadow-lg">
                     Urgent
                   </div>
                 </div>
               )}
 
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center space-x-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl shadow-inner ${
-                    haji.alertLevel === 'RED' ? 'bg-rose-100 text-rose-600' :
-                    haji.alertLevel === 'YELLOW' ? 'bg-amber-100 text-amber-600' :
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center space-x-5">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0 ${
+                    haji.isCompleted ? 'bg-slate-100 text-slate-400' :
+                    haji.alertLevel === 'RED' ? 'bg-rose-100/80 text-rose-600' :
+                    haji.alertLevel === 'YELLOW' ? 'bg-amber-100/80 text-amber-600' :
                     'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                   }`}>
-                    ☪️
+                    {haji.isCompleted ? '🏁' : '👤'}
                   </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-blue-600 transition-colors">
+                  <div className="min-w-0">
+                    <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-2 group-hover:text-blue-600 transition-colors truncate">
                       {haji.paxName}
                     </h3>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 mb-1">
                        <span className={`w-2 h-2 rounded-full ${
-                         haji.alertLevel === 'RED' ? 'bg-rose-500 animate-ping' :
+                         haji.isCompleted ? 'bg-slate-300' :
+                         haji.alertLevel === 'RED' ? 'bg-rose-500 animate-pulse' :
                          haji.alertLevel === 'YELLOW' ? 'bg-amber-500' :
                          'bg-emerald-500'
                        }`}></span>
-                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                         {haji.currentLocation}
+                       <p className={`text-[11px] font-black uppercase tracking-widest ${
+                         haji.isCompleted ? 'text-slate-400' :
+                         haji.alertLevel === 'RED' ? 'text-rose-600 dark:text-rose-400' : 
+                         haji.alertLevel === 'YELLOW' ? 'text-amber-600 dark:text-amber-400' : 
+                         'text-slate-500 dark:text-slate-400'
+                       }`}>
+                         {haji.currentStatusText}
                        </p>
                     </div>
+                    {!haji.isCompleted && (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Location:</span>
+                        <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase truncate">
+                          {haji.currentLocation}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 md:flex md:items-center md:space-x-8">
+                <div className="grid grid-cols-2 gap-4 md:gap-12 md:flex md:items-center md:justify-end flex-1">
                   <div className="text-left md:text-right">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
-                      haji.alertLevel === 'RED' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' :
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Action Status</p>
+                    <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase inline-block ${
+                      haji.isCompleted ? 'bg-slate-400 text-white' :
+                      haji.alertLevel === 'RED' ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20' :
                       haji.alertLevel === 'YELLOW' ? 'bg-amber-500 text-white' :
                       'bg-emerald-500 text-white'
                     }`}>
-                      {haji.alertLevel === 'RED' ? 'ACTION REQ' : haji.alertLevel === 'YELLOW' ? 'UPCOMING' : 'IN ORDER'}
+                      {haji.isCompleted ? 'Finished' : haji.alertLevel === 'RED' ? 'Immediate Action' : haji.alertLevel === 'YELLOW' ? 'Prepare Next' : 'Plan Ahead'}
                     </span>
                   </div>
                   <div className="text-left md:text-right">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Next Move</p>
-                    <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase truncate max-w-[120px]">
-                      {haji.nextMovement ? haji.nextMovement.location : 'Final Dest'}
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Next Movement</p>
+                    <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase truncate">
+                      {haji.nextMovementText}
                     </p>
-                    {haji.nextMovement && (
-                       <p className="text-[8px] font-bold text-slate-400 uppercase">
-                         {formatDate(haji.nextMovement.date)}
+                    {haji.nextMovementDate && (
+                       <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
+                         {haji.nextMovementDate}
                        </p>
                     )}
                   </div>
                 </div>
               </div>
 
-              {haji.todayActions.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex flex-wrap gap-2">
-                  {haji.todayActions.map((action, i) => {
-                    // Determine color based on actionRequired text or a property
-                    const isUrgent = action.actionRequired.includes("Inform") || 
-                                     action.actionRequired.includes("Arrange") || 
-                                     action.actionRequired.includes("Ensure") || 
-                                     action.actionRequired.includes("Send");
-                                     
-                    const colorClass = isUrgent 
-                      ? "bg-rose-600 text-white border-rose-500 shadow-sm shadow-rose-500/20" 
-                      : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/50";
-                    
-                    return (
-                      <div key={i} className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border transition-all ${colorClass}`}>
-                        <span className="text-xs">
-                          {action.category === 'HOTEL' ? '🏨' : action.category === 'TRANSPORT' ? '🚐' : '✈️'}
-                        </span>
-                        <div>
-                          <p className={`text-[7px] font-black uppercase tracking-widest leading-none ${isUrgent ? 'text-white/70' : 'text-slate-500'}`}>
-                            Action Required
-                          </p>
-                          <p className="text-[9px] font-black uppercase tracking-tighter mt-0.5">
-                            {action.actionRequired}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
+              {haji.actionRequired !== 'No immediate action' && !haji.isCompleted && (
+                <div className={`mt-6 p-4 rounded-2xl border flex items-center justify-between ${
+                  haji.alertLevel === 'RED' 
+                    ? 'bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/20' 
+                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
+                }`}>
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-lg ${
+                      haji.alertLevel === 'RED' ? 'bg-white/20' : 'bg-amber-100 dark:bg-amber-900/40'
+                    }`}>
+                      ⚠️
+                    </div>
+                    <div>
+                      <p className={`text-[8px] font-black uppercase tracking-widest leading-none mb-1 ${
+                        haji.alertLevel === 'RED' ? 'text-white/70' : 'text-slate-500'
+                      }`}>
+                        Required Action
+                      </p>
+                      <p className="text-[11px] font-black uppercase tracking-tight">
+                        {haji.actionRequired}
+                      </p>
+                    </div>
+                  </div>
+                  <button className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                    haji.alertLevel === 'RED' ? 'bg-white text-rose-600 hover:bg-rose-50' : 'bg-amber-600 text-white hover:bg-amber-700'
+                  }`}>
+                    Resolve
+                  </button>
                 </div>
               )}
             </motion.div>

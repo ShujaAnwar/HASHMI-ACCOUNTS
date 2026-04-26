@@ -232,8 +232,13 @@ export class AccountingService {
       // 1. Post each transport item separately
       items.forEach((item: any) => {
         const itemRatePKR = Number(item.rate) * rate;
-        const sectorName = item.sector === 'CUSTOM' ? (item.customLabel || 'Custom Route') : item.sector;
-        const itemDesc = `${paxName} | ${sectorName} (${item.vehicle}) | ${voucher.description || ''}`;
+        let sectorName = item.sector === 'CUSTOM' ? (item.customLabel || 'Custom Route') : (item.sector === 'MULTI_SECTOR' ? 'Multi-Sector' : item.sector);
+        
+        if (item.isMultiSector && item.subSectors?.length > 0) {
+          sectorName = item.subSectors.map((s: any) => s.route).join(' -> ');
+        }
+
+        const itemDesc = `${paxName} | ${sectorName.toUpperCase()} (${item.vehicle}) | ${voucher.description || ''}`;
         
         if (customerId) {
           entries.push({ 

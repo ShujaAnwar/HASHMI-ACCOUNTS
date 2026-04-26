@@ -7,6 +7,22 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storageKey: 'tlp-sb-auth-token', // Custom key to avoid collisions
   }
 });
+
+// Global suppression for MetaMask/Web3 connection errors which are 
+// irrelevant to this application's core functionality.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason && (
+      event.reason.message?.includes('MetaMask') || 
+      event.reason.message?.includes('ethereum') ||
+      event.reason.message?.includes('provider')
+    )) {
+      console.warn("Intercepted and suppressed irrelevant Web3/MetaMask error:", event.reason.message);
+      event.preventDefault();
+    }
+  });
+}

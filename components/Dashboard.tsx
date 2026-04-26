@@ -349,7 +349,9 @@ const Dashboard: React.FC<{
             checkoutDate,
             paxName: item.paxName || v.details?.paxName || 'N/A',
             hotelName: item.hotelName || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : item.vehicle) || v.details?.hotelName || v.details?.airline || 'N/A',
-            roomType: item.roomType || item.sector || item.description || v.details?.roomType || v.details?.sector || '-',
+            roomType: item.isMultiSector && item.subSectors?.length > 0 
+              ? `${item.subSectors[0].route} ... ${item.subSectors[item.subSectors.length-1].route}` 
+              : (item.roomType || (item.sector === 'CUSTOM' ? item.customLabel : (item.sector === 'MULTI_SECTOR' ? 'Multi-Sector' : item.sector)) || item.description || v.details?.roomType || v.details?.sector || '-'),
             numNights: item.numNights || v.details?.numNights || '-',
             totalAmountPKR: lineAmount
           };
