@@ -1282,269 +1282,226 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const renderAllInOneVoucher = (v: Voucher) => {
     const details = v.details || {};
     return (
-      <div ref={voucherRef} className="bg-white p-8 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none relative">
-        {/* Anti-Forgery Background Accent */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl opacity-50 -mr-32 -mt-32 pointer-events-none"></div>
+      <div ref={voucherRef} className="bg-white p-6 text-[#0f172a] font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
         
-        {/* Header */}
-        <div className="flex justify-between items-start mb-6 pb-4 border-b-2 border-slate-900 relative">
-          <div className="w-48">
+        {/* Header - Styled like your sample */}
+        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
+          <div className="w-32">
              {config?.companyLogo ? (
-               <img src={config.companyLogo} style={{ height: `50px` }} alt="logo" className="object-contain" />
+               <img src={config.companyLogo} style={{ height: `45px` }} alt="logo" className="object-contain" />
              ) : (
-               <div className="font-black text-2xl tracking-tighter text-slate-900 leading-none">{config?.companyName || 'HASHMI SOLUTIONS'}</div>
+               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{config?.companyName || 'ENTERPRISE'}</div>
              )}
-             <div className="mt-2 text-[7px] font-bold text-slate-400 uppercase tracking-widest">{config?.companyAddress || 'Saudi Arabia / Pakistan'}</div>
           </div>
           <div className="text-center flex-1">
-            <h1 className="text-[24px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">UNIFIED SERVICE VOUCHER</h1>
-            <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] bg-blue-50 inline-block px-4 py-0.5 rounded-full">
-              {config?.appSubtitle || 'PREMIUM TRAVEL SOLUTIONS'}
+            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Unified Service Voucher</h1>
+            <p className="text-[14px] font-bold text-[#e11d48] uppercase tracking-wider">
+              {config?.appSubtitle || 'TRAVELS SERVICES'}
             </p>
           </div>
-          <div className="w-48 text-right">
-             <div className="space-y-1 bg-slate-900 text-white p-2 rounded-lg inline-block text-left min-w-[140px]">
-                <p className="text-[7px] font-black text-white/50 uppercase tracking-widest leading-none">Voucher Serial</p>
-                <p className="text-[12px] font-black text-white leading-none mb-1">{v.voucherNum}</p>
-                <div className="h-px bg-white/10 w-full mb-1"></div>
-                <p className="text-[7px] font-black text-white/50 uppercase tracking-widest leading-none">Issue Date</p>
-                <p className="text-[10px] font-bold text-white leading-none">{formatDate(v.date)}</p>
+          <div className="w-40 text-right pr-4">
+             <div className="space-y-0.5">
+                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
+                  CELL: <span className="text-[#0f172a] font-bold">{config?.companyCell || '0334 3666777'}</span>
+                </p>
+                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
+                  PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone || '0334 3666777'}</span>
+                </p>
              </div>
           </div>
         </div>
 
-        {/* Client & Passenger Identity Grid */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-2 opacity-10 text-2xl grayscale group-hover:grayscale-0 transition-all">🏢</div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Billed To / Agency</p>
-            <p className="text-[13px] font-black text-slate-900 leading-tight uppercase">
-              {accounts.find(a => a.id === v.customerId)?.name || 'Direct Walk-in Client'}
+        {/* Reference Line */}
+        <div className="mb-3 flex justify-between items-end">
+          <p className="text-[13px] font-black text-[#0f172a]">Voucher Number: {v.voucherNum}</p>
+          <div className="text-right">
+            <p className="text-[11px] font-black text-slate-500 uppercase tracking-tight">
+              Date: {formatDate(v.date)}
             </p>
-            <p className="text-[9px] font-bold text-slate-500 mt-0.5">Reference: {v.reference || 'N/A'}</p>
-          </div>
-          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 relative overflow-hidden group">
-             <div className="absolute top-0 right-0 p-2 opacity-10 text-2xl grayscale group-hover:grayscale-0 transition-all">🛂</div>
-            <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-1">Group Leader / Primary Pax</p>
-            <p className="text-[13px] font-black text-blue-900 leading-tight uppercase">{details.paxName || 'N/A'}</p>
-            {details.passportNumber && (
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[9px] font-black bg-blue-600 text-white px-1.5 rounded uppercase">Passport</span>
-                <span className="text-[11px] font-bold text-blue-700">{details.passportNumber}</span>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Main Service Inventory */}
-        <div className="flex-1 overflow-hidden space-y-6">
-          
-          {/* Visa Inventory */}
-          {(details.visaItems?.length > 0) && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <div className="flex items-center gap-3 mb-2">
-                 <div className="h-px bg-slate-200 flex-1"></div>
-                 <h3 className="text-[10px] font-black bg-slate-900 text-white px-3 py-1 uppercase tracking-[0.2em] rounded-sm transform skew-x-[-12deg]">Visa Issuance</h3>
-                 <div className="h-px bg-slate-200 flex-1"></div>
-               </div>
-               <table className="w-full border-collapse">
-                  <thead>
-                     <tr className="bg-slate-50 text-slate-400 font-black uppercase text-[8px] tracking-widest border-y border-slate-100">
-                        <th className="py-2 px-3 text-left w-10">SR#</th>
-                        <th className="py-2 px-3 text-left">Passenger / Identity Number</th>
-                        <th className="py-2 px-3 text-right">Fulfillment Partner</th>
-                        <th className="py-2 px-3 text-right">Rate ({v.currency})</th>
-                     </tr>
-                  </thead>
-                  <tbody className="text-[10px]">
-                     {details.visaItems.map((item: any, i: number) => (
-                        <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                           <td className="py-2 px-3 font-mono text-slate-400">{String(i+1).padStart(2, '0')}</td>
-                           <td className="py-2 px-3">
-                             <div className="font-black text-slate-900 uppercase">{item.paxName}</div>
-                             <div className="text-[8px] font-bold text-blue-600">PP: {item.passportNumber || 'N/A'}</div>
-                           </td>
-                           <td className="py-2 px-3 text-right">
-                             <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-black uppercase text-[7px]">
-                               {accounts.find(a => a.id === item.vendorId)?.name || 'Direct'}
-                             </span>
-                           </td>
-                           <td className="py-2 px-3 text-right font-black text-slate-900">
-                             {item.rate.toLocaleString()}
-                           </td>
-                        </tr>
-                     ))}
-                  </tbody>
-               </table>
-            </div>
-          )}
-
-          {/* Accommodation Portfolio */}
-          {(details.hotelItems?.length > 0) && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-               <div className="flex items-center gap-3 mb-2">
-                 <div className="h-px bg-slate-200 flex-1"></div>
-                 <h3 className="text-[10px] font-black bg-slate-900 text-white px-3 py-1 uppercase tracking-[0.2em] rounded-sm transform skew-x-[-12deg]">Stay Accommodations</h3>
-                 <div className="h-px bg-slate-200 flex-1"></div>
-               </div>
-               <table className="w-full border-collapse">
-                  <thead>
-                     <tr className="bg-slate-50 text-slate-400 font-black uppercase text-[8px] tracking-widest border-y border-slate-100">
-                        <th className="py-2 px-3 text-left">Hotel Property & Destination</th>
-                        <th className="py-2 px-3 text-center">Schedule (In/Out)</th>
-                        <th className="py-2 px-3 text-center">Config</th>
-                        <th className="py-2 px-3 text-center">Meals</th>
-                        <th className="py-2 px-3 text-right">Total ({v.currency})</th>
-                     </tr>
-                  </thead>
-                  <tbody className="text-[10px]">
-                     {details.hotelItems.map((item: any, i: number) => (
-                        <tr key={i} className="border-b border-slate-50">
-                           <td className="py-2 px-3">
-                             <div className="font-black text-slate-900 uppercase text-[11px] leading-tight mb-0.5">{item.hotelName}</div>
-                             <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-black text-slate-400 flex items-center gap-1 uppercase tracking-tighter">📍 {item.city} | {item.country}</span>
-                                {item.reference && <span className="text-[7px] bg-indigo-50 text-indigo-500 px-1.5 rounded font-black uppercase italic">Ref: {item.reference}</span>}
-                             </div>
-                           </td>
-                           <td className="py-2 px-3 text-center align-top">
-                             <div className="font-bold text-slate-700 uppercase leading-none mb-1">{item.fromDate}</div>
-                             <div className="text-[7px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">To</div>
-                             <div className="font-bold text-slate-700 uppercase leading-none">{item.toDate}</div>
-                           </td>
-                           <td className="py-2 px-3 text-center align-top">
-                             <div className="font-black text-slate-900">{item.numNights}N / {item.numRooms}R</div>
-                             <div className="text-[7px] font-bold text-slate-400 uppercase">{item.roomType} / {item.adults}A {item.children}C</div>
-                           </td>
-                           <td className="py-2 px-3 text-center uppercase align-top">
-                               <div className="text-[8px] font-black text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 inline-block">
-                                 {formatMeals(item.meals)}
-                               </div>
-                           </td>
-                           <td className="py-2 px-3 text-right align-top">
-                             <div className="font-black text-slate-900">{(item.unitRate * item.numRooms * item.numNights).toLocaleString()}</div>
-                             <div className="text-[7px] font-bold text-slate-400">@ {item.unitRate} / Unit</div>
-                           </td>
-                        </tr>
-                     ))}
-                  </tbody>
-               </table>
-            </div>
-          )}
-
-          {/* Transport Logistics */}
-          {(details.transportItems?.length > 0) && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-900">
-               <div className="flex items-center gap-3 mb-2">
-                 <div className="h-px bg-slate-200 flex-1"></div>
-                 <h3 className="text-[10px] font-black bg-slate-900 text-white px-3 py-1 uppercase tracking-[0.2em] rounded-sm transform skew-x-[-12deg]">Transport Logistics</h3>
-                 <div className="h-px bg-slate-200 flex-1"></div>
-               </div>
-               <table className="w-full border-collapse">
-                  <thead>
-                     <tr className="bg-slate-50 text-slate-400 font-black uppercase text-[8px] tracking-widest border-y border-slate-100">
-                        <th className="py-2 px-3 text-left w-1/2">Routing / Sector Details</th>
-                        <th className="py-2 px-3 text-center">Fleet</th>
-                        <th className="py-2 px-3 text-center">Travel Date</th>
-                        <th className="py-2 px-3 text-right">Line Total ({v.currency})</th>
-                     </tr>
-                  </thead>
-                  <tbody className="text-[10px]">
-                     {details.transportItems.map((item: any, i: number) => (
-                        <tr key={i} className="border-b border-slate-50">
-                           <td className="py-2 px-3">
-                               <div className="font-black text-slate-900 uppercase mb-1">
-                                 {item.isMultiSector ? 'Complex Multi-Sector Routing' : (item.sector === 'CUSTOM' ? item.customLabel : item.sector)}
-                               </div>
-                               {item.isMultiSector && item.subSectors && (
-                                 <div className="flex flex-wrap gap-x-2 gap-y-1">
-                                   {item.subSectors.map((ss: any, ssi: number) => (
-                                     <span key={ssi} className="text-[7px] bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-1 border border-slate-200">
-                                       <span className="font-black text-slate-400">{ssi+1}</span> 
-                                       <span className="font-bold text-slate-600">{ss.route}</span> 
-                                       <span className="opacity-50 text-[6px]">[{formatDate(ss.date)}]</span>
-                                     </span>
-                                   ))}
-                                 </div>
-                               )}
-                           </td>
-                           <td className="py-2 px-3 text-center">
-                             <div className="bg-slate-100 p-1 rounded-lg inline-block min-w-[60px]">
-                               <div className="text-[8px] font-black uppercase">{item.vehicle}</div>
-                             </div>
-                           </td>
-                           <td className="py-2 px-3 text-center font-bold text-slate-600">{formatDate(item.date)}</td>
-                           <td className="py-2 px-3 text-right font-black text-slate-900">{item.rate.toLocaleString()}</td>
-                        </tr>
-                     ))}
-                  </tbody>
-               </table>
-            </div>
-          )}
-        </div>
-
-        {/* Financial Recapitulation */}
-        <div className="mt-8 pt-6 border-t-2 border-slate-900 relative">
-           <div className="flex justify-between items-end">
-              <div className="w-[55%]">
-                 <div className="flex items-center gap-2 mb-3">
-                   <div className="w-2 h-2 bg-slate-900 rounded-full"></div>
-                   <p className="text-[9px] font-black text-slate-900 uppercase tracking-widest">General Compliance & Terms</p>
-                 </div>
-                 <ul className="text-[8px] text-slate-500 font-medium space-y-1 pl-4 list-decimal marker:font-black marker:text-slate-300">
-                    <li className="leading-tight">This unified voucher confirms authorization for all listed services under Hashmi Travel Solutions.</li>
-                    <li className="leading-tight">Accommodation and transport availability are subject to local situational conditions in KSA.</li>
-                    <li className="leading-tight">Cancellations or modifications must be submitted in writing at least 72 hours prior to service date.</li>
-                    <li className="leading-tight">Hashmi Solutions act as service bridge; final service quality depends on on-ground vendors.</li>
-                 </ul>
-                 <div className="mt-6 flex gap-12">
-                   <div className="text-center">
-                     <div className="w-32 h-10 border-b border-slate-400"></div>
-                     <span className="text-[7px] font-black text-slate-300 uppercase mt-1 block">Passenger Signature</span>
-                   </div>
-                   <div className="text-center">
-                     <div className="w-32 h-10 border-b border-slate-400"></div>
-                     <span className="text-[7px] font-black text-slate-300 uppercase mt-1 block">Official Authorization</span>
-                   </div>
-                 </div>
-              </div>
-              <div className="w-[40%]">
-                 <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-2">
-                    <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                       <span>Combined Subtotal ({v.currency})</span>
-                       <span className="font-mono text-slate-900">{details.subtotalSelected?.toLocaleString()}</span>
-                    </div>
-                    {details.incomeAmountPKR > 0 && (
-                       <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                          <span>Processing Fee (PKR)</span>
-                          <span className="font-mono text-blue-600">+{details.incomeAmountPKR?.toLocaleString()}</span>
-                       </div>
-                    )}
-                    <div className="h-px bg-slate-200 my-2"></div>
-                    <div className="flex justify-between items-center">
-                       <div className="text-[10px] font-black text-slate-900 uppercase leading-none">Net Total Amount</div>
-                       <div className="text-right">
-                          <div className="text-[22px] font-black text-slate-900 leading-none tracking-tighter uppercase tabular-nums">
-                            {v.totalAmountPKR?.toLocaleString()}<span className="text-[12px] ml-1">PKR</span>
-                          </div>
-                          {v.currency === Currency.SAR && (
-                            <div className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">ROE: 1 SAR = {v.roe} PKR</div>
-                          )}
-                       </div>
-                    </div>
-                 </div>
-              </div>
+        {/* Guest and Agency Details bar */}
+        <div className="grid grid-cols-2 gap-x-16 py-2 border-y border-slate-100 mb-3">
+           <div className="space-y-0.5">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">LEAD GUEST</p>
+              <p className="text-[14px] font-black uppercase text-[#0f172a]">{details.paxName || 'N/A'}</p>
+           </div>
+           <div className="space-y-0.5 text-right">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">AGENCY / CLIENT</p>
+              <p className="text-[12px] font-black uppercase text-slate-700">{accounts.find(a => a.id === v.customerId)?.name || 'N/A'}</p>
            </div>
         </div>
-        
-        {/* Anti-Forgery Footer Bar */}
-        <div className="mt-8 py-2 bg-slate-900 rounded-lg flex justify-between items-center px-4">
-           <div className="text-[7px] font-black text-white/30 uppercase tracking-[0.4em]">SYSTEM GENERATED DOCUMENT - HASHMI TRAVEL SOLUTIONS GENERIC PROTECTION</div>
-           <div className="text-[9px] font-black text-white italic tracking-tighter opacity-80">PRO VERIFIED ✓</div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 space-y-4 overflow-hidden">
+          
+          {/* SECTION 1: HOTEL ACCOMMODATIONS (First as requested) */}
+          {(details.hotelItems?.length > 0) && (
+            <div className="space-y-2">
+               <h3 className="text-[10px] font-black bg-[#0f172a] text-white px-3 py-1 uppercase tracking-widest rounded-sm mb-2">1. Hotel Accommodations</h3>
+               
+               {/* Properties Header Display (Like Sample) */}
+               <div className="grid grid-cols-1 gap-4 mb-3">
+                 {details.hotelItems.map((item: any, i: number) => (
+                   <div key={i} className="grid grid-cols-2 gap-x-16 gap-y-2 border-b border-slate-50 pb-2">
+                     <div className="space-y-2">
+                       <div className="space-y-0.5">
+                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">HOTEL NAME</p>
+                         <p className="text-[13px] font-black uppercase text-[#0f172a] leading-tight">{item.hotelName || 'N/A'}</p>
+                       </div>
+                       <div className="space-y-0.5">
+                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CITY / COUNTRY</p>
+                         <p className="text-[11px] font-black uppercase text-slate-700">{item.city || 'N/A'} - {item.country || 'SAUDI ARABIA'}</p>
+                       </div>
+                     </div>
+                     <div className="space-y-2 text-right">
+                       <div className="space-y-0.5">
+                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-IN / CHECK-OUT</p>
+                         <p className="text-[11px] font-black text-[#0f172a] text-right">{item.fromDate} - {item.toDate}</p>
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-0.5 text-right">
+                           <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">ROOM(S)</p>
+                           <p className="text-[11px] font-black text-slate-700">{item.numRooms}</p>
+                         </div>
+                         <div className="space-y-0.5 text-right">
+                           <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">NIGHT(S)</p>
+                           <p className="text-[11px] font-black text-slate-700">{item.numNights}</p>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+
+               {/* Hotel Summary Table */}
+               <table className="w-full border-collapse">
+                 <thead>
+                   <tr className="text-[8px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
+                     <th className="py-1 px-2 text-left border-r border-slate-700">HOTEL / CITY</th>
+                     <th className="py-1 px-2 text-left border-r border-slate-700">ROOM TYPE</th>
+                     <th className="py-1 px-2 text-left border-r border-slate-700">MEAL</th>
+                     <th className="py-1 px-2 text-left border-r border-slate-700">RMS</th>
+                     <th className="py-1 px-2 text-left border-r border-slate-700">NTS</th>
+                     <th className="py-1 px-2 text-left border-r border-slate-700">ADULTS</th>
+                     <th className="py-1 px-2 text-left">CHILDREN</th>
+                   </tr>
+                 </thead>
+                 <tbody className="text-[9px] font-bold text-slate-800">
+                   {details.hotelItems.map((item: any, i: number) => (
+                     <tr key={i} className="bg-slate-50 border-b border-slate-200">
+                       <td className="py-1 px-2 border-r border-slate-200 uppercase">{item.hotelName} ({item.city})</td>
+                       <td className="py-1 px-2 border-r border-slate-200 uppercase">{item.roomType}</td>
+                       <td className="py-1 px-2 border-r border-slate-200 uppercase">{formatMeals(item.meals)}</td>
+                       <td className="py-1 px-2 border-r border-slate-200">{item.numRooms}</td>
+                       <td className="py-1 px-2 border-r border-slate-200">{item.numNights}</td>
+                       <td className="py-1 px-2 border-r border-slate-200">{item.adults || 2}</td>
+                       <td className="py-1 px-2">{item.children || 0}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+            </div>
+          )}
+
+          {/* SECTION 2: VISA SERVICES (Second as requested) */}
+          {(details.visaItems?.length > 0) && (
+            <div className="space-y-2">
+               <h3 className="text-[10px] font-black bg-[#0f172a] text-white px-3 py-1 uppercase tracking-widest rounded-sm mb-2">2. Visa Services</h3>
+               <table className="w-full border-collapse">
+                 <thead>
+                   <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200">
+                     <th className="py-1 px-3 text-left border-r border-slate-200">SR#</th>
+                     <th className="py-1 px-3 text-left border-r border-slate-200">PASSENGER NAME</th>
+                     <th className="py-1 px-3 text-left border-r border-slate-200">PASSPORT NO</th>
+                     <th className="py-1 px-3 text-right">FEES ({v.currency})</th>
+                   </tr>
+                 </thead>
+                 <tbody className="text-[9px] font-bold text-slate-800">
+                   {details.visaItems.map((item: any, i: number) => (
+                     <tr key={i} className="border border-slate-200 border-t-0">
+                       <td className="py-1 px-3 border-r border-slate-200">{i + 1}</td>
+                       <td className="py-1 px-3 border-r border-slate-200 uppercase">{item.paxName}</td>
+                       <td className="py-1 px-3 border-r border-slate-200 uppercase">{item.passportNumber || 'N/A'}</td>
+                       <td className="py-1 px-3 text-right">{item.rate.toLocaleString()}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+            </div>
+          )}
+
+          {/* SECTION 3: TRANSPORT LOGISTICS (Third as requested) */}
+          {(details.transportItems?.length > 0) && (
+            <div className="space-y-2">
+               <h3 className="text-[10px] font-black bg-[#0f172a] text-white px-3 py-1 uppercase tracking-widest rounded-sm mb-2">3. Transport Logistics</h3>
+               <table className="w-full border-collapse">
+                 <thead>
+                   <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200">
+                     <th className="py-1 px-3 text-left border-r border-slate-200">ROUTING / SECTOR</th>
+                     <th className="py-1 px-3 text-center border-r border-slate-200">VEHICLE</th>
+                     <th className="py-1 px-3 text-center border-r border-slate-200">DATE</th>
+                     <th className="py-1 px-3 text-right">TOTAL</th>
+                   </tr>
+                 </thead>
+                 <tbody className="text-[9px] font-bold text-slate-800">
+                   {details.transportItems.map((item: any, i: number) => (
+                     <tr key={i} className="border border-slate-200 border-t-0">
+                       <td className="py-1 px-3 border-r border-slate-200 uppercase">
+                         {item.isMultiSector && item.subSectors ? (
+                           <div className="flex flex-wrap gap-1">
+                             {item.subSectors.map((s: any, si: number) => (
+                               <span key={si}>{s.route}{si < item.subSectors.length - 1 ? ' | ' : ''}</span>
+                             ))}
+                           </div>
+                         ) : (item.sector === 'CUSTOM' ? item.customLabel : item.sector)}
+                       </td>
+                       <td className="py-1 px-3 text-center border-r border-slate-200 uppercase">{item.vehicle}</td>
+                       <td className="py-1 px-3 text-center border-r border-slate-200">{formatDate(item.date)}</td>
+                       <td className="py-1 px-3 text-right">{item.rate.toLocaleString()}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Policies */}
+        <div className="mt-4 pt-2 border-t border-slate-100 mb-2">
+           <h4 className="text-[10px] font-black text-[#0f172a] uppercase tracking-tighter mb-1 border-b border-slate-50 pb-0.5">Important Policies & Information</h4>
+           <ul className="text-[8px] font-medium text-slate-500 space-y-0.5 leading-tight list-disc ml-4 uppercase">
+             <li>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel.</li>
+             <li>Rooms may not be available for early check-in unless confirmed in advance.</li>
+             <li>Booking cancellation charges apply as per vendor policies.</li>
+             <li>Transport arrival times are subject to local traffic and regulatory conditions.</li>
+             <li>For any queries, please contact our support team at the numbers provided in header.</li>
+           </ul>
+        </div>
+
+        {/* Booking Notes - Locked to Bottom like sample */}
+        <div className="mt-auto pt-2 pb-2">
+          <div className="border border-slate-200 p-3 rounded-md bg-slate-50">
+            <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
+              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to contact us.
+            </p>
+          </div>
+        </div>
+
+        {/* Authorized Bar */}
+        <div className="flex justify-between items-end mt-2 px-4">
+           <div className="text-center pt-4">
+              <div className="w-32 border-t border-slate-300 pt-1 text-[7px] font-black text-slate-400 uppercase tracking-widest">PREPARED BY</div>
+           </div>
+           <div className="text-center pt-4">
+              <div className="w-32 border-t border-slate-300 pt-1 text-[7px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED SIGNATURE</div>
+           </div>
         </div>
       </div>
     );
   };
+
 
   const renderVoucherForm = () => {
     const props = {
