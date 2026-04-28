@@ -1321,15 +1321,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           </div>
         </div>
 
-        {/* Guest and Agency Details bar */}
-        <div className="grid grid-cols-2 gap-x-16 py-2 border-y border-slate-100 mb-3">
+        {/* Guest Details bar */}
+        <div className="py-2 border-y border-slate-100 mb-3">
            <div className="space-y-0.5">
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">LEAD GUEST</p>
               <p className="text-[14px] font-black uppercase text-[#0f172a]">{details.paxName || 'N/A'}</p>
-           </div>
-           <div className="space-y-0.5 text-right">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">AGENCY / CLIENT</p>
-              <p className="text-[12px] font-black uppercase text-slate-700">{accounts.find(a => a.id === v.customerId)?.name || 'N/A'}</p>
            </div>
         </div>
 
@@ -1358,7 +1354,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                      <div className="space-y-2 text-right">
                        <div className="space-y-0.5">
                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-IN / CHECK-OUT</p>
-                         <p className="text-[11px] font-black text-[#0f172a] text-right">{item.fromDate} - {item.toDate}</p>
+                         <p className="text-[11px] font-black text-[#0f172a] text-right">{formatDate(item.fromDate)} - {formatDate(item.toDate)}</p>
                        </div>
                        <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-0.5 text-right">
@@ -1414,8 +1410,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                    <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200">
                      <th className="py-1 px-3 text-left border-r border-slate-200">SR#</th>
                      <th className="py-1 px-3 text-left border-r border-slate-200">PASSENGER NAME</th>
-                     <th className="py-1 px-3 text-left border-r border-slate-200">PASSPORT NO</th>
-                     <th className="py-1 px-3 text-right">FEES ({v.currency})</th>
+                     <th className="py-1 px-3 text-left">PASSPORT NO</th>
                    </tr>
                  </thead>
                  <tbody className="text-[9px] font-bold text-slate-800">
@@ -1423,8 +1418,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                      <tr key={i} className="border border-slate-200 border-t-0">
                        <td className="py-1 px-3 border-r border-slate-200">{i + 1}</td>
                        <td className="py-1 px-3 border-r border-slate-200 uppercase">{item.paxName}</td>
-                       <td className="py-1 px-3 border-r border-slate-200 uppercase">{item.passportNumber || 'N/A'}</td>
-                       <td className="py-1 px-3 text-right">{item.rate.toLocaleString()}</td>
+                       <td className="py-1 px-3 uppercase">{item.passportNumber || 'N/A'}</td>
                      </tr>
                    ))}
                  </tbody>
@@ -1441,8 +1435,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                    <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200">
                      <th className="py-1 px-3 text-left border-r border-slate-200">ROUTING / SECTOR</th>
                      <th className="py-1 px-3 text-center border-r border-slate-200">VEHICLE</th>
-                     <th className="py-1 px-3 text-center border-r border-slate-200">DATE</th>
-                     <th className="py-1 px-3 text-right">TOTAL</th>
+                     <th className="py-1 px-3 text-center">DATE</th>
                    </tr>
                  </thead>
                  <tbody className="text-[9px] font-bold text-slate-800">
@@ -1458,8 +1451,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                          ) : (item.sector === 'CUSTOM' ? item.customLabel : item.sector)}
                        </td>
                        <td className="py-1 px-3 text-center border-r border-slate-200 uppercase">{item.vehicle}</td>
-                       <td className="py-1 px-3 text-center border-r border-slate-200">{formatDate(item.date)}</td>
-                       <td className="py-1 px-3 text-right">{item.rate.toLocaleString()}</td>
+                       <td className="py-1 px-3 text-center">{formatDate(item.date)}</td>
                      </tr>
                    ))}
                  </tbody>
