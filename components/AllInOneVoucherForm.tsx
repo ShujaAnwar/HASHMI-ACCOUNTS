@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
+import HajiSelector from './HajiSelector';
 import { AccountingService } from '../services/AccountingService';
 
 interface AllInOneVoucherFormProps {
@@ -369,7 +370,13 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white dark:bg-slate-800/50 p-6 rounded-3xl shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">
              <div className="space-y-1">
                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">MAIN PAX NAME</label>
-               <input required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 text-xs font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100 dark:ring-slate-800" placeholder="Full Passenger Name" value={formData.paxName} onChange={e => setFormData({...formData, paxName: e.target.value})} />
+               <HajiSelector 
+                 value={formData.paxName}
+                 onSelect={(haji) => {
+                   setFormData({...formData, paxName: haji.fullName || '', passportNumber: haji.passportNumber || formData.passportNumber});
+                 }}
+                 placeholder="Full Passenger Name"
+               />
              </div>
              <div className="space-y-1">
                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">PASSPORT NUMBER</label>
@@ -394,7 +401,14 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1">
                              <label className="text-[8px] font-black text-slate-400 uppercase">Pax Name</label>
-                             <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold" value={item.paxName} onChange={e => updateVisaItem(idx, 'paxName', e.target.value)} />
+                             <HajiSelector 
+                               value={item.paxName}
+                               onSelect={(haji) => {
+                                 updateVisaItem(idx, 'paxName', haji.fullName || '');
+                                 if (haji.passportNumber) updateVisaItem(idx, 'passportNumber', haji.passportNumber);
+                               }}
+                               placeholder="Pax Name"
+                             />
                           </div>
                           <div className="space-y-1">
                              <label className="text-[8px] font-black text-slate-400 uppercase">Passport</label>

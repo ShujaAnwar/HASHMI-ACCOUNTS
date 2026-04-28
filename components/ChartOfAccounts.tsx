@@ -120,7 +120,19 @@ const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ config, refreshKey, o
                   <div className="flex items-center space-x-4 md:space-x-6">
                     <span className="text-[10px] font-mono font-black text-slate-400 w-10 md:w-12 group-hover:text-blue-600 transition-colors">{acc.code}</span>
                     <div>
-                      <p className="font-black text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors uppercase text-sm md:text-base leading-tight">{acc.name}</p>
+                      <div className="flex items-center space-x-2">
+                        {acc.logo_url && (
+                          <img 
+                            src={acc.logo_url} 
+                            alt="" 
+                            className="w-6 h-6 rounded-md object-contain bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-100 dark:border-slate-800 shadow-sm" 
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        <p className="font-black text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors uppercase text-sm md:text-base leading-tight">
+                          {acc.name}
+                        </p>
+                      </div>
                       <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-0.5">{acc.type.replace('_', ' ')}</p>
                     </div>
                   </div>

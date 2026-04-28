@@ -94,6 +94,16 @@ export interface AppConfig {
   autoRefreshIntervalMinutes?: number;
 }
 
+export interface HajiMaster {
+  id: string;
+  hajiId: string; // Friendly ID e.g. H-001
+  fullName: string;
+  passportNumber: string;
+  contactNumber?: string;
+  nationality?: string;
+  createdAt?: string;
+}
+
 export interface DashboardStats {
   totalReceivables: number;
   totalPayables: number;

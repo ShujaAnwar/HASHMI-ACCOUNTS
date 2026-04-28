@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
+import HajiSelector from './HajiSelector';
 import { AccountingService } from '../services/AccountingService';
 
 interface HotelVoucherFormProps {
@@ -286,7 +287,13 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
             )}
             <div className="space-y-1">
               <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">LEAD PAX NAME</label>
-              <input required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-bold placeholder:text-slate-400 outline-none ring-1 ring-slate-100" placeholder="Lead Pax Name" value={formData.paxName} onChange={e => setFormData({...formData, paxName: e.target.value})} />
+              <HajiSelector 
+                value={formData.paxName}
+                onSelect={(haji) => {
+                  setFormData({...formData, paxName: haji.fullName || ''});
+                }}
+                placeholder="Search or enter name..."
+              />
             </div>
           </div>
 

@@ -16,6 +16,21 @@
     ADD COLUMN IF NOT EXISTS contact_number TEXT,
     ADD COLUMN IF NOT EXISTS logo_url TEXT;
 
+    -- 2.1 Haji Master Table
+    CREATE TABLE IF NOT EXISTS public.haji_master (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        haji_id TEXT UNIQUE NOT NULL,
+        full_name TEXT NOT NULL,
+        passport_number TEXT UNIQUE NOT NULL,
+        contact_number TEXT,
+        nationality TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Grant permissions for Haji Master
+    ALTER TABLE public.haji_master DISABLE ROW LEVEL SECURITY;
+    GRANT ALL ON public.haji_master TO anon, authenticated, service_role;
+
     -- 3. Ensure App Config has all necessary columns
     ALTER TABLE public.app_config 
     ADD COLUMN IF NOT EXISTS font_size INTEGER DEFAULT 16,

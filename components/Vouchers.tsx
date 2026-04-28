@@ -595,7 +595,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-4">
           <div className="flex flex-col items-center">
             {branding.logo ? (
-              <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+              <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
             ) : (
               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
             )}
@@ -824,7 +824,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
@@ -1025,7 +1025,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
@@ -1188,7 +1188,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
@@ -1358,7 +1358,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}

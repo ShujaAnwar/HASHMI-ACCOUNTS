@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
+import HajiSelector from './HajiSelector';
+import { AccountingService } from '../services/AccountingService';
 
 interface VisaVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -20,15 +22,23 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
       const [accs, conf] = await Promise.all([getAccounts(), getConfig()]);
       setAccounts(accs);
       setConfig(conf);
+      
+      // Generate automatic voucher number if creating or cloning
+      if (isClone || !initialData?.voucherNum) {
+        const vNum = await AccountingService.generateVoucherNumber(VoucherType.VISA, initialData?.date);
+        setFormData(prev => ({ ...prev, voucherNum: vNum }));
+      }
+      
       setLoading(false);
     };
     load();
-  }, []);
+  }, [isClone, initialData]);
 
   const [formData, setFormData] = useState({
     date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0],
     currency: initialData?.currency || Currency.PKR,
-    roe: initialData?.roe || 74.5,
+    roe: initialData?.roe || 1,
+    voucherNum: initialData?.voucherNum || '',
     customerId: initialData?.customerId || '',
     vendorId: initialData?.vendorId || '',
     description: initialData?.description || '',
@@ -81,6 +91,7 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
 
     onSave({
       ...formData,
+      voucherNum: formData.voucherNum,
       type: VoucherType.VISA,
       totalAmountPKR: totalPKR,
       status: VoucherStatus.POSTED,
@@ -184,11 +195,18 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
                 {formData.items.map((item: any, idx: number) => (
                   <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all">
                     <td className="px-6 py-4">
-                      <input 
-                        className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-slate-100"
-                        placeholder="Passenger Name"
+                      <HajiSelector 
                         value={item.paxName}
-                        onChange={e => updateItem(idx, 'paxName', e.target.value)}
+                        onSelect={(haji) => {
+                          const newItems = [...formData.items];
+                          newItems[idx] = { 
+                            ...newItems[idx], 
+                            paxName: haji.fullName || '',
+                            passportNumber: haji.passportNumber || newItems[idx].passportNumber
+                          };
+                          setFormData({ ...formData, items: newItems });
+                        }}
+                        placeholder="Search or enter name..."
                       />
                     </td>
                     <td className="px-6 py-4">

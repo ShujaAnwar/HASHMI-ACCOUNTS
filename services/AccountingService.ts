@@ -31,7 +31,7 @@ export class AccountingService {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = String(d.getFullYear()).slice(-2);
     
-    // Get count of vouchers of this type to determine next serial
+    // Get count of vouchers of this type to determine initial next serial
     const { count, error } = await supabase
       .from('vouchers')
       .select('*', { count: 'exact', head: true })
@@ -39,10 +39,31 @@ export class AccountingService {
       
     if (error) console.error("Error generating voucher number:", error);
     
-    const nextSerial = (count || 0) + 1;
-    const serialStr = String(nextSerial).padStart(2, '0');
+    let nextSerial = (count || 0) + 1;
+    let voucherNum = `${type}${String(nextSerial).padStart(2, '0')}${month}${year}`;
     
-    return `${type}${serialStr}${month}${year}`;
+    // Safety check: ensure the number doesn't already exist. 
+    // If it does, keep incrementing until we find a unique one.
+    let exists = true;
+    let attempts = 0;
+    while (exists && attempts < 100) {
+      const { data, error: checkError } = await supabase
+        .from('vouchers')
+        .select('id')
+        .eq('voucher_num', voucherNum)
+        .maybeSingle();
+      
+      if (checkError) break;
+      if (!data) {
+        exists = false;
+      } else {
+        nextSerial++;
+        voucherNum = `${type}${String(nextSerial).padStart(2, '0')}${month}${year}`;
+        attempts++;
+      }
+    }
+    
+    return voucherNum;
   }
 
   // Keep for backward compatibility or temporary numbers, but update to the requested format with a random suffix for safety if sync

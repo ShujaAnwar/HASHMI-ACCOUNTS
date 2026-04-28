@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
+import HajiSelector from './HajiSelector';
+import { AccountingService } from '../services/AccountingService';
 
 interface TransportVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -46,15 +48,23 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
       const [accs, conf] = await Promise.all([getAccounts(), getConfig()]);
       setAccounts(accs);
       setConfig(conf);
+      
+      // Generate automatic voucher number if creating or cloning
+      if (isClone || !initialData?.voucherNum) {
+        const vNum = await AccountingService.generateVoucherNumber(VoucherType.TRANSPORT, initialData?.date);
+        setFormData(prev => ({ ...prev, voucherNum: vNum }));
+      }
+      
       setLoading(false);
     };
     load();
-  }, []);
+  }, [isClone, initialData]);
 
   const [formData, setFormData] = useState({
     date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0],
     currency: initialData?.currency || Currency.SAR,
-    roe: initialData?.roe || 74.5,
+    roe: initialData?.roe || 1,
+    voucherNum: initialData?.voucherNum || '',
     customerId: initialData?.customerId || '',
     vendorId: initialData?.vendorId || '',
     incomeAccountId: initialData?.details?.incomeAccountId || '',
@@ -220,6 +230,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
 
     onSave({
       ...formData,
+      voucherNum: formData.voucherNum,
       type: VoucherType.TRANSPORT,
       totalAmountPKR: totalPKR,
       status: VoucherStatus.POSTED,
@@ -282,7 +293,13 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
             </div>
             <div>
               <InputLabel>Pax Name</InputLabel>
-              <input required className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Guest Name" value={formData.paxName} onChange={e => setFormData({...formData, paxName: e.target.value})} />
+              <HajiSelector 
+                value={formData.paxName}
+                onSelect={(haji) => {
+                  setFormData({...formData, paxName: haji.fullName || ''});
+                }}
+                placeholder="Guest Name"
+              />
             </div>
           </div>
 

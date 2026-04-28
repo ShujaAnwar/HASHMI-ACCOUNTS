@@ -460,10 +460,16 @@ import DateInput from './DateInput';
               />
             </div>
             <div className="flex justify-between items-start mb-3 ml-8">
-              <div className="flex-1">
-                <span className="text-[8px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg uppercase tracking-widest">{acc.code || 'NO CODE'}</span>
-                <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1 truncate">{acc.name}</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{acc.location || 'Location Independent'}</p>
+              <div className="flex-1 flex items-center space-x-3">
+                {acc.logoUrl && (
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 flex-shrink-0 overflow-hidden flex items-center justify-center p-1">
+                    <img src={acc.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                  </div>
+                )}
+                <div>
+                  <span className="text-[8px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg uppercase tracking-widest">{acc.code || 'NO CODE'}</span>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mt-1 truncate">{acc.name}</h3>
+                </div>
               </div>
               <div className="text-right">
                 <p className={`text-lg font-orbitron font-black tracking-tighter ${acc.balance >= 0 ? 'text-blue-600' : 'text-rose-500'}`}>
@@ -472,6 +478,7 @@ import DateInput from './DateInput';
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{acc.balance >= 0 ? 'Debit (Dr)' : 'Credit (Cr)'}</p>
               </div>
             </div>
+            <p className="ml-8 text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-[-8px] mb-3">{acc.location || 'Location Independent'}</p>
             
             <div className="flex justify-end space-x-2 pt-3 border-t border-slate-50 dark:border-slate-800">
               <button 

@@ -414,6 +414,29 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                       <option value="lowercase">lowercase (e.g. cash at bank)</option>
                     </select>
                   </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-amber-600 uppercase mb-2 block tracking-widest flex justify-between">
+                      Global Logo Scale (Vouchers & Reports)
+                      <span className="font-orbitron font-black text-xs">{config.logoSize || 100}%</span>
+                    </label>
+                    <div className="flex items-center space-x-6 bg-amber-50/50 dark:bg-amber-900/10 p-6 rounded-2xl border border-amber-100 dark:border-amber-900/10">
+                      <input 
+                        type="range" 
+                        min="20" 
+                        max="300" 
+                        className="flex-1 accent-amber-600 cursor-pointer"
+                        value={config.logoSize || 100}
+                        onChange={e => setConfig({...config, logoSize: Number(e.target.value)})}
+                      />
+                      <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-800 flex items-center justify-center overflow-hidden">
+                        {config.companyLogo ? (
+                          <img src={config.companyLogo} alt="Preview" style={{ zoom: (config.logoSize || 100) / 400 }} className="object-contain" />
+                        ) : (
+                          <span className="text-[10px] font-black text-slate-300 uppercase">Logo Preview</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cell Number</label>
                     <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-sm shadow-inner outline-none" value={config.companyCell} onChange={e => setConfig({...config, companyCell: e.target.value})} />
@@ -791,6 +814,17 @@ UPDATE app_config SET company_name = 'Hashmi Travel Solutions', app_subtitle = '
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_name TEXT;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS contact_number TEXT;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url TEXT;
+CREATE TABLE IF NOT EXISTS haji_master (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    haji_id TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    passport_number TEXT UNIQUE NOT NULL,
+    contact_number TEXT,
+    nationality TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.haji_master DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON public.haji_master TO anon, authenticated, service_role;
 NOTIFY pgrst, 'reload schema';`;
                          navigator.clipboard.writeText(sql);
                          triggerNotification("SQL Copied to Clipboard");

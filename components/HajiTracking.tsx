@@ -2,8 +2,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Voucher, Account, VoucherType, Currency, VoucherStatus } from '../types';
 import { getVouchers, getAccounts } from '../services/db';
+import { HajiService } from '../services/HajiService';
 import { formatDate } from '../utils/format';
 import { motion, AnimatePresence } from 'motion/react';
+import { HajiMaster } from '../types';
 
 interface HajiMovement {
   id: string;
@@ -65,16 +67,75 @@ const HajiTracking: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHaji, setSelectedHaji] = useState<HajiStatus | null>(null);
   const [filterType, setFilterType] = useState<'ALL' | 'MAKKAH' | 'MADINA' | 'JEDDAH_AIRPORT' | 'URGENT' | 'UPCOMING' | 'TRANSPORT_REQ'>('ALL');
+  
+  // Haji Master State
+  const [activeView, setActiveView] = useState<'TRACKING' | 'MASTER'>('TRACKING');
+  const [hajiMasterList, setHajiMasterList] = useState<HajiMaster[]>([]);
+  const [showAddHajiModal, setShowAddHajiModal] = useState(false);
+  const [hajiFormData, setHajiFormData] = useState<Omit<HajiMaster, 'id' | 'hajiId' | 'createdAt'>>({
+    fullName: '',
+    passportNumber: '',
+    contactNumber: '',
+    nationality: 'Pakistan'
+  });
+  const [duplicateHaji, setDuplicateHaji] = useState<HajiMaster | null>(null);
+  const [selectedHajiHistory, setSelectedHajiHistory] = useState<Voucher[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [v, a] = await Promise.all([getVouchers(), getAccounts()]);
+      const [v, a, hm] = await Promise.all([
+        getVouchers(), 
+        getAccounts(),
+        HajiService.getAll()
+      ]);
       setVouchers(v);
       setAccounts(a);
+      setHajiMasterList(hm);
       setLoading(false);
     };
     fetchData();
   }, []);
+
+  const refreshHajiMaster = async () => {
+    const hm = await HajiService.getAll();
+    setHajiMasterList(hm);
+  };
+
+  const handleSaveHaji = async () => {
+    if (!hajiFormData.fullName || !hajiFormData.passportNumber) {
+      alert("Please fill required fields (Name & Passport)");
+      return;
+    }
+
+    try {
+      if (!duplicateHaji) {
+        const existing = await HajiService.searchByPassport(hajiFormData.passportNumber);
+        if (existing) {
+          setDuplicateHaji(existing);
+          return;
+        }
+      }
+
+      await HajiService.create(hajiFormData);
+      await refreshHajiMaster();
+      setShowAddHajiModal(false);
+      setHajiFormData({ fullName: '', passportNumber: '', contactNumber: '', nationality: 'Pakistan' });
+      setDuplicateHaji(null);
+    } catch (err: any) {
+      alert(`Error saving Haji: ${err.message}`);
+    }
+  };
+
+  const viewHajiHistory = async (haji: HajiMaster) => {
+    try {
+      const history = await HajiService.getHistory(haji.passportNumber);
+      setSelectedHajiHistory(history as Voucher[]);
+      setShowHistoryModal(true);
+    } catch (err: any) {
+      alert(`Error fetching history: ${err.message}`);
+    }
+  };
 
   const hajiTrackingData = useMemo(() => {
     const todayStart = new Date();
@@ -528,19 +589,45 @@ const HajiTracking: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Haji Tracking System</h1>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Real-time movement & arrangement manager</p>
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mt-2 border border-slate-200 dark:border-slate-700">
+            <button 
+              onClick={() => setActiveView('TRACKING')}
+              className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeView === 'TRACKING' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Movement Tracking
+            </button>
+            <button 
+              onClick={() => setActiveView('MASTER')}
+              className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeView === 'MASTER' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Haji Master Database
+            </button>
+          </div>
         </div>
-        <div className="w-full md:w-72 relative">
-          <input 
-            type="text" 
-            placeholder="Search Haji or Location..."
-            className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-3 text-sm font-bold shadow-sm ring-1 ring-slate-100 dark:ring-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+        <div className="flex items-center space-x-3 w-full md:w-auto">
+          <div className="flex-1 md:w-72 relative">
+            <input 
+              type="text" 
+              placeholder={activeView === 'TRACKING' ? "Search Active Haji..." : "Search Master Database..."}
+              className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-3 text-sm font-bold shadow-sm ring-1 ring-slate-100 dark:ring-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+          </div>
+          {activeView === 'MASTER' && (
+            <button 
+              onClick={() => setShowAddHajiModal(true)}
+              className="p-4 bg-blue-600 text-white rounded-2xl shadow-lg hover:rotate-90 transition-transform active:scale-90"
+            >
+              ➕
+            </button>
+          )}
         </div>
       </div>
+      
+      {activeView === 'TRACKING' ? (
+        <>
 
       {/* Summary Dashboard */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 no-scrollbar overflow-x-auto pb-2">
@@ -806,6 +893,217 @@ const HajiTracking: React.FC = () => {
           </AnimatePresence>
         </div>
       </div>
+        </>
+      ) : (
+        /* HAJI MASTER VIEW */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {hajiMasterList
+            .filter(h => h.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || h.passportNumber.includes(searchQuery.toUpperCase()) || h.hajiId.includes(searchQuery.toUpperCase()))
+            .map((haji, idx) => (
+            <motion.div
+              layout
+              key={haji.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: idx * 0.03 }}
+              className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative"
+            >
+              <div className="absolute top-0 right-0 p-4">
+                <span className="text-[8px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100 dark:border-blue-900/40 font-orbitron">
+                  {haji.hajiId}
+                </span>
+              </div>
+
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-colors capitalize font-black">
+                  {haji.fullName.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight truncate max-w-[150px]">{haji.fullName}</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{haji.nationality || 'Nationality N/A'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Passport</span>
+                  <span className="text-[10px] font-orbitron font-black text-slate-900 dark:text-white tracking-widest">{haji.passportNumber}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Contact</span>
+                  <span className="text-[10px] font-black text-slate-600 dark:text-slate-400">{haji.contactNumber || 'NOT PROVIDED'}</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => viewHajiHistory(haji)}
+                className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 text-slate-600 dark:text-slate-400 font-black rounded-xl text-[9px] uppercase tracking-widest transition-all shadow-sm active:scale-95"
+              >
+                View Service History
+              </button>
+            </motion.div>
+          ))}
+          {hajiMasterList.length === 0 && (
+             <div className="col-span-full py-32 text-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Haji Master Database is empty</p>
+             </div>
+          )}
+        </div>
+      )}
+
+      {/* Add Haji Modal */}
+      {showAddHajiModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden"
+          >
+            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Register New Haji</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Adding to unique master database</p>
+              </div>
+              <button 
+                onClick={() => { setShowAddHajiModal(false); setDuplicateHaji(null); }}
+                className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 shadow-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              {duplicateHaji ? (
+                <div className="bg-amber-50 dark:bg-amber-900/20 p-6 rounded-3xl border-2 border-amber-500/30 space-y-4 animate-in zoom-in-95">
+                   <div className="flex items-center space-x-3 text-amber-600">
+                     <span className="text-2xl">⚠️</span>
+                     <h4 className="text-sm font-black uppercase tracking-widest">Duplicate Detected</h4>
+                   </div>
+                   <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                     A Haji with passport <span className="font-orbitron font-black">{duplicateHaji.passportNumber}</span> already exists in the database as:
+                   </p>
+                   <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/40">
+                      <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{duplicateHaji.fullName}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">ID: {duplicateHaji.hajiId}</p>
+                   </div>
+                   <div className="flex flex-col space-y-2 pt-2">
+                     <button 
+                       onClick={() => { setShowAddHajiModal(false); setDuplicateHaji(null); }}
+                       className="w-full py-3 bg-amber-600 text-white font-black rounded-xl text-[9px] uppercase tracking-widest shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                     >
+                       Use Existing Record
+                     </button>
+                     <button 
+                       onClick={() => setDuplicateHaji(null)}
+                       className="w-full py-3 bg-white dark:bg-slate-800 text-slate-400 font-bold rounded-xl text-[9px] uppercase tracking-widest border border-slate-200 dark:border-slate-700"
+                     >
+                       Correction / Change Passport
+                     </button>
+                   </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-4">Full Legal Name</label>
+                      <input 
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold shadow-inner outline-none uppercase"
+                        placeholder="John Doe"
+                        value={hajiFormData.fullName}
+                        onChange={e => setHajiFormData({...hajiFormData, fullName: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-4">Passport Number</label>
+                      <input 
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-orbitron font-black shadow-inner outline-none text-blue-600 tracking-widest"
+                        placeholder="AB123456"
+                        value={hajiFormData.passportNumber}
+                        onChange={e => setHajiFormData({...hajiFormData, passportNumber: e.target.value.toUpperCase()})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-4">Nationality</label>
+                      <input 
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold shadow-inner outline-none"
+                        placeholder="Pakistan"
+                        value={hajiFormData.nationality}
+                        onChange={e => setHajiFormData({...hajiFormData, nationality: e.target.value})}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-4">Contact Number (Optional)</label>
+                      <input 
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-sm font-bold shadow-inner outline-none"
+                        placeholder="0300-1234567"
+                        value={hajiFormData.contactNumber}
+                        onChange={e => setHajiFormData({...hajiFormData, contactNumber: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleSaveHaji}
+                    className="w-full py-5 bg-blue-600 text-white font-black rounded-3xl shadow-xl shadow-blue-600/20 uppercase tracking-widest text-xs transition-all active:scale-95"
+                  >
+                    Register in Master Database
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[70] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[80vh] rounded-[2.5rem] shadow-2xl flex flex-col"
+          >
+            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Full Service history</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tracking across all booking vouchers</p>
+              </div>
+              <button 
+                onClick={() => setShowHistoryModal(false)}
+                className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto no-scrollbar space-y-4">
+              {selectedHajiHistory.map((v, i) => (
+                <div key={v.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                   <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-[10px]">
+                        {v.type}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-tight">{v.voucherNum}</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase">{formatDate(v.date)}</p>
+                      </div>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase truncate max-w-[200px]">
+                        {v.description || 'Service Booking'}
+                      </p>
+                   </div>
+                </div>
+              ))}
+              {selectedHajiHistory.length === 0 && (
+                <div className="text-center py-10">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">No history found for this Haji</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

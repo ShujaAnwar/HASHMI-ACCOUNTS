@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
+import { AccountingService } from '../services/AccountingService';
 
 interface ReceiptVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -20,15 +21,23 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
       const [accs, conf] = await Promise.all([getAccounts(), getConfig()]);
       setAccounts(accs);
       setConfig(conf);
+      
+      // Generate automatic voucher number if creating or cloning
+      if (isClone || !initialData?.voucherNum) {
+        const vNum = await AccountingService.generateVoucherNumber(VoucherType.RECEIPT, initialData?.date);
+        setFormData(prev => ({ ...prev, voucherNum: vNum }));
+      }
+      
       setLoading(false);
     };
     load();
-  }, []);
+  }, [isClone, initialData]);
 
   const [formData, setFormData] = useState({
     date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0],
     currency: initialData?.currency || Currency.PKR,
-    roe: initialData?.roe || 74.5,
+    roe: initialData?.roe || 1,
+    voucherNum: initialData?.voucherNum || '',
     amount: initialData?.details?.unitRate || 0,
     customerId: initialData?.customerId || '',
     bankId: initialData?.details?.bankId || '',
@@ -68,6 +77,7 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
 
     onSave({
       ...formData,
+      voucherNum: formData.voucherNum,
       type: VoucherType.RECEIPT,
       totalAmountPKR: totalPKR,
       status: VoucherStatus.POSTED,
