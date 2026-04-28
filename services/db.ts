@@ -28,6 +28,9 @@
     // Safety: Fallback to PKR if column is missing or null
     currency: (a.currency as Currency) || Currency.PKR,
     balance: Number(a.balance),
+    companyName: a.company_name,
+    contactNumber: a.contact_number,
+    logoUrl: a.logo_url,
     ledger: (a.ledger || []).map((l: any) => ({
       id: l.id,
       date: l.date,
@@ -277,7 +280,10 @@
           cell: a.cell,
           location: a.location,
           currency: a.currency || 'PKR',
-          balance: 0 // Reset to 0, will be recalculated from ledger
+          balance: 0, // Reset to 0, will be recalculated from ledger
+          company_name: a.companyName || null,
+          contact_number: a.contactNumber || null,
+          logo_url: a.logoUrl || null
         }));
         
         const { error: accErr } = await supabase.from('accounts').insert(accountsToInsert);

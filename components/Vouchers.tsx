@@ -2,6 +2,23 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { formatDate } from '../utils/format';
+
+const formatDateLong = (dateStr: string): string => {
+  if (!dateStr || dateStr === '-') return '-';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = d.getDate();
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+};
+
+const formatMeals = (meals: any): string => {
+  if (!meals) return 'ROOM ONLY';
+  if (Array.isArray(meals)) return meals.length > 0 ? meals.join(', ') : 'ROOM ONLY';
+  return String(meals).toUpperCase();
+};
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountingService } from '../services/AccountingService';
 import PaymentVoucherForm from './PaymentVoucherForm';
@@ -146,12 +163,6 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const filteredVouchers = useMemo(() => {
     return allVouchers.filter(v => v.type === activeType);
   }, [allVouchers, activeType]);
-
-  const formatMeals = (meals: any) => {
-    if (Array.isArray(meals)) return meals.join(', ');
-    if (typeof meals === 'string') return meals;
-    return 'NONE';
-  };
 
   const getDetailedNarrative = (v: Voucher) => {
     if (!v.details) return v.description;
@@ -577,15 +588,23 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const renderConfirmationLetter = (v: Voucher) => {
     const customer = accounts.find(a => a.id === v.customerId);
     const invoiceNum = v.voucherNum.split('-').pop();
+    const branding = getBranding(v);
     return (
       <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
         
         <div className="flex justify-between items-start mb-4">
           <div className="flex flex-col items-center">
-            {config?.companyLogo && <img src={config.companyLogo} style={{ height: `45px` }} alt="logo" />}
+            {branding.logo ? (
+              <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+            ) : (
+              <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
+            )}
           </div>
-          <div className="text-center pt-2">
-            <h1 className="text-xl font-bold text-[#e11d48] uppercase tracking-tight">{config?.companyName} {config?.appSubtitle}</h1>
+          <div className="text-center pt-2 flex-1 mx-4">
+            <h1 className="text-xl font-bold uppercase tracking-tight" style={{ color: branding.isCustom ? '#2563eb' : '#e11d48' }}>
+              {branding.name}
+            </h1>
+            {!branding.isCustom && <p className="text-[10px] text-slate-400 font-bold">{config?.appSubtitle}</p>}
           </div>
           <div className="text-right">
              <div className="flex items-center justify-end space-x-3 border-b-2 border-slate-300 pb-0.5 mb-1">
@@ -600,7 +619,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
         <div className="mb-4 text-[11px] leading-relaxed">
           <p>Dear Sir:</p>
-          <p className="mt-1.5">Greeting From <span className="text-[#e11d48] font-bold">{config?.companyName} {config?.appSubtitle}</span></p>
+          <p className="mt-1.5">Greeting From <span className="font-bold" style={{ color: branding.isCustom ? '#2563eb' : '#e11d48' }}>{branding.name}</span></p>
           <p className="mt-0.5">We are pleased to confirm the following reservation on a <span className="font-bold">Definite basis .</span></p>
         </div>
 
@@ -684,10 +703,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const customer = accounts.find(a => a.id === v.customerId);
     const totalSAR = v.details?.totalSelectedCurrency || (v.totalAmountPKR / (v.roe || 1));
     const invoiceNum = v.voucherNum.split('-').pop();
+    const branding = getBranding(v);
     return (
       <div ref={voucherRef} className="bg-white p-8 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
         <div className="flex justify-center mb-6">
-          {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize * 0.8}px` }} alt="logo" />}
+          {branding.logo ? (
+            <img src={branding.logo} style={{ height: `${config.logoSize * 0.8}px` }} alt="logo" className="object-contain" />
+          ) : (
+            <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{branding.name}</div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-y-1 mb-4 text-[10px] font-bold uppercase tracking-wide">
@@ -700,7 +724,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           )}
         </div>
 
-        <p className="text-center text-[#e11d48] font-bold mb-4 text-[11px] tracking-wide">{config?.companyName} {config?.appSubtitle}</p>
+        <p className="text-center font-bold mb-4 text-[11px] tracking-wide" style={{ color: branding.isCustom ? '#2563eb' : '#e11d48' }}>
+          {branding.name} {branding.isCustom ? '' : config?.appSubtitle}
+        </p>
 
         <div className="flex justify-between items-center mb-4 text-[11px] font-bold">
           <p className="uppercase">Guest Name: <span className="font-black">{v.details?.paxName}</span></p>
@@ -775,36 +801,50 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     );
   };
 
+  const getBranding = (v: Voucher) => {
+    const customer = accounts.find(a => a.id === (v.customerId || v.vendorId));
+    return {
+      logo: customer?.logoUrl || config?.companyLogo,
+      name: customer?.companyName || customer?.name || config?.companyName || 'ENTERPRISE',
+      contact: customer?.contactNumber || customer?.cell || config?.companyCell || '0334 3666777',
+      isCustom: !!(customer?.logoUrl || customer?.companyName || customer?.contactNumber)
+    };
+  };
+
   const renderServiceVoucher = (v: Voucher) => {
     const fromDateStr = v.details?.fromDate ? formatDate(v.details.fromDate) : '-';
     const toDateStr = v.details?.toDate ? formatDate(v.details.toDate) : '-';
+    const branding = getBranding(v);
+    const customer = accounts.find(a => a.id === (v.customerId || v.vendorId));
     
     return (
       <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
         
-        {/* Compact Header */}
+        {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
-             {config?.companyLogo ? (
-               <img src={config.companyLogo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+             {branding.logo ? (
+               <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
              ) : (
-               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{config?.companyName || 'ENTERPRISE'}</div>
+               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1">
+          <div className="text-center flex-1 transition-all">
             <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Hotel Booking Voucher</h1>
-            <p className="text-[14px] font-bold text-[#e11d48] uppercase tracking-wider">
-              {config?.appSubtitle || 'TRAVELS SERVICES'}
+            <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'TRAVELS SERVICES')}
             </p>
           </div>
           <div className="w-40 text-right pr-4">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  CELL: <span className="text-[#0f172a] font-bold">{config?.companyCell}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
                 </p>
-                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone}</span>
-                </p>
+                {!branding.isCustom && config?.companyPhone && (
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
+                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                  </p>
+                )}
              </div>
           </div>
         </div>
@@ -821,6 +861,20 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
         {/* Details Grid */}
         <div className="mb-3">
+          <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3 mb-3">
+            <div className="space-y-0.5">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER / AGENCY</p>
+              <p className="text-[12px] font-black uppercase text-[#0f172a] leading-tight">
+                {customer?.name || 'PRIVATE GUEST'}
+              </p>
+            </div>
+            <div className="space-y-0.5 text-right">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">PASSENGER NAME</p>
+              <p className="text-[12px] font-black uppercase text-[#0f172a] leading-tight">
+                {v.details?.paxName || 'N/A'}
+              </p>
+            </div>
+          </div>
           {v.details?.items?.length > 0 ? (
             v.details.items.map((item: any, i: number) => (
               <div key={i} className={`grid grid-cols-2 gap-x-16 gap-y-2 pb-3 ${i > 0 ? 'mt-3 pt-3 border-t border-slate-100' : ''}`}>
@@ -963,32 +1017,35 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   };
 
   const renderTransportVoucher = (v: Voucher) => {
+    const branding = getBranding(v);
     return (
       <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
         
-        {/* Compact Header */}
+        {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
-             {config?.companyLogo ? (
-               <img src={config.companyLogo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+             {branding.logo ? (
+               <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
              ) : (
-               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{config?.companyName || 'ENTERPRISE'}</div>
+               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1">
+          <div className="text-center flex-1 transition-all">
             <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Transport Voucher</h1>
-            <p className="text-[14px] font-bold text-[#e11d48] uppercase tracking-wider">
-              {config?.appSubtitle || 'TRAVELS SERVICES'}
+            <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'TRAVELS SERVICES')}
             </p>
           </div>
           <div className="w-40 text-right pr-4">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  CELL: <span className="text-[#0f172a] font-bold">{config?.companyCell}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
                 </p>
-                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone}</span>
-                </p>
+                {!branding.isCustom && config?.companyPhone && (
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
+                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                  </p>
+                )}
              </div>
           </div>
         </div>
@@ -1123,32 +1180,35 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   };
 
   const renderVisaVoucher = (v: Voucher) => {
+    const branding = getBranding(v);
     return (
       <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
         
-        {/* Compact Header */}
+        {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
-             {config?.companyLogo ? (
-               <img src={config.companyLogo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+             {branding.logo ? (
+               <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
              ) : (
-               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{config?.companyName || 'ENTERPRISE'}</div>
+               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1">
+          <div className="text-center flex-1 transition-all">
             <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Visa Voucher</h1>
-            <p className="text-[14px] font-bold text-[#e11d48] uppercase tracking-wider">
-              {config?.appSubtitle || 'TRAVELS SERVICES'}
+            <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'TRAVELS SERVICES')}
             </p>
           </div>
           <div className="w-40 text-right pr-4">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  CELL: <span className="text-[#0f172a] font-bold">{config?.companyCell}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
                 </p>
-                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone}</span>
-                </p>
+                {!branding.isCustom && config?.companyPhone && (
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
+                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                  </p>
+                )}
              </div>
           </div>
         </div>
@@ -1281,32 +1341,44 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
   const renderAllInOneVoucher = (v: Voucher) => {
     const details = v.details || {};
+    const customer = accounts.find(a => a.id === v.customerId);
+    
+    // White-label branding logic
+    const branding = {
+      logo: customer?.logoUrl || config?.companyLogo,
+      name: customer?.companyName || customer?.name || config?.companyName || 'ENTERPRISE',
+      contact: customer?.contactNumber || customer?.cell || config?.companyCell || '0334 3666777',
+      isCustom: !!(customer?.logoUrl || customer?.companyName || customer?.contactNumber)
+    };
+
     return (
       <div ref={voucherRef} className="bg-white p-6 text-[#0f172a] font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
         
-        {/* Header - Styled like your sample */}
+        {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
-             {config?.companyLogo ? (
-               <img src={config.companyLogo} style={{ height: `45px` }} alt="logo" className="object-contain" />
+             {branding.logo ? (
+               <img src={branding.logo} style={{ height: `45px` }} alt="logo" className="object-contain" />
              ) : (
-               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{config?.companyName || 'ENTERPRISE'}</div>
+               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1">
+          <div className="text-center flex-1 transition-all">
             <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Unified Service Voucher</h1>
-            <p className="text-[14px] font-bold text-[#e11d48] uppercase tracking-wider">
-              {config?.appSubtitle || 'TRAVELS SERVICES'}
+            <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'TRAVELS SERVICES')}
             </p>
           </div>
           <div className="w-40 text-right pr-4">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                  CELL: <span className="text-[#0f172a] font-bold">{config?.companyCell || '0334 3666777'}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
                 </p>
-                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                  PHONE: <span className="text-[#0f172a] font-bold">{config?.companyPhone || '0334 3666777'}</span>
-                </p>
+                {!branding.isCustom && config?.companyPhone && (
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
+                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                  </p>
+                )}
              </div>
           </div>
         </div>
@@ -1322,10 +1394,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         </div>
 
         {/* Guest Details bar */}
-        <div className="py-2 border-y border-slate-100 mb-3">
+        <div className="py-2 border-y border-slate-100 mb-3 grid grid-cols-2 gap-4">
            <div className="space-y-0.5">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">LEAD GUEST</p>
-              <p className="text-[14px] font-black uppercase text-[#0f172a]">{details.paxName || 'N/A'}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER / AGENCY</p>
+              <p className="text-[12px] font-black uppercase text-[#0f172a]">{customer?.name || 'PRIVATE GUEST'}</p>
+           </div>
+           <div className="space-y-0.5 text-right">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">PASSENGER NAME</p>
+              <p className="text-[12px] font-black uppercase text-[#0f172a]">{details.paxName || 'N/A'}</p>
            </div>
         </div>
 
@@ -1354,7 +1430,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                      <div className="space-y-2 text-right">
                        <div className="space-y-0.5">
                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-IN / CHECK-OUT</p>
-                         <p className="text-[11px] font-black text-[#0f172a] text-right">{formatDate(item.fromDate)} - {formatDate(item.toDate)}</p>
+                         <p className="text-[11px] font-black text-[#0f172a] text-right">
+                           {formatDateLong(item.fromDate)} - {formatDateLong(item.toDate)}
+                         </p>
                        </div>
                        <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-0.5 text-right">
@@ -1378,10 +1456,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                      <th className="py-1 px-2 text-left border-r border-slate-700">HOTEL / CITY</th>
                      <th className="py-1 px-2 text-left border-r border-slate-700">ROOM TYPE</th>
                      <th className="py-1 px-2 text-left border-r border-slate-700">MEAL</th>
-                     <th className="py-1 px-2 text-left border-r border-slate-700">RMS</th>
-                     <th className="py-1 px-2 text-left border-r border-slate-700">NTS</th>
-                     <th className="py-1 px-2 text-left border-r border-slate-700">ADULTS</th>
-                     <th className="py-1 px-2 text-left">CHILDREN</th>
+                     <th className="py-1 px-2 text-center border-r border-slate-700">RMS</th>
+                     <th className="py-1 px-2 text-center border-r border-slate-700">NTS</th>
+                     <th className="py-1 px-2 text-right">AMOUNT ({v.currency})</th>
                    </tr>
                  </thead>
                  <tbody className="text-[9px] font-bold text-slate-800">
@@ -1390,10 +1467,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                        <td className="py-1 px-2 border-r border-slate-200 uppercase">{item.hotelName} ({item.city})</td>
                        <td className="py-1 px-2 border-r border-slate-200 uppercase">{item.roomType}</td>
                        <td className="py-1 px-2 border-r border-slate-200 uppercase">{formatMeals(item.meals)}</td>
-                       <td className="py-1 px-2 border-r border-slate-200">{item.numRooms}</td>
-                       <td className="py-1 px-2 border-r border-slate-200">{item.numNights}</td>
-                       <td className="py-1 px-2 border-r border-slate-200">{item.adults || 2}</td>
-                       <td className="py-1 px-2">{item.children || 0}</td>
+                       <td className="py-1 px-2 border-r border-slate-200 text-center">{item.numRooms}</td>
+                       <td className="py-1 px-2 border-r border-slate-200 text-center">{item.numNights}</td>
+                       <td className="py-1 px-2 text-right">{(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)).toLocaleString()}</td>
                      </tr>
                    ))}
                  </tbody>
@@ -1408,9 +1484,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                <table className="w-full border-collapse">
                  <thead>
                    <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200">
-                     <th className="py-1 px-3 text-left border-r border-slate-200">SR#</th>
+                     <th className="py-1 px-3 text-left border-r border-slate-200 w-12">SR#</th>
                      <th className="py-1 px-3 text-left border-r border-slate-200">PASSENGER NAME</th>
-                     <th className="py-1 px-3 text-left">PASSPORT NO</th>
+                     <th className="py-1 px-3 text-left border-r border-slate-200">PASSPORT NO</th>
+                     <th className="py-1 px-3 text-right">AMOUNT ({v.currency})</th>
                    </tr>
                  </thead>
                  <tbody className="text-[9px] font-bold text-slate-800">
@@ -1418,7 +1495,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                      <tr key={i} className="border border-slate-200 border-t-0">
                        <td className="py-1 px-3 border-r border-slate-200">{i + 1}</td>
                        <td className="py-1 px-3 border-r border-slate-200 uppercase">{item.paxName}</td>
-                       <td className="py-1 px-3 uppercase">{item.passportNumber || 'N/A'}</td>
+                       <td className="py-1 px-3 border-r border-slate-200 uppercase">{item.passportNumber || 'N/A'}</td>
+                       <td className="py-1 px-3 text-right">{(Number(item.quantity) * Number(item.rate)).toLocaleString()}</td>
                      </tr>
                    ))}
                  </tbody>
@@ -1435,7 +1513,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                    <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200">
                      <th className="py-1 px-3 text-left border-r border-slate-200">ROUTING / SECTOR</th>
                      <th className="py-1 px-3 text-center border-r border-slate-200">VEHICLE</th>
-                     <th className="py-1 px-3 text-center">DATE</th>
+                     <th className="py-1 px-3 text-center border-r border-slate-200">DATE</th>
+                     <th className="py-1 px-3 text-right">AMOUNT ({v.currency})</th>
                    </tr>
                  </thead>
                  <tbody className="text-[9px] font-bold text-slate-800">
@@ -1451,7 +1530,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                          ) : (item.sector === 'CUSTOM' ? item.customLabel : item.sector)}
                        </td>
                        <td className="py-1 px-3 text-center border-r border-slate-200 uppercase">{item.vehicle}</td>
-                       <td className="py-1 px-3 text-center">{formatDate(item.date)}</td>
+                       <td className="py-1 px-3 text-center border-r border-slate-200">{formatDateLong(item.date)}</td>
+                       <td className="py-1 px-3 text-right">{Number(item.rate).toLocaleString()}</td>
                      </tr>
                    ))}
                  </tbody>

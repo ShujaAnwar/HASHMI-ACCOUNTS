@@ -70,7 +70,7 @@ export class AccountingService {
     return String(meals);
   }
 
-  static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string, currency: Currency = Currency.PKR) {
+  static async createAccount(name: string, type: AccountType, cell: string, location: string, openingBalance: number, isDr: boolean, code?: string, currency: Currency = Currency.PKR, companyName?: string, contactNumber?: string, logoUrl?: string) {
     const sanitizedCode = (code && code.trim() !== '') ? code.trim() : null;
     const formattedName = await this.formatAccountName(name);
 
@@ -83,7 +83,10 @@ export class AccountingService {
         location,
         code: sanitizedCode,
         currency: currency,
-        balance: 0
+        balance: 0,
+        company_name: companyName,
+        contact_number: contactNumber,
+        logo_url: logoUrl
       })
       .select()
       .single();
@@ -136,7 +139,10 @@ export class AccountingService {
         cell: updates.cell,
         location: updates.location,
         code: sanitizedCode,
-        currency: updates.currency
+        currency: updates.currency,
+        company_name: updates.companyName,
+        contact_number: updates.contactNumber,
+        logo_url: updates.logoUrl
       })
       .eq('id', id);
 

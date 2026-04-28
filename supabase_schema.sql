@@ -9,9 +9,12 @@
         END IF;
     END $$;
 
-    -- 2. Ensure the Accounts table has the currency column
+    -- 2. Ensure the Accounts table has the branding columns
     ALTER TABLE public.accounts 
-    ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR';
+    ADD COLUMN IF NOT EXISTS currency public.currency_enum NOT NULL DEFAULT 'PKR',
+    ADD COLUMN IF NOT EXISTS company_name TEXT,
+    ADD COLUMN IF NOT EXISTS contact_number TEXT,
+    ADD COLUMN IF NOT EXISTS logo_url TEXT;
 
     -- 3. Ensure App Config has all necessary columns
     ALTER TABLE public.app_config 

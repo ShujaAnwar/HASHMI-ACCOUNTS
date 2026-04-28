@@ -756,6 +756,9 @@ ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOO
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
 -- Update branding to Hashmi Travel Solutions
 UPDATE app_config SET company_name = 'Hashmi Travel Solutions', app_subtitle = 'Travel Solutions by Shuja Anwar', company_phone = '0313-2710182', company_cell = '0313-2710182', company_email = 'Shujaanwaar@gmail.com' WHERE id = '00000000-0000-0000-0000-000000000001';
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_name TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS contact_number TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url TEXT;
 NOTIFY pgrst, 'reload schema';`}
                    </pre>
                    <button 
@@ -785,6 +788,9 @@ ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFA
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
 UPDATE app_config SET company_name = 'Hashmi Travel Solutions', app_subtitle = 'Travel Solutions by Shuja Anwar', company_phone = '0313-2710182', company_cell = '0313-2710182', company_email = 'Shujaanwaar@gmail.com' WHERE id = '00000000-0000-0000-0000-000000000001';
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_name TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS contact_number TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url TEXT;
 NOTIFY pgrst, 'reload schema';`;
                          navigator.clipboard.writeText(sql);
                          triggerNotification("SQL Copied to Clipboard");

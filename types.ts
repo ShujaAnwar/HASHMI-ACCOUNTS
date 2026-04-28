@@ -36,6 +36,10 @@ export interface Account {
   currency: Currency; // Mandatory head currency
   balance: number; // Stored in PKR
   ledger: LedgerEntry[];
+  // Branding for white-label vouchers
+  companyName?: string;
+  contactNumber?: string;
+  logoUrl?: string;
 }
 
 export enum VoucherType {

@@ -56,7 +56,10 @@ import DateInput from './DateInput';
       name: '', cell: '', location: '', code: '', openingBalance: 0, 
       balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr',
       currency: Currency.PKR,
-      type: type || AccountType.CASH_BANK
+      type: type || AccountType.CASH_BANK,
+      companyName: '',
+      contactNumber: '',
+      logoUrl: ''
     });
 
     const refreshAccountList = useCallback(async () => {
@@ -119,7 +122,10 @@ import DateInput from './DateInput';
         code: acc.code || '',
         openingBalance: obEntry ? (obEntry.debit || obEntry.credit) : 0,
         balanceType: obEntry ? (obEntry.debit > 0 ? 'dr' : 'cr') : (acc.balance >= 0 ? 'dr' : 'cr'),
-        currency: acc.currency || Currency.PKR
+        currency: acc.currency || Currency.PKR,
+        companyName: acc.companyName || '',
+        contactNumber: acc.contactNumber || '',
+        logoUrl: acc.logoUrl || ''
       });
       setShowAddModal(true);
     };
@@ -134,7 +140,10 @@ import DateInput from './DateInput';
         code: generateNextCode(type),
         openingBalance: 0,
         balanceType: type === AccountType.CUSTOMER ? 'dr' : 'cr',
-        currency: acc.currency || Currency.PKR
+        currency: acc.currency || Currency.PKR,
+        companyName: acc.companyName || '',
+        contactNumber: acc.contactNumber || '',
+        logoUrl: acc.logoUrl || ''
       });
       setShowAddModal(true);
     };
@@ -398,7 +407,10 @@ import DateInput from './DateInput';
             formData.openingBalance, 
             formData.balanceType === 'dr', 
             formData.code, 
-            formData.currency
+            formData.currency,
+            formData.companyName,
+            formData.contactNumber,
+            formData.logoUrl
           );
         }
         setShowAddModal(false);
@@ -1010,6 +1022,61 @@ import DateInput from './DateInput';
                     <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none uppercase" placeholder="CITY" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
                   </div>
                 </div>
+
+                {(type === AccountType.CUSTOMER || type === AccountType.VENDOR || formData.type === AccountType.CUSTOMER || formData.type === AccountType.VENDOR) && (
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl space-y-3 border border-slate-100 dark:border-slate-800">
+                    <label className="text-[8px] font-black text-amber-600 uppercase tracking-widest block px-1">Branding for Vouchers</label>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[7px] font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Co. Name (on PDF)</label>
+                        <input className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none uppercase" placeholder="ABC TRAVELS" value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-[7px] font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Co. Contact (on PDF)</label>
+                        <input className="w-full bg-white dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none" placeholder="0300-1234567" value={formData.contactNumber} onChange={e => setFormData({...formData, contactNumber: e.target.value})} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[7px] font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Custom Logo (Base64/URL)</label>
+                      <div className="flex items-center space-x-3">
+                        <input 
+                          className="flex-1 bg-white dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none" 
+                          placeholder="Logo URL or paste base64" 
+                          value={formData.logoUrl} 
+                          onChange={e => setFormData({...formData, logoUrl: e.target.value})} 
+                        />
+                        <div className="relative group">
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => setFormData({...formData, logoUrl: reader.result as string});
+                                reader.readAsDataURL(file);
+                              }
+                            }} 
+                          />
+                          <button type="button" className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg text-xs">📁</button>
+                        </div>
+                      </div>
+                      {formData.logoUrl && (
+                        <div className="mt-2 flex justify-center p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+                          <img src={formData.logoUrl} alt="logo preview" className="max-h-12 object-contain" />
+                          <button 
+                            type="button" 
+                            onClick={() => setFormData({...formData, logoUrl: ''})}
+                            className="ml-2 text-rose-500 text-xs hover:scale-110 transition-transform"
+                          >✕</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl space-y-2">
                   <label className="text-[8px] font-black text-blue-600 uppercase tracking-widest block px-1">Opening Balance (PKR)</label>
