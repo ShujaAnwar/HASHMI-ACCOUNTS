@@ -5,6 +5,8 @@ import DateInput from './DateInput';
 import HajiSelector from './HajiSelector';
 import { AccountingService } from '../services/AccountingService';
 
+import { HajiService } from '../services/HajiService';
+
 interface TransportVoucherFormProps {
   initialData?: Partial<Voucher>;
   onSave: (data: any) => void;
@@ -71,6 +73,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
     description: initialData?.description || '',
     reference: isClone ? '' : (initialData?.reference || ''),
     paxName: initialData?.details?.paxName || '',
+    passportNumber: initialData?.details?.passportNumber || '',
     serviceFee: initialData?.details?.serviceFee || 0,
     items: initialData?.details?.items || [{ sector: '', vehicle: 'Car', rate: 0, customLabel: '', date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0], isMultiSector: false, subSectors: [] }]
   });
@@ -223,10 +226,24 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (totalPKR <= 0) return alert("Total amount must be greater than 0");
     if (!formData.customerId || !formData.vendorId) return alert("Select both Customer and Vendor");
+
+    // Auto-save Haji to Master Database
+    let hajiId = '';
+    if (formData.paxName) {
+      try {
+        const haji = await HajiService.ensureHaji({ 
+          fullName: formData.paxName,
+          passportNumber: formData.passportNumber 
+        });
+        hajiId = haji?.hajiId || '';
+      } catch (err) {
+        console.error("Error ensuring Haji:", err);
+      }
+    }
 
     onSave({
       ...formData,
@@ -236,6 +253,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
       status: VoucherStatus.POSTED,
       details: {
         paxName: formData.paxName,
+        hajiId,
         items: formData.items,
         vendorAmountPKR: vendorAmountPKR,
         incomeAmountPKR: incomeAmountPKR,
@@ -296,9 +314,18 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
               <HajiSelector 
                 value={formData.paxName}
                 onSelect={(haji) => {
-                  setFormData({...formData, paxName: haji.fullName || ''});
+                  setFormData({...formData, paxName: haji.fullName || '', passportNumber: haji.passportNumber || formData.passportNumber });
                 }}
                 placeholder="Guest Name"
+              />
+            </div>
+            <div>
+              <InputLabel>Passport #</InputLabel>
+              <input 
+                className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-black uppercase outline-none ring-1 ring-slate-100" 
+                placeholder="Passport" 
+                value={formData.passportNumber} 
+                onChange={e => setFormData({...formData, passportNumber: e.target.value.toUpperCase()})} 
               />
             </div>
           </div>

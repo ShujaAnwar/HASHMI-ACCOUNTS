@@ -5,6 +5,8 @@ import DateInput from './DateInput';
 import HajiSelector from './HajiSelector';
 import { AccountingService } from '../services/AccountingService';
 
+import { HajiService } from '../services/HajiService';
+
 interface VisaVoucherFormProps {
   initialData?: Partial<Voucher>;
   onSave: (data: any) => void;
@@ -81,13 +83,30 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
     setFormData({ ...formData, items: newItems });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (totalPKR <= 0) return alert("Total amount must be greater than 0");
     if (!formData.customerId || !formData.vendorId) return alert("Select both Customer and Vendor");
     
     const missingPassport = formData.items.some((item: any) => !item.passportNumber);
     if (missingPassport) return alert("Passport Number is required for all entries");
+
+    // Auto-save Hajjis to Master Database
+    const updatedItems = await Promise.all(formData.items.map(async (item: any) => {
+      try {
+        const haji = await HajiService.ensureHaji({
+          fullName: item.paxName,
+          passportNumber: item.passportNumber
+        });
+        return {
+          ...item,
+          hajiId: haji?.hajiId || ''
+        };
+      } catch (err) {
+        console.error("Error ensuring Haji:", err);
+        return item;
+      }
+    }));
 
     onSave({
       ...formData,
@@ -96,7 +115,7 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
       totalAmountPKR: totalPKR,
       status: VoucherStatus.POSTED,
       details: {
-        items: formData.items,
+        items: updatedItems,
         totalSelectedCurrency,
         inputCurrency: formData.currency
       }

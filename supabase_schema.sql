@@ -21,7 +21,7 @@
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         haji_id TEXT UNIQUE NOT NULL,
         full_name TEXT NOT NULL,
-        passport_number TEXT UNIQUE NOT NULL,
+        passport_number TEXT UNIQUE, -- Removed NOT NULL to allow multiple NULLs for manual entries
         contact_number TEXT,
         nationality TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
@@ -164,5 +164,36 @@
         company_email = 'Shujaanwaar@gmail.com'
     WHERE id = '00000000-0000-0000-0000-000000000001';
 
-    -- 10. CRITICAL: FORCE SCHEMA CACHE RELOAD
+    -- 10. Ensure Extensions
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+    -- 11. Haji Action Resolutions Table
+    CREATE TABLE IF NOT EXISTS public.haji_action_resolutions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        haji_id TEXT NOT NULL, -- haji_id from haji_master OR Pax Name
+        action_key TEXT NOT NULL,
+        voucher_id UUID,
+        resolved_at TIMESTAMPTZ DEFAULT NOW(),
+        resolved_by TEXT,
+        UNIQUE(haji_id, action_key, voucher_id)
+    );
+
+    -- Indexes for faster lookups
+    CREATE INDEX IF NOT EXISTS idx_haji_resolutions_haji_id ON public.haji_action_resolutions(haji_id);
+    CREATE INDEX IF NOT EXISTS idx_haji_resolutions_action_key ON public.haji_action_resolutions(action_key);
+
+    ALTER TABLE public.haji_action_resolutions DISABLE ROW LEVEL SECURITY;
+    GRANT ALL ON public.haji_action_resolutions TO anon, authenticated, service_role;
+
+    -- Add explicit policy just in case RLS gets enabled or for better compatibility
+    DO $$ 
+    BEGIN
+        CREATE POLICY "Allow all access to haji_action_resolutions" ON public.haji_action_resolutions
+            FOR ALL USING (true) WITH CHECK (true);
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END $$;
+
+    -- 12. CRITICAL: FORCE SCHEMA CACHE RELOAD
+    -- TIMESTAMP: 2026-04-28 09:12:00
     NOTIFY pgrst, 'reload schema';

@@ -2,7 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
+import HajiSelector from './HajiSelector';
 import { AccountingService } from '../services/AccountingService';
+import { HajiService } from '../services/HajiService';
 
 interface TicketVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -49,6 +51,7 @@ const TicketVoucherForm: React.FC<TicketVoucherFormProps> = ({ initialData, onSa
     description: initialData?.description || '',
     reference: isClone ? '' : (initialData?.reference || ''), // PNR / E-Ticket
     paxName: initialData?.details?.paxName || '',
+    passportNumber: initialData?.details?.passportNumber || '',
     airline: initialData?.details?.airline || '',
     sector: initialData?.details?.sector || '',
     amount: initialData?.details?.unitRate || 0
@@ -65,10 +68,24 @@ const TicketVoucherForm: React.FC<TicketVoucherFormProps> = ({ initialData, onSa
     return (formData.amount || 0) * rate;
   }, [formData.amount, formData.roe, formData.currency]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (totalPKR <= 0) return alert("Ticket amount required");
     if (!formData.customerId || !formData.vendorId) return alert("Select Customer and Vendor");
+
+    // Auto-save Haji to Master Database
+    let hajiId = '';
+    if (formData.paxName) {
+      try {
+        const haji = await HajiService.ensureHaji({ 
+          fullName: formData.paxName,
+          passportNumber: formData.passportNumber
+        });
+        hajiId = haji?.hajiId || '';
+      } catch (err) {
+        console.error("Error ensuring Haji:", err);
+      }
+    }
 
     onSave({
       ...formData,
@@ -78,6 +95,7 @@ const TicketVoucherForm: React.FC<TicketVoucherFormProps> = ({ initialData, onSa
       status: VoucherStatus.POSTED,
       details: {
         ...formData,
+        hajiId,
         unitRate: formData.amount
       }
     });
@@ -132,9 +150,26 @@ const TicketVoucherForm: React.FC<TicketVoucherFormProps> = ({ initialData, onSa
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
-               <div>
-                  <InputLabel>Passenger Name</InputLabel>
-                  <input required className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-4 font-bold" placeholder="Guest Name" value={formData.paxName} onChange={e => setFormData({...formData, paxName: e.target.value})} />
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div>
+                    <InputLabel>Passenger Name</InputLabel>
+                    <HajiSelector 
+                      value={formData.paxName}
+                      onSelect={(haji) => {
+                        setFormData({...formData, paxName: haji.fullName || '', passportNumber: haji.passportNumber || formData.passportNumber });
+                      }}
+                      placeholder="Search or enter name..."
+                    />
+                 </div>
+                 <div>
+                    <InputLabel>Passport Number</InputLabel>
+                    <input 
+                      className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-4 font-bold uppercase font-orbitron" 
+                      placeholder="Passport" 
+                      value={formData.passportNumber} 
+                      onChange={e => setFormData({...formData, passportNumber: e.target.value.toUpperCase()})} 
+                    />
+                 </div>
                </div>
                <div className="grid grid-cols-2 gap-4">
                  <div>

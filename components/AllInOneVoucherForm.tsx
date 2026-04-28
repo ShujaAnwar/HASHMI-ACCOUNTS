@@ -6,6 +6,8 @@ import DateInput from './DateInput';
 import HajiSelector from './HajiSelector';
 import { AccountingService } from '../services/AccountingService';
 
+import { HajiService } from '../services/HajiService';
+
 interface AllInOneVoucherFormProps {
   initialData?: Partial<Voucher>;
   onSave: (data: any) => void;
@@ -301,10 +303,41 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
     };
   }, [formData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customerId) return alert("Please select a Customer.");
     
+    // Auto-save Main Pax to Master Database
+    let hajiId = '';
+    if (formData.paxName) {
+      try {
+        const haji = await HajiService.ensureHaji({ 
+          fullName: formData.paxName,
+          passportNumber: formData.passportNumber
+        });
+        hajiId = haji?.hajiId || '';
+      } catch (err) {
+        console.error("Error ensuring main Haji:", err);
+      }
+    }
+
+    // Auto-save Visa Items to Master Database
+    const updatedVisaItems = await Promise.all(formData.visaItems.map(async (item: any) => {
+      try {
+        const haji = await HajiService.ensureHaji({
+          fullName: item.paxName,
+          passportNumber: item.passportNumber
+        });
+        return {
+          ...item,
+          hajiId: haji?.hajiId || ''
+        };
+      } catch (err) {
+        console.error("Error ensuring visa item Haji:", err);
+        return item;
+      }
+    }));
+
     onSave({
       ...formData,
       type: VoucherType.ALL_IN_ONE,
@@ -312,6 +345,8 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
       status: VoucherStatus.POSTED,
       details: {
         ...formData,
+        hajiId,
+        visaItems: updatedVisaItems,
         ...totals
       }
     });

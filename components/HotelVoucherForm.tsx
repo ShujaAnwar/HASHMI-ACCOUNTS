@@ -5,6 +5,8 @@ import DateInput from './DateInput';
 import HajiSelector from './HajiSelector';
 import { AccountingService } from '../services/AccountingService';
 
+import { HajiService } from '../services/HajiService';
+
 interface HotelVoucherFormProps {
   initialData?: Partial<Voucher>;
   onSave: (data: any) => void;
@@ -121,6 +123,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     description: initialData?.description || '',
     reference: isClone ? '' : (initialData?.reference || ''),
     paxName: initialData?.details?.paxName || '',
+    passportNumber: initialData?.details?.passportNumber || '',
     items: initialData?.details?.items || [{
       hotelName: initialData?.details?.hotelName || '',
       city: initialData?.details?.city || 'Makkah',
@@ -236,10 +239,24 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customerId || !formData.vendorId) return alert("Please select both a Customer and a Vendor to post this voucher.");
     
+    // Auto-save Lead Haji to Master Database
+    let hajiId = '';
+    if (formData.paxName) {
+      try {
+        const haji = await HajiService.ensureHaji({ 
+          fullName: formData.paxName,
+          passportNumber: formData.passportNumber
+        });
+        hajiId = haji?.hajiId || '';
+      } catch (err) {
+        console.error("Error ensuring Haji:", err);
+      }
+    }
+
     onSave({
       ...formData,
       type: VoucherType.HOTEL,
@@ -247,6 +264,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
       status: VoucherStatus.POSTED,
       details: {
         ...formData,
+        hajiId,
         totalSelectedCurrency
       }
     });
@@ -290,9 +308,18 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
               <HajiSelector 
                 value={formData.paxName}
                 onSelect={(haji) => {
-                  setFormData({...formData, paxName: haji.fullName || ''});
+                  setFormData({...formData, paxName: haji.fullName || '', passportNumber: haji.passportNumber || formData.passportNumber });
                 }}
                 placeholder="Search or enter name..."
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">PASSPORT #</label>
+              <input 
+                className="w-full bg-[#f0f4f9] dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-black uppercase outline-none ring-1 ring-slate-100" 
+                placeholder="Passport" 
+                value={formData.passportNumber} 
+                onChange={e => setFormData({...formData, passportNumber: e.target.value.toUpperCase()})} 
               />
             </div>
           </div>

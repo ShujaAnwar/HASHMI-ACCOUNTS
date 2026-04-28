@@ -25,9 +25,13 @@ const HajiSelector: React.FC<HajiSelectorProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const lastQueryRef = useRef(value);
 
   useEffect(() => {
-    setQuery(value);
+    if (value !== lastQueryRef.current) {
+      setQuery(value);
+      lastQueryRef.current = value;
+    }
   }, [value]);
 
   useEffect(() => {
@@ -42,11 +46,14 @@ const HajiSelector: React.FC<HajiSelectorProps> = ({
 
   const handleSearch = async (q: string) => {
     setQuery(q);
+    lastQueryRef.current = q;
+    
+    // Always notify parent of the current text for manual entry
+    onSelect({ fullName: q });
+
     if (q.length < 2) {
       setResults([]);
       setShowDropdown(false);
-      // Still notify parent of manual change if parent doesn't use the dropdown
-      onSelect({ fullName: q });
       return;
     }
 
@@ -64,6 +71,7 @@ const HajiSelector: React.FC<HajiSelectorProps> = ({
 
   const handleSelect = (haji: HajiMaster) => {
     setQuery(haji.fullName);
+    lastQueryRef.current = haji.fullName;
     onSelect(haji);
     setShowDropdown(false);
   };
