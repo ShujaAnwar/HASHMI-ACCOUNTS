@@ -89,6 +89,23 @@ const HajiTracking: React.FC = () => {
   const [selectedHajiHistory, setSelectedHajiHistory] = useState<Voucher[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
+  const resolvedActionsHistory = useMemo(() => {
+    return resolutions.map(res => {
+      const hajiMaster = hajiMasterList.find(h => h.hajiId === res.hajiId || h.fullName === res.hajiId);
+      
+      // Prettify action name: transport_pickup -> Transport Pickup
+      const rawAction = res.actionKey.split('_').filter(s => isNaN(Number(s)) && s !== 'today' && s.length > 2).join(' ');
+      const actionName = rawAction.charAt(0).toUpperCase() + rawAction.slice(1);
+      
+      return {
+        ...res,
+        hajiName: hajiMaster?.fullName || res.hajiId,
+        actionName: actionName || 'General Action',
+        haji: hajiMaster
+      };
+    }).sort((a, b) => new Date(b.resolvedAt).getTime() - new Date(a.resolvedAt).getTime());
+  }, [resolutions, hajiMasterList]);
+
   useEffect(() => {
     const fetchData = async () => {
       const [v, a, hm, res] = await Promise.all([
@@ -235,15 +252,23 @@ const HajiTracking: React.FC = () => {
     }
   };
 
-  const handleReopenAction = async (haji: any) => {
+  const handleReopenAction = async (haji: any, existingResolution?: ActionResolution) => {
     if (!haji.hajiId && !haji.paxName) return;
 
     if (!confirm('Are you sure you want to reopen this action?')) return;
 
-    const actionKey = haji.actionRequired.toLowerCase().replace(/\s+/g, '_');
-    const movementId = haji.nextMovement?.id || haji.todayActions[0]?.id;
-    const voucherId = haji.nextMovement?.rawVoucher?.id || haji.todayActions[0]?.rawVoucher?.id;
-    const fullActionKey = `${actionKey}_${movementId || 'today'}`;
+    let fullActionKey: string;
+    let voucherId: string | undefined;
+
+    if (existingResolution) {
+      fullActionKey = existingResolution.actionKey;
+      voucherId = existingResolution.voucherId;
+    } else {
+      const actionKey = haji.actionRequired.toLowerCase().replace(/\s+/g, '_');
+      const movementId = haji.nextMovement?.id || haji.todayActions[0]?.id;
+      voucherId = haji.nextMovement?.rawVoucher?.id || haji.todayActions[0]?.rawVoucher?.id;
+      fullActionKey = `${actionKey}_${movementId || 'today'}`;
+    }
 
     try {
       await HajiActionService.reopenAction(haji.hajiId || haji.paxName, fullActionKey, voucherId);
@@ -891,176 +916,257 @@ const HajiTracking: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main List */}
         <div className="lg:col-span-2 space-y-4">
-          {filteredHajis.map((haji, idx) => (
-            <motion.div
-              layout
-              key={haji.hajiId || haji.paxName}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              onClick={() => setSelectedHaji(haji)}
-              className={`p-6 rounded-[2rem] border cursor-pointer transition-all hover:shadow-xl group relative overflow-hidden ${
-                haji.alertLevel === 'RED' ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-200 dark:border-rose-900/40' :
-                haji.alertLevel === 'YELLOW' ? 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/40' :
-                'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
-              } ${(selectedHaji?.hajiId || selectedHaji?.paxName) === (haji.hajiId || haji.paxName) ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
-            >
-              {haji.isImportant && !haji.isCompleted && (
-                <div className="absolute top-0 right-0 w-24 h-24 overflow-hidden pointer-events-none">
-                  <div className="bg-rose-600 text-white text-[8px] font-black uppercase tracking-widest py-1.5 w-[150%] text-center rotate-45 translate-x-[20%] translate-y-[20%] shadow-lg">
-                    Urgent
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex items-center space-x-5">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0 ${
-                    haji.isCompleted ? 'bg-slate-100 text-slate-400' :
-                    haji.alertLevel === 'RED' ? 'bg-rose-100/80 text-rose-600' :
-                    haji.alertLevel === 'YELLOW' ? 'bg-amber-100/80 text-amber-600' :
-                    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                  }`}>
-                    {haji.isCompleted ? '🏁' : '👤'}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-2 group-hover:text-blue-600 transition-colors truncate">
-                      {haji.paxName}
-                      {haji.hajiId && <span className="ml-2 text-[10px] font-orbitron text-blue-500 opacity-60">[{haji.hajiId}]</span>}
-                    </h3>
-                    <div className="flex items-center space-x-2 mb-1">
-                       <span className={`w-2 h-2 rounded-full ${
-                         haji.isCompleted ? 'bg-slate-300' :
-                         haji.isResolved ? 'bg-emerald-500' :
-                         haji.alertLevel === 'RED' ? 'bg-rose-500 animate-pulse ring-2 ring-rose-500/50' :
-                         haji.alertLevel === 'YELLOW' ? 'bg-amber-500' :
-                         'bg-emerald-500'
-                       }`}></span>
-                       <p className={`text-[11px] font-black uppercase tracking-widest ${
-                         haji.isCompleted ? 'text-slate-400' :
-                         haji.alertLevel === 'RED' ? 'text-rose-600 dark:text-rose-400' : 
-                         haji.alertLevel === 'YELLOW' ? 'text-amber-600 dark:text-amber-400' : 
-                         'text-slate-500 dark:text-slate-400'
-                       }`}>
-                         {haji.currentStatusText}
-                       </p>
-                    </div>
-                    {!haji.isCompleted && (
-                      <div className="flex items-center space-x-2">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Location:</span>
-                        <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase truncate">
-                          {haji.currentLocation}
-                        </p>
+          {trackingTab === 'PENDING' ? (
+            <>
+              {filteredHajis.map((haji, idx) => (
+                <motion.div
+                  layout
+                  key={haji.hajiId || haji.paxName}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  onClick={() => setSelectedHaji(haji)}
+                  className={`p-6 rounded-[2rem] border cursor-pointer transition-all hover:shadow-xl group relative overflow-hidden ${
+                    haji.alertLevel === 'RED' ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-200 dark:border-rose-900/40' :
+                    haji.alertLevel === 'YELLOW' ? 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/40' :
+                    'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                  } ${(selectedHaji?.hajiId || selectedHaji?.paxName) === (haji.hajiId || haji.paxName) ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
+                >
+                  {haji.isImportant && !haji.isCompleted && (
+                    <div className="absolute top-0 right-0 w-24 h-24 overflow-hidden pointer-events-none">
+                      <div className="bg-rose-600 text-white text-[8px] font-black uppercase tracking-widest py-1.5 w-[150%] text-center rotate-45 translate-x-[20%] translate-y-[20%] shadow-lg">
+                        Urgent
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  )}
 
-                <div className="grid grid-cols-2 gap-4 md:gap-12 md:flex md:items-center md:justify-end flex-1">
-                  <div className="text-left md:text-right">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Action Status</p>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase inline-block ${
-                        haji.isCompleted ? 'bg-slate-400 text-white' :
-                        haji.isResolved ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                        haji.alertLevel === 'RED' ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20' :
-                        haji.alertLevel === 'YELLOW' ? 'bg-amber-500 text-white' :
-                        'bg-emerald-500 text-white'
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center space-x-5">
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0 ${
+                        haji.isCompleted ? 'bg-slate-100 text-slate-400' :
+                        haji.alertLevel === 'RED' ? 'bg-rose-100/80 text-rose-600' :
+                        haji.alertLevel === 'YELLOW' ? 'bg-amber-100/80 text-amber-600' :
+                        'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                       }`}>
-                        {haji.isCompleted ? 'Finished' : haji.isResolved ? 'Resolved' : haji.alertLevel === 'RED' ? 'Immediate Action' : haji.alertLevel === 'YELLOW' ? 'Prepare Next' : 'Plan Ahead'}
-                      </span>
-                      {!haji.isResolved && !haji.isCompleted && (
+                        {haji.isCompleted ? '🏁' : '👤'}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-2 group-hover:text-blue-600 transition-colors truncate">
+                          {haji.paxName}
+                          {haji.hajiId && <span className="ml-2 text-[10px] font-orbitron text-blue-500 opacity-60">[{haji.hajiId}]</span>}
+                        </h3>
+                        <div className="flex items-center space-x-2 mb-1">
+                           <span className={`w-2 h-2 rounded-full ${
+                             haji.isCompleted ? 'bg-slate-300' :
+                             haji.isResolved ? 'bg-emerald-500' :
+                             haji.alertLevel === 'RED' ? 'bg-rose-500 animate-pulse ring-2 ring-rose-500/50' :
+                             haji.alertLevel === 'YELLOW' ? 'bg-amber-500' :
+                             'bg-emerald-500'
+                           }`}></span>
+                           <p className={`text-[11px] font-black uppercase tracking-widest ${
+                             haji.isCompleted ? 'text-slate-400' :
+                             haji.alertLevel === 'RED' ? 'text-rose-600 dark:text-rose-400' : 
+                             haji.alertLevel === 'YELLOW' ? 'text-amber-600 dark:text-amber-400' : 
+                             'text-slate-500 dark:text-slate-400'
+                           }`}>
+                             {haji.currentStatusText}
+                           </p>
+                        </div>
+                        {!haji.isCompleted && (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Location:</span>
+                            <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase truncate">
+                              {haji.currentLocation}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 md:gap-12 md:flex md:items-center md:justify-end flex-1">
+                      <div className="text-left md:text-right">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Action Status</p>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase inline-block ${
+                            haji.isCompleted ? 'bg-slate-400 text-white' :
+                            haji.isResolved ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            haji.alertLevel === 'RED' ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20' :
+                            haji.alertLevel === 'YELLOW' ? 'bg-amber-500 text-white' :
+                            'bg-emerald-500 text-white'
+                          }`}>
+                            {haji.isCompleted ? 'Finished' : haji.isResolved ? 'Resolved' : haji.alertLevel === 'RED' ? 'Immediate Action' : haji.alertLevel === 'YELLOW' ? 'Prepare Next' : 'Plan Ahead'}
+                          </span>
+                          {!haji.isResolved && !haji.isCompleted && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResolveAction(haji);
+                              }}
+                              className="p-1 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[8px] font-black uppercase text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors shadow-sm"
+                            >
+                              Resolve
+                            </button>
+                          )}
+                          {haji.isResolved && !haji.isCompleted && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReopenAction(haji);
+                              }}
+                              className="p-1 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[8px] font-black uppercase text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors shadow-sm"
+                            >
+                              Reopen
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-left md:text-right">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Next Movement</p>
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase truncate">
+                          {haji.nextMovementText}
+                        </p>
+                        {haji.nextMovementDate && (
+                           <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
+                             {haji.nextMovementDate}
+                           </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {haji.actionRequired !== 'No immediate action' && !haji.isCompleted && (
+                    <div className={`mt-6 p-4 rounded-2xl border flex items-center justify-between ${
+                      haji.isResolved 
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30'
+                        : haji.alertLevel === 'RED' 
+                          ? 'bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/20' 
+                          : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
+                    }`}>
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-lg ${
+                          haji.isResolved ? 'bg-emerald-100 dark:bg-emerald-900/40' :
+                          haji.alertLevel === 'RED' ? 'bg-white/20' : 'bg-amber-100 dark:bg-amber-900/40'
+                        }`}>
+                          {haji.isResolved ? '✅' : '⚠️'}
+                        </div>
+                        <div>
+                          <p className={`text-[8px] font-black uppercase tracking-widest leading-none mb-1 ${
+                            haji.isResolved ? 'text-emerald-600' :
+                            haji.alertLevel === 'RED' ? 'text-white/70' : 'text-slate-500'
+                          }`}>
+                            {haji.isResolved ? `Resolved on ${formatDate(new Date((haji as any).resolution.resolvedAt))}` : 'Required Action'}
+                          </p>
+                          <p className="text-[11px] font-black uppercase tracking-tight">
+                            {haji.actionRequired}
+                          </p>
+                        </div>
+                      </div>
+                      {haji.isResolved ? (
+                         <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReopenAction(haji);
+                          }}
+                          className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all"
+                        >
+                          Resend / Reopen
+                        </button>
+                      ) : (
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             handleResolveAction(haji);
                           }}
-                          className="p-1 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[8px] font-black uppercase text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors shadow-sm"
+                          className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                            haji.alertLevel === 'RED' ? 'bg-white text-rose-600 hover:bg-rose-50' : 'bg-amber-600 text-white hover:bg-amber-700'
+                          }`}
                         >
                           Resolve
                         </button>
                       )}
-                      {haji.isResolved && !haji.isCompleted && (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleReopenAction(haji);
-                          }}
-                          className="p-1 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[8px] font-black uppercase text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors shadow-sm"
-                        >
-                          Reopen
-                        </button>
-                      )}
                     </div>
-                  </div>
-                  <div className="text-left md:text-right">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Next Movement</p>
-                    <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase truncate">
-                      {haji.nextMovementText}
-                    </p>
-                    {haji.nextMovementDate && (
-                       <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
-                         {haji.nextMovementDate}
-                       </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {haji.actionRequired !== 'No immediate action' && !haji.isCompleted && (
-                <div className={`mt-6 p-4 rounded-2xl border flex items-center justify-between ${
-                  haji.isResolved 
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30'
-                    : haji.alertLevel === 'RED' 
-                      ? 'bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/20' 
-                      : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
-                }`}>
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-lg ${
-                      haji.isResolved ? 'bg-emerald-100 dark:bg-emerald-900/40' :
-                      haji.alertLevel === 'RED' ? 'bg-white/20' : 'bg-amber-100 dark:bg-amber-900/40'
-                    }`}>
-                      {haji.isResolved ? '✅' : '⚠️'}
-                    </div>
-                    <div>
-                      <p className={`text-[8px] font-black uppercase tracking-widest leading-none mb-1 ${
-                        haji.isResolved ? 'text-emerald-600' :
-                        haji.alertLevel === 'RED' ? 'text-white/70' : 'text-slate-500'
-                      }`}>
-                        {haji.isResolved ? `Resolved on ${formatDate(new Date((haji as any).resolution.resolvedAt))}` : 'Required Action'}
-                      </p>
-                      <p className="text-[11px] font-black uppercase tracking-tight">
-                        {haji.actionRequired}
-                      </p>
-                    </div>
-                  </div>
-                  {haji.isResolved ? (
-                     <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReopenAction(haji);
-                      }}
-                      className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all"
-                    >
-                      Resend / Reopen
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleResolveAction(haji);
-                      }}
-                      className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                        haji.alertLevel === 'RED' ? 'bg-white text-rose-600 hover:bg-rose-50' : 'bg-amber-600 text-white hover:bg-amber-700'
-                      }`}
-                    >
-                      Resolve
-                    </button>
                   )}
+                </motion.div>
+              ))}
+              {filteredHajis.length === 0 && (
+                <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm border-dashed">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No pending actions found matches</p>
                 </div>
               )}
-            </motion.div>
-          ))}
+            </>
+          ) : (
+            /* RESOLVED ISSUES LOG VIEW */
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden">
+               <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
+                  <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Historical Resolutions Log</h2>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Audit trail of all resolved actions</p>
+               </div>
+               <div className="overflow-x-auto no-scrollbar">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/50 dark:bg-slate-800/10 border-b border-slate-100 dark:border-slate-800">
+                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest pl-8">Haji Name</th>
+                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Resolved Action</th>
+                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Resolution Time</th>
+                        <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right pr-8">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800/30">
+                      {resolvedActionsHistory
+                        .filter(res => res.hajiName.toLowerCase().includes(searchQuery.toLowerCase()) || res.actionName.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map((res, i) => (
+                        <motion.tr 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: i * 0.02 }}
+                          key={`${res.hajiId}-${res.actionKey}`} 
+                          className="hover:bg-emerald-50/30 dark:hover:bg-emerald-900/5 transition-colors group"
+                        >
+                          <td className="p-5 pl-8">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center font-black group-hover:bg-emerald-500 group-hover:text-white transition-all text-xs">
+                                {res.hajiName.charAt(0)}
+                              </div>
+                              <div>
+                                <div className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{res.hajiName}</div>
+                                <div className="text-[9px] font-bold text-slate-400 uppercase">{res.hajiId}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-5">
+                            <div className="flex items-center space-x-2">
+                               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{res.actionName}</span>
+                            </div>
+                          </td>
+                          <td className="p-5">
+                            <div className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">
+                              {formatDate(new Date(res.resolvedAt))}
+                              <span className="block text-[8px] opacity-60 mt-0.5">{new Date(res.resolvedAt).toLocaleTimeString()}</span>
+                            </div>
+                          </td>
+                          <td className="p-5 text-right pr-8">
+                             <button 
+                               onClick={() => handleReopenAction({ hajiId: res.hajiId, paxName: res.hajiName }, res)}
+                               className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-[8px] font-black uppercase tracking-widest hover:shadow-lg hover:shadow-amber-500/20 active:scale-90 transition-all"
+                             >
+                               Reopen Task
+                             </button>
+                          </td>
+                        </motion.tr>
+                      ))}
+                      {resolvedActionsHistory.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-12 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                            No resolutions logged yet
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+               </div>
+            </div>
+          )}
         </div>
 
         {/* Details / Timeline */}
