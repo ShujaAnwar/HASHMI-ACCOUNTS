@@ -22,6 +22,7 @@ interface HajiMovement {
 }
 
 interface HajiStatus {
+  id: string;
   paxName: string;
   hajiId?: string;
   passportNumber?: string;
@@ -669,6 +670,7 @@ const HajiTracking: React.FC = () => {
     );
 
     return {
+      id: key,
       paxName,
       hajiId,
       passportNumber,
@@ -921,7 +923,7 @@ const HajiTracking: React.FC = () => {
               {filteredHajis.map((haji, idx) => (
                 <motion.div
                   layout
-                  key={haji.hajiId || haji.paxName}
+                  key={haji.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
@@ -1119,7 +1121,7 @@ const HajiTracking: React.FC = () => {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: i * 0.02 }}
-                          key={`${res.hajiId}-${res.actionKey}`} 
+                          key={res.id || `${res.hajiId}-${res.actionKey}-${i}`} 
                           className="hover:bg-emerald-50/30 dark:hover:bg-emerald-900/5 transition-colors group"
                         >
                           <td className="p-5 pl-8">
@@ -1174,7 +1176,7 @@ const HajiTracking: React.FC = () => {
           <AnimatePresence mode="wait">
             {selectedHaji ? (
               <motion.div
-                key={selectedHaji.hajiId || selectedHaji.paxName}
+                key={`details-${selectedHaji.id}`}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
