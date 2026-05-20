@@ -176,7 +176,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} config={config} onLogout={handleLogout}>
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} config={config} onLogout={handleLogout} refreshKey={refreshKey}>
       <AutoBackupManager config={config} />
       <AutoRefreshManager config={config} onRefresh={handleGlobalRefresh} />
       <div className="animate-in fade-in duration-500">

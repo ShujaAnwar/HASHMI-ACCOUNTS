@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppConfig } from '../types';
 import { supabase } from '../services/supabase';
+import { getVouchers } from '../services/db';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -8,6 +9,7 @@ interface LayoutProps {
   setActiveTab: (tab: string) => void;
   config: AppConfig;
   onLogout?: () => void;
+  refreshKey?: number;
 }
 
 const AdminAuthModal: React.FC<{ 
@@ -77,7 +79,7 @@ const AdminAuthModal: React.FC<{
   );
 };
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, config, onLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, config, onLogout, refreshKey }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
@@ -89,6 +91,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   const [isLongPressing, setIsLongPressing] = useState(false);
   const [secretClickCount, setSecretClickCount] = useState(0);
   const [voucherCount, setVoucherCount] = useState<number | null>(null);
+  const [hajiCount, setHajiCount] = useState<number | null>(null);
+  const [coaCount, setCoaCount] = useState<number | null>(null);
+  const [ledgerCount, setLedgerCount] = useState<number | null>(null);
+  const [customerCount, setCustomerCount] = useState<number | null>(null);
+  const [vendorCount, setVendorCount] = useState<number | null>(null);
   const longPressTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -103,25 +110,36 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   }, [isDarkMode]);
 
   useEffect(() => {
-    const fetchCount = async () => {
+    const fetchCounts = async () => {
       try {
-        const { data } = await supabase.from('vouchers').select('id', { count: 'exact', head: true });
-        setVoucherCount(data?.length || 0);
+        const [vCountRes, hCountRes, accsRes] = await Promise.all([
+          supabase.from('vouchers').select('*', { count: 'exact', head: true }),
+          supabase.from('haji_master').select('*', { count: 'exact', head: true }),
+          supabase.from('accounts').select('id, type')
+        ]);
+
+        setVoucherCount(vCountRes.count || 0);
+        setHajiCount(hCountRes.count || 0);
+
+        const accs = accsRes.data || [];
+        setCoaCount(accs.length);
+        setLedgerCount(accs.length);
+        setCustomerCount(accs.filter((a: any) => a.type === 'CUSTOMER').length);
+        setVendorCount(accs.filter((a: any) => a.type === 'VENDOR').length);
       } catch (err) {
-        console.error("Failed to fetch voucher count:", err);
+        console.error("Failed to fetch sidebar counts:", err);
       }
     };
-    fetchCount();
-    // Refresh count occasionally or on certain events if needed
-  }, []);
+    fetchCounts();
+  }, [refreshKey, activeTab]);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'haji-tracking', label: 'Haji Tracking', icon: '☪️' },
-    { id: 'coa', label: 'Chart of Accounts', icon: '📁' },
-    { id: 'ledger', label: 'General Ledger', icon: '📖' },
-    { id: 'customers', label: 'Customers', icon: '👥' },
-    { id: 'vendors', label: 'Vendors', icon: '🏢' },
+    { id: 'haji-tracking', label: 'Haji Tracking', icon: '☪️', count: hajiCount },
+    { id: 'coa', label: 'Chart of Accounts', icon: '📁', count: coaCount },
+    { id: 'ledger', label: 'General Ledger', icon: '📖', count: ledgerCount },
+    { id: 'customers', label: 'Customers', icon: '👥', count: customerCount },
+    { id: 'vendors', label: 'Vendors', icon: '🏢', count: vendorCount },
     { id: 'vouchers', label: 'Vouchers', icon: '📝', count: voucherCount },
     { id: 'reports', label: 'Reports', icon: '📈' },
     { id: 'help', label: 'Help / Guide', icon: '📖' },
@@ -305,7 +323,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
         <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 p-1.5 rounded-[2.5rem] shadow-2xl flex items-center justify-between no-print transition-all">
           {[
             { id: 'dashboard', label: 'Home', icon: '🏠' },
-            { id: 'haji-tracking', label: 'Tracking', icon: '☪️' },
+            { id: 'haji-tracking', label: 'Tracking', icon: '☪️', count: hajiCount },
             { id: 'vouchers', label: 'Vouchers', icon: '📝', count: voucherCount },
             { id: 'reports', label: 'Reports', icon: '📈' },
             { id: 'schedule', label: 'Schedule', icon: '📅' },
