@@ -15,7 +15,7 @@ interface HotelVoucherFormProps {
 }
 
 const ROOM_TYPES = ['Single', 'Double', 'Triple', 'Quad', 'Quint', 'Executive Suite', 'Suite', 'DBL C.V'];
-const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Room Only'];
+const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Room Only', 'BB'];
 const CITIES = ['Karachi', 'Lahore', 'Islamabad', 'Makkah', 'Madinah', 'Jeddah', 'Riyadh', 'Dubai'];
 const COUNTRIES = ['Pakistan', 'Saudi Arabia', 'UAE', 'Turkey', 'USA', 'UK'];
 
