@@ -303,10 +303,19 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       <div ref={voucherRef} className="bg-white p-8 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
         <div className="flex justify-between items-start mb-4">
           <div>
-            {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config.logoSize * 0.8}px` }} alt="logo" className="mb-2" />}
+            {config?.companyLogo && <img src={config.companyLogo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="mb-2" />}
           </div>
-          <div className="text-center pt-4">
-            <h2 className="text-lg font-bold text-[#e11d48] uppercase tracking-tight">{config?.companyName} {config?.appSubtitle}</h2>
+          <div className="text-center flex-1 transition-all pt-2">
+            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">
+              {v.type === VoucherType.HOTEL ? 'Hotel Booking Voucher' : 
+               v.type === VoucherType.TRANSPORT ? 'Transport Voucher' :
+               v.type === VoucherType.VISA ? 'Visa Voucher' :
+               v.type === VoucherType.ALL_IN_ONE ? 'Unified Service Voucher' :
+               v.type === VoucherType.RECEIPT ? 'Receipt Voucher' : 'Payment Voucher'}
+            </h1>
+            <p className="text-[14px] font-bold uppercase tracking-wider text-[#e11d48]">
+              {config?.appSubtitle || 'Travel Solutions by Shuja Anwar'}
+            </p>
           </div>
           <div className="text-right">
             <div className="border-2 border-slate-900 px-6 py-2 text-center min-w-[180px] rounded-sm shadow-sm">
@@ -595,7 +604,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-4">
           <div className="flex flex-col items-center">
             {branding.logo ? (
-              <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
+              <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
             ) : (
               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
             )}
@@ -708,7 +717,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       <div ref={voucherRef} className="bg-white p-8 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
         <div className="flex justify-center mb-6">
           {branding.logo ? (
-            <img src={branding.logo} style={{ height: `${config.logoSize * 0.8}px` }} alt="logo" className="object-contain" />
+            <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
           ) : (
             <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{branding.name}</div>
           )}
@@ -824,7 +833,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
@@ -1025,7 +1034,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
@@ -1188,7 +1197,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
@@ -1358,7 +1367,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
           <div className="w-32">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${(config?.logoSize || 100) * 0.45}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
