@@ -613,7 +613,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             <h1 className="text-xl font-bold uppercase tracking-tight" style={{ color: branding.isCustom ? '#2563eb' : '#e11d48' }}>
               {branding.name}
             </h1>
-            {!branding.isCustom && <p className="text-[10px] text-slate-400 font-bold">{config?.appSubtitle}</p>}
+            {!branding.isCustom && <p className="text-[10px] text-slate-400 font-bold">{config?.appSubtitle || 'Travel Solutions by Shuja Anwar'}</p>}
           </div>
           <div className="text-right">
              <div className="flex items-center justify-end space-x-3 border-b-2 border-slate-300 pb-0.5 mb-1">
@@ -734,7 +734,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         </div>
 
         <p className="text-center font-bold mb-4 text-[11px] tracking-wide" style={{ color: branding.isCustom ? '#2563eb' : '#e11d48' }}>
-          {branding.name} {branding.isCustom ? '' : config?.appSubtitle}
+          {branding.name} {branding.isCustom ? '' : (config?.appSubtitle || 'Travel Solutions by Shuja Anwar')}
         </p>
 
         <div className="flex justify-between items-center mb-4 text-[11px] font-bold">
@@ -841,7 +841,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <div className="text-center flex-1 transition-all">
             <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Hotel Booking Voucher</h1>
             <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
-              {branding.isCustom ? branding.name : (config?.appSubtitle || 'TRAVELS SERVICES')}
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'Travel Solutions by Shuja Anwar')}
             </p>
           </div>
           <div className="w-40 text-right pr-4">
@@ -1042,7 +1042,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <div className="text-center flex-1 transition-all">
             <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Transport Voucher</h1>
             <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
-              {branding.isCustom ? branding.name : (config?.appSubtitle || 'TRAVELS SERVICES')}
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'Travel Solutions by Shuja Anwar')}
             </p>
           </div>
           <div className="w-40 text-right pr-4">
@@ -1205,7 +1205,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <div className="text-center flex-1 transition-all">
             <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Visa Voucher</h1>
             <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
-              {branding.isCustom ? branding.name : (config?.appSubtitle || 'TRAVELS SERVICES')}
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'Travel Solutions by Shuja Anwar')}
             </p>
           </div>
           <div className="w-40 text-right pr-4">
@@ -1375,7 +1375,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <div className="text-center flex-1 transition-all">
             <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Unified Service Voucher</h1>
             <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
-              {branding.isCustom ? branding.name : (config?.appSubtitle || 'TRAVELS SERVICES')}
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'Travel Solutions by Shuja Anwar')}
             </p>
           </div>
           <div className="w-40 text-right pr-4">
