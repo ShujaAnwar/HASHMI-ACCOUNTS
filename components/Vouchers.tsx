@@ -216,13 +216,51 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     setIsDownloading(true);
     const element = voucherRef.current;
     
-    const paxName = viewingVoucher.details?.paxName?.replace(/\s+/g, '_') || 'Guest';
+    let rawPaxName = 'Guest';
+    let rawHotelName = 'NoHotel';
+
+    if (viewingVoucher?.details) {
+      if (viewingVoucher.details.paxName) {
+        rawPaxName = viewingVoucher.details.paxName;
+      } else if (viewingVoucher.details.items && Array.isArray(viewingVoucher.details.items)) {
+        const firstItem = viewingVoucher.details.items[0];
+        if (firstItem && firstItem.paxName) {
+          rawPaxName = firstItem.paxName;
+        }
+      } else if (viewingVoucher.details.visaItems && Array.isArray(viewingVoucher.details.visaItems)) {
+        const firstItem = viewingVoucher.details.visaItems[0];
+        if (firstItem && firstItem.paxName) {
+          rawPaxName = firstItem.paxName;
+        }
+      }
+
+      if (viewingVoucher.details.hotelName) {
+        rawHotelName = viewingVoucher.details.hotelName;
+      } else if (viewingVoucher.details.items && Array.isArray(viewingVoucher.details.items)) {
+        const hotelNames = viewingVoucher.details.items
+          .map((item: any) => item.hotelName)
+          .filter(Boolean);
+        if (hotelNames.length > 0) {
+          rawHotelName = hotelNames.join('_');
+        }
+      } else if (viewingVoucher.details.hotelItems && Array.isArray(viewingVoucher.details.hotelItems)) {
+        const hotelNames = viewingVoucher.details.hotelItems
+          .map((item: any) => item.hotelName)
+          .filter(Boolean);
+        if (hotelNames.length > 0) {
+          rawHotelName = hotelNames.join('_');
+        }
+      }
+    }
+
+    const paxName = rawPaxName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+    const hotelName = rawHotelName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
     const voucherNum = viewingVoucher.voucherNum;
     const typeLabel = viewingVoucher.type === VoucherType.HOTEL ? 'HotelVoucher' : 
                      viewingVoucher.type === VoucherType.TRANSPORT ? 'TransportVoucher' : 
                      viewingVoucher.type === VoucherType.VISA ? 'VisaVoucher' : 
                      viewingVoucher.type === VoucherType.ALL_IN_ONE ? 'AllInOneVoucher' : 'Voucher';
-    const fileName = `${typeLabel}_${voucherNum}_${paxName}.pdf`;
+    const fileName = `${typeLabel}_${voucherNum}_Pax-${paxName}_Hotel-${hotelName}.pdf`;
 
     const opt = {
       margin: 0,
@@ -248,13 +286,51 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     setIsSharing(true);
     const element = voucherRef.current;
     
-    const paxName = viewingVoucher.details?.paxName?.replace(/\s+/g, '_') || 'Guest';
+    let rawPaxName = 'Guest';
+    let rawHotelName = 'NoHotel';
+
+    if (viewingVoucher?.details) {
+      if (viewingVoucher.details.paxName) {
+        rawPaxName = viewingVoucher.details.paxName;
+      } else if (viewingVoucher.details.items && Array.isArray(viewingVoucher.details.items)) {
+        const firstItem = viewingVoucher.details.items[0];
+        if (firstItem && firstItem.paxName) {
+          rawPaxName = firstItem.paxName;
+        }
+      } else if (viewingVoucher.details.visaItems && Array.isArray(viewingVoucher.details.visaItems)) {
+        const firstItem = viewingVoucher.details.visaItems[0];
+        if (firstItem && firstItem.paxName) {
+          rawPaxName = firstItem.paxName;
+        }
+      }
+
+      if (viewingVoucher.details.hotelName) {
+        rawHotelName = viewingVoucher.details.hotelName;
+      } else if (viewingVoucher.details.items && Array.isArray(viewingVoucher.details.items)) {
+        const hotelNames = viewingVoucher.details.items
+          .map((item: any) => item.hotelName)
+          .filter(Boolean);
+        if (hotelNames.length > 0) {
+          rawHotelName = hotelNames.join('_');
+        }
+      } else if (viewingVoucher.details.hotelItems && Array.isArray(viewingVoucher.details.hotelItems)) {
+        const hotelNames = viewingVoucher.details.hotelItems
+          .map((item: any) => item.hotelName)
+          .filter(Boolean);
+        if (hotelNames.length > 0) {
+          rawHotelName = hotelNames.join('_');
+        }
+      }
+    }
+
+    const paxName = rawPaxName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+    const hotelName = rawHotelName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
     const voucherNum = viewingVoucher.voucherNum;
     const typeLabel = viewingVoucher.type === VoucherType.HOTEL ? 'HotelVoucher' : 
                      viewingVoucher.type === VoucherType.TRANSPORT ? 'TransportVoucher' : 
                      viewingVoucher.type === VoucherType.VISA ? 'VisaVoucher' : 
                      viewingVoucher.type === VoucherType.ALL_IN_ONE ? 'AllInOneVoucher' : 'Voucher';
-    const fileName = `${typeLabel}_${voucherNum}_${paxName}.pdf`;
+    const fileName = `${typeLabel}_${voucherNum}_Pax-${paxName}_Hotel-${hotelName}.pdf`;
 
     const opt = {
       margin: 0,
