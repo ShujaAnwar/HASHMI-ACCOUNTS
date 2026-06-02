@@ -1093,7 +1093,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(item.meals)}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200">{item.numRooms}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200">{item.numNights}</td>
-                    <td className="py-1.5 px-3">{item.adults || 0} ADT / {item.children || 0} CHD</td>
+                    <td className="py-1.5 px-3">{item.adults || 0}</td>
                   </tr>
                 ))
               ) : (
@@ -1103,7 +1103,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(v.details?.meals)}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numRooms || 1}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numNights || 1}</td>
-                  <td className="py-1.5 px-3">{v.details?.adults || 0} ADT / {v.details?.children || 0} CHD</td>
+                  <td className="py-1.5 px-3">{v.details?.adults || 0}</td>
                 </tr>
               )}
             </tbody>
