@@ -642,26 +642,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
         <div className="mb-6 text-[10px] font-bold text-slate-900 italic">
           <p>IN WORDS: <span className="uppercase">{amountToWords(v.totalAmountPKR)}</span></p>
-          <p className="mt-4 not-italic">On behalf of <span className="text-[#e11d48]">{config?.companyName} {config?.appSubtitle}</span></p>
         </div>
 
         <div className="mt-auto pt-4">
-          <div className="flex justify-between items-end mb-4">
-            <div className="text-center">
-              <div className="w-40 border-t border-slate-900 pt-1 font-black text-[9px] uppercase tracking-widest">
-                Prepared By
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="w-40 border-t border-slate-900 pt-1 font-black text-[9px] uppercase tracking-widest">
-                Customer Signature
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="w-40 border-t border-slate-900 pt-1 font-black text-[9px] uppercase tracking-widest">
-                Authorized Stamp
-              </div>
-            </div>
+          <div className="text-center border-t border-b border-dashed border-slate-300 py-3 mb-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+            This is a computer-generated invoice and requires no signature or stamp
           </div>
           <h3 className="text-[11px] font-black border-b border-slate-900 pb-1 mb-2 tracking-tight uppercase">Acknowledgement</h3>
           <ol className="text-[8px] space-y-0.5 font-bold text-slate-700 uppercase leading-tight">
