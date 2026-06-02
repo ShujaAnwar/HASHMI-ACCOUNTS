@@ -210,57 +210,128 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     }
   };
 
+  const getVoucherFileName = (v: Voucher): string => {
+    let rawPaxName = '';
+    let rawHotelName = '';
+    let rawCity = '';
+    let rawDate = '';
+
+    if (v?.details) {
+      // 1. Pax Name
+      if (v.details.paxName) {
+        rawPaxName = v.details.paxName;
+      } else if (v.details.items && Array.isArray(v.details.items)) {
+        const firstWithPax = v.details.items.find((item: any) => item.paxName);
+        if (firstWithPax) rawPaxName = firstWithPax.paxName;
+      } else if (v.details.visaItems && Array.isArray(v.details.visaItems)) {
+        const firstWithPax = v.details.visaItems.find((item: any) => item.paxName);
+        if (firstWithPax) rawPaxName = firstWithPax.paxName;
+      }
+
+      // 2. Hotel Name
+      if (v.details.hotelName) {
+        rawHotelName = v.details.hotelName;
+      } else if (v.details.items && Array.isArray(v.details.items)) {
+        const firstWithHotel = v.details.items.find((item: any) => item.hotelName);
+        if (firstWithHotel) rawHotelName = firstWithHotel.hotelName;
+      } else if (v.details.hotelItems && Array.isArray(v.details.hotelItems)) {
+        const firstWithHotel = v.details.hotelItems.find((item: any) => item.hotelName);
+        if (firstWithHotel) rawHotelName = firstWithHotel.hotelName;
+      }
+
+      // 3. City
+      if (v.details.city) {
+        rawCity = v.details.city;
+      } else if (v.details.items && Array.isArray(v.details.items)) {
+        const firstWithCity = v.details.items.find((item: any) => item.city);
+        if (firstWithCity) rawCity = firstWithCity.city;
+      } else if (v.details.hotelItems && Array.isArray(v.details.hotelItems)) {
+        const firstWithCity = v.details.hotelItems.find((item: any) => item.city);
+        if (firstWithCity) rawCity = firstWithCity.city;
+      }
+
+      // 4. Date
+      if (v.details.fromDate) {
+        rawDate = v.details.fromDate;
+      } else if (v.details.items && Array.isArray(v.details.items)) {
+        const firstWithDate = v.details.items.find((item: any) => item.fromDate);
+        if (firstWithDate) rawDate = firstWithDate.fromDate;
+      } else if (v.details.hotelItems && Array.isArray(v.details.hotelItems)) {
+        const firstWithDate = v.details.hotelItems.find((item: any) => item.fromDate);
+        if (firstWithDate) rawDate = firstWithDate.fromDate;
+      }
+    }
+
+    // Fallbacks
+    if (!rawPaxName) {
+      const customer = accounts.find(a => a.id === v.customerId);
+      rawPaxName = customer?.name || 'Guest';
+    }
+    if (!rawHotelName) {
+      rawHotelName = 'NoHotel';
+    }
+    if (!rawDate && v.date) {
+      rawDate = v.date;
+    }
+
+    // Process Pax Name: keep alphanumeric, space, hyphens
+    const hajiName = rawPaxName.trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, ' ') || 'Guest';
+
+    // Process Hotel Name to Short: first alphanumeric word
+    let hotelShort = 'NoHotel';
+    if (rawHotelName && rawHotelName.toLowerCase() !== 'nohotel' && rawHotelName.toLowerCase() !== 'n/a' && rawHotelName.toLowerCase() !== 'not specified') {
+      const cleanedHotel = rawHotelName.trim().replace(/[^a-zA-Z0-9\s-]/g, '');
+      const firstWord = cleanedHotel.split(/[\s-]+/)[0];
+      if (firstWord) {
+        hotelShort = firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
+      }
+    }
+
+    // Process City to MAK or MED
+    let locLabel = 'MAK';
+    if (rawCity) {
+      const lowerCity = rawCity.toLowerCase().trim();
+      if (lowerCity.includes('med') || lowerCity.includes('mad')) {
+        locLabel = 'MED';
+      } else {
+        locLabel = 'MAK';
+      }
+    }
+
+    // Process Date to Short
+    let dateShort = 'NoDate';
+    if (rawDate) {
+      try {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, '0');
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const month = months[d.getMonth()];
+          const year = String(d.getFullYear()).slice(-2);
+          dateShort = `${day}${month}${year}`;
+        }
+      } catch (_) {}
+    }
+
+    const typeCode = v.type || 'V';
+    let numPart = v.voucherNum || '0000';
+    if (numPart.includes('-')) {
+      numPart = numPart.split('-').pop() || '0000';
+    } else if (numPart.startsWith(typeCode)) {
+      numPart = numPart.slice(typeCode.length);
+    }
+    const typeAndNo = `${typeCode}-${numPart}`;
+
+    return `${typeAndNo} - ${hajiName} - ${hotelShort} - ${locLabel} - ${dateShort}.pdf`;
+  };
+
   const handleDownloadPDF = async () => {
     if (!viewingVoucher || !voucherRef.current) return;
     
     setIsDownloading(true);
     const element = voucherRef.current;
     
-    let rawPaxName = 'Guest';
-    let rawHotelName = 'NoHotel';
-
-    if (viewingVoucher?.details) {
-      if (viewingVoucher.details.paxName) {
-        rawPaxName = viewingVoucher.details.paxName;
-      } else if (viewingVoucher.details.items && Array.isArray(viewingVoucher.details.items)) {
-        const firstItem = viewingVoucher.details.items[0];
-        if (firstItem && firstItem.paxName) {
-          rawPaxName = firstItem.paxName;
-        }
-      } else if (viewingVoucher.details.visaItems && Array.isArray(viewingVoucher.details.visaItems)) {
-        const firstItem = viewingVoucher.details.visaItems[0];
-        if (firstItem && firstItem.paxName) {
-          rawPaxName = firstItem.paxName;
-        }
-      }
-
-      if (viewingVoucher.details.hotelName) {
-        rawHotelName = viewingVoucher.details.hotelName;
-      } else if (viewingVoucher.details.items && Array.isArray(viewingVoucher.details.items)) {
-        const hotelNames = viewingVoucher.details.items
-          .map((item: any) => item.hotelName)
-          .filter(Boolean);
-        if (hotelNames.length > 0) {
-          rawHotelName = hotelNames.join('_');
-        }
-      } else if (viewingVoucher.details.hotelItems && Array.isArray(viewingVoucher.details.hotelItems)) {
-        const hotelNames = viewingVoucher.details.hotelItems
-          .map((item: any) => item.hotelName)
-          .filter(Boolean);
-        if (hotelNames.length > 0) {
-          rawHotelName = hotelNames.join('_');
-        }
-      }
-    }
-
-    const paxName = rawPaxName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
-    const hotelName = rawHotelName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
-    const voucherNum = viewingVoucher.voucherNum;
-    const typeLabel = viewingVoucher.type === VoucherType.HOTEL ? 'HotelVoucher' : 
-                     viewingVoucher.type === VoucherType.TRANSPORT ? 'TransportVoucher' : 
-                     viewingVoucher.type === VoucherType.VISA ? 'VisaVoucher' : 
-                     viewingVoucher.type === VoucherType.ALL_IN_ONE ? 'AllInOneVoucher' : 'Voucher';
-    const fileName = `${typeLabel}_${voucherNum}_Pax-${paxName}_Hotel-${hotelName}.pdf`;
+    const fileName = getVoucherFileName(viewingVoucher);
 
     const opt = {
       margin: 0,
@@ -286,51 +357,12 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     setIsSharing(true);
     const element = voucherRef.current;
     
-    let rawPaxName = 'Guest';
-    let rawHotelName = 'NoHotel';
-
-    if (viewingVoucher?.details) {
-      if (viewingVoucher.details.paxName) {
-        rawPaxName = viewingVoucher.details.paxName;
-      } else if (viewingVoucher.details.items && Array.isArray(viewingVoucher.details.items)) {
-        const firstItem = viewingVoucher.details.items[0];
-        if (firstItem && firstItem.paxName) {
-          rawPaxName = firstItem.paxName;
-        }
-      } else if (viewingVoucher.details.visaItems && Array.isArray(viewingVoucher.details.visaItems)) {
-        const firstItem = viewingVoucher.details.visaItems[0];
-        if (firstItem && firstItem.paxName) {
-          rawPaxName = firstItem.paxName;
-        }
-      }
-
-      if (viewingVoucher.details.hotelName) {
-        rawHotelName = viewingVoucher.details.hotelName;
-      } else if (viewingVoucher.details.items && Array.isArray(viewingVoucher.details.items)) {
-        const hotelNames = viewingVoucher.details.items
-          .map((item: any) => item.hotelName)
-          .filter(Boolean);
-        if (hotelNames.length > 0) {
-          rawHotelName = hotelNames.join('_');
-        }
-      } else if (viewingVoucher.details.hotelItems && Array.isArray(viewingVoucher.details.hotelItems)) {
-        const hotelNames = viewingVoucher.details.hotelItems
-          .map((item: any) => item.hotelName)
-          .filter(Boolean);
-        if (hotelNames.length > 0) {
-          rawHotelName = hotelNames.join('_');
-        }
-      }
-    }
-
-    const paxName = rawPaxName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
-    const hotelName = rawHotelName.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+    const fileName = getVoucherFileName(viewingVoucher);
     const voucherNum = viewingVoucher.voucherNum;
     const typeLabel = viewingVoucher.type === VoucherType.HOTEL ? 'HotelVoucher' : 
                      viewingVoucher.type === VoucherType.TRANSPORT ? 'TransportVoucher' : 
                      viewingVoucher.type === VoucherType.VISA ? 'VisaVoucher' : 
                      viewingVoucher.type === VoucherType.ALL_IN_ONE ? 'AllInOneVoucher' : 'Voucher';
-    const fileName = `${typeLabel}_${voucherNum}_Pax-${paxName}_Hotel-${hotelName}.pdf`;
 
     const opt = {
       margin: 0,
@@ -349,7 +381,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         await navigator.share({
           files: [file],
           title: fileName,
-          text: `Please find the attached ${typeLabel} for ${paxName}.`,
+          text: `Please find the attached document: ${fileName}`,
         });
       } else {
         // Fallback for desktop or unsupported browsers
@@ -358,7 +390,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         await html2pdf().set(opt).from(element).save();
         
         // Then open WhatsApp
-        const message = encodeURIComponent(`I've sent you the ${typeLabel} (${voucherNum}). Please check your downloads and attach the file.`);
+        const message = encodeURIComponent(`I've sent you the document: ${fileName}. Please check your downloads and attach the file.`);
         const whatsappUrl = /Android|iPhone|iPad/i.test(navigator.userAgent) 
           ? `whatsapp://send?text=${message}`
           : `https://web.whatsapp.com/send?text=${message}`;
