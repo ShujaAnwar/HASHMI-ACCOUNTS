@@ -417,9 +417,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <th className="py-1.5 px-3 border-r border-slate-400 font-bold uppercase text-[9px]">
                   {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 'Voucher Date' : 'Invoice Date'}
                 </th>
-                <th className="py-1.5 px-3 border-r border-slate-400 font-bold uppercase text-[9px]">
-                  {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 'Currency' : 'Option Date'}
-                </th>
+                {(v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT) && (
+                  <th className="py-1.5 px-3 border-r border-slate-400 font-bold uppercase text-[9px]">
+                    Currency
+                  </th>
+                )}
                 <th className="py-1.5 px-3 font-bold uppercase text-[9px]">
                   {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 'Reference / PNR' : 'Confirmation #'}
                 </th>
@@ -429,9 +431,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <tr>
                 <td className="py-2 px-3 border-r border-slate-300 uppercase">{customer?.name || 'N/A'}</td>
                 <td className="py-2 px-3 border-r border-slate-300">{formatDate(v.date)}</td>
-                <td className="py-2 px-3 border-r border-slate-300 uppercase">
-                  {v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? v.currency : '30, Nov -0001'}
-                </td>
+                {(v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT) && (
+                  <td className="py-2 px-3 border-r border-slate-300 uppercase">
+                    {v.currency}
+                  </td>
+                )}
                 <td className="py-2 px-3 uppercase">
                   {v.reference || 'N/A'}
                   {v.details?.bookingRef && (
@@ -791,12 +795,19 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const branding = getBranding(v);
     return (
       <div ref={voucherRef} className="bg-white p-8 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
-        <div className="flex justify-center mb-6">
-          {branding.logo ? (
-            <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
-          ) : (
-            <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{branding.name}</div>
-          )}
+        <div className="flex flex-col items-center mb-6 border-b border-slate-100 pb-3">
+          <div className="flex justify-center mb-2">
+            {branding.logo ? (
+              <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+            ) : (
+              <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{branding.name}</div>
+            )}
+          </div>
+          <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide flex flex-wrap justify-center gap-x-3 gap-y-0.5 mt-1">
+            {config?.companyCell && <span>CELL: {config.companyCell}</span>}
+            {config?.companyPhone && <span>PHONE: {config.companyPhone}</span>}
+            {config?.companyEmail && <span>EMAIL: {config.companyEmail}</span>}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-y-1 mb-4 text-[10px] font-bold uppercase tracking-wide">
