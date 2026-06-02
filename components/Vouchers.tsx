@@ -322,6 +322,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     }
     const typeAndNo = `${typeCode}-${numPart}`;
 
+    if (v.type === VoucherType.VISA || v.type === VoucherType.TRANSPORT) {
+      return `${typeAndNo} - ${hajiName}.pdf`;
+    }
+
     return `${typeAndNo} - ${hajiName} - ${hotelShort} - ${locLabel} - ${dateShort}.pdf`;
   };
 
