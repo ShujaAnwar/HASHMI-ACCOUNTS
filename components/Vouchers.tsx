@@ -1007,9 +1007,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="space-y-0.5">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN / CHECK-OUT</p>
-                    <p className="text-[12px] font-black text-[#0f172a]">{formatDate(item.fromDate)} - {formatDate(item.toDate)}</p>
+                  <div className="flex justify-between w-full max-w-[280px]">
+                    <div className="space-y-0.5">
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN</p>
+                      <p className="text-[12px] font-black text-[#0f172a]">{formatDate(item.fromDate)}</p>
+                    </div>
+                    <div className="space-y-0.5 text-right pr-6">
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-OUT</p>
+                      <p className="text-[12px] font-black text-[#0f172a] text-right">{formatDate(item.toDate)}</p>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-0.5">
@@ -1042,13 +1048,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               </div>
               
               <div className="space-y-2">
-                <div className="space-y-0.5">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN</p>
-                  <p className="text-[12px] font-black text-[#0f172a]">{fromDateStr}</p>
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-OUT</p>
-                  <p className="text-[12px] font-black text-[#0f172a]">{toDateStr}</p>
+                <div className="flex justify-between w-full max-w-[280px]">
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN</p>
+                    <p className="text-[12px] font-black text-[#0f172a]">{fromDateStr}</p>
+                  </div>
+                  <div className="space-y-0.5 text-right pr-6">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-OUT</p>
+                    <p className="text-[12px] font-black text-[#0f172a] text-right">{toDateStr}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1071,10 +1079,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">HOTEL / CITY</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">ROOM TYPE</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">MEAL</th>
-                <th className="py-1.5 px-3 text-left border-r border-slate-700">RMS</th>
+                <th className="py-1.5 px-3 text-left border-r border-slate-700">NO OF ROOMS</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">NTS</th>
-                <th className="py-1.5 px-3 text-left border-r border-slate-700">ADULT(S)</th>
-                <th className="py-1.5 px-3 text-left">CHILDREN</th>
+                <th className="py-1.5 px-3 text-left">NO OF PAX</th>
               </tr>
             </thead>
             <tbody className="text-[10px] font-bold text-slate-800">
@@ -1086,8 +1093,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(item.meals)}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200">{item.numRooms}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200">{item.numNights}</td>
-                    <td className="py-1.5 px-3 border-r border-slate-200">{item.adults || 2}</td>
-                    <td className="py-1.5 px-3">{item.children || 0}</td>
+                    <td className="py-1.5 px-3">{item.adults || 0} ADT / {item.children || 0} CHD</td>
                   </tr>
                 ))
               ) : (
@@ -1097,8 +1103,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(v.details?.meals)}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numRooms || 1}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numNights || 1}</td>
-                  <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.adults || 2}</td>
-                  <td className="py-1.5 px-3">{v.details?.children || 0}</td>
+                  <td className="py-1.5 px-3">{v.details?.adults || 0} ADT / {v.details?.children || 0} CHD</td>
                 </tr>
               )}
             </tbody>
@@ -1542,9 +1547,20 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                      </div>
                      <div className="space-y-2 text-right">
                        <div className="space-y-0.5">
-                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-IN / CHECK-OUT</p>
+                         </div>
+                         <div className="flex justify-between w-full pl-8 max-w-[280px] ml-auto">
+                           <div className="space-y-0.5 text-left">
+                             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN</p>
+                             <p className="text-[11px] font-black text-[#0f172a]">{formatDateLong(item.fromDate)}</p>
+                           </div>
+                           <div className="space-y-0.5 text-right">
+                             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-OUT</p>
+                             <p className="text-[11px] font-black text-[#0f172a] text-right">{formatDateLong(item.toDate)}</p>
+                           </div>
+                         </div>
+                         <div className="space-y-0.5 hidden">
                          <p className="text-[11px] font-black text-[#0f172a] text-right">
-                           {formatDateLong(item.fromDate)} - {formatDateLong(item.toDate)}
+                           {formatDateLong(item.fromDate)} &nbsp; &nbsp; &mdash; &nbsp; &nbsp; {formatDateLong(item.toDate)}
                          </p>
                        </div>
                        <div className="grid grid-cols-2 gap-4">
@@ -1569,7 +1585,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                      <th className="py-1 px-2 text-left border-r border-slate-700">HOTEL / CITY</th>
                      <th className="py-1 px-2 text-left border-r border-slate-700">ROOM TYPE</th>
                      <th className="py-1 px-2 text-left border-r border-slate-700">MEAL</th>
-                     <th className="py-1 px-2 text-center border-r border-slate-700">RMS</th>
+                     <th className="py-1 px-2 text-center border-r border-slate-700">NO OF ROOMS</th>
                      <th className="py-1 px-2 text-center border-r border-slate-700">NTS</th>
                      <th className="py-1 px-2 text-right">AMOUNT ({v.currency})</th>
                    </tr>
