@@ -152,6 +152,7 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
     visaItems: initialData?.details?.visaItems || [],
     hotelItems: initialData?.details?.hotelItems || [],
     transportItems: initialData?.details?.transportItems || [],
+    ticketItems: initialData?.details?.ticketItems || [],
     
     incomeAmountPKR: initialData?.details?.incomeAmountPKR || 0,
     incomeAccountId: initialData?.details?.incomeAccountId || '',
@@ -207,6 +208,27 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
 
   const removeTransportItem = (index: number) => {
     setFormData(prev => ({ ...prev, transportItems: prev.transportItems.filter((_, i) => i !== index) }));
+  };
+
+  const addTicketItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      ticketItems: [...(prev.ticketItems || []), { 
+        paxName: prev.paxName, passportNumber: prev.passportNumber, airline: '', sector: '', reference: '', rate: 0, vendorId: '' 
+      }]
+    }));
+  };
+
+  const removeTicketItem = (index: number) => {
+    setFormData(prev => ({ ...prev, ticketItems: (prev.ticketItems || []).filter((_, i) => i !== index) }));
+  };
+
+  const updateTicketItem = (index: number, field: string, value: any) => {
+    setFormData(prev => {
+      const items = [...(prev.ticketItems || [])];
+      items[index] = { ...items[index], [field]: value };
+      return { ...prev, ticketItems: items };
+    });
   };
 
   const updateVisaItem = (index: number, field: string, value: any) => {
@@ -288,8 +310,9 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
     let visaTotal = formData.visaItems.reduce((sum, item: any) => sum + (Number(item.quantity) * Number(item.rate)), 0);
     let hotelTotal = formData.hotelItems.reduce((sum, item: any) => sum + (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)), 0);
     let transportTotal = formData.transportItems.reduce((sum, item: any) => sum + Number(item.rate), 0);
+    let ticketTotal = (formData.ticketItems || []).reduce((sum, item: any) => sum + Number(item.rate), 0);
     
-    const subtotalSelected = visaTotal + hotelTotal + transportTotal;
+    const subtotalSelected = visaTotal + hotelTotal + transportTotal + ticketTotal;
     const subtotalPKR = subtotalSelected * rate;
     const grandTotalPKR = subtotalPKR + Number(formData.incomeAmountPKR);
     
@@ -297,6 +320,7 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
       visaTotal,
       hotelTotal,
       transportTotal,
+      ticketTotal,
       subtotalSelected,
       subtotalPKR,
       grandTotalPKR
@@ -338,6 +362,23 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
       }
     }));
 
+    // Auto-save Ticket Items to Master Database
+    const updatedTicketItems = await Promise.all((formData.ticketItems || []).map(async (item: any) => {
+      try {
+        const haji = await HajiService.ensureHaji({
+          fullName: item.paxName,
+          passportNumber: item.passportNumber
+        });
+        return {
+          ...item,
+          hajiId: haji?.hajiId || ''
+        };
+      } catch (err) {
+        console.error("Error ensuring ticket item Haji:", err);
+        return item;
+      }
+    }));
+
     onSave({
       ...formData,
       type: VoucherType.ALL_IN_ONE,
@@ -347,6 +388,7 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
         ...formData,
         hajiId,
         visaItems: updatedVisaItems,
+        ticketItems: updatedTicketItems,
         ...totals
       }
     });
@@ -686,6 +728,69 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
              </div>
           </div>
 
+          {/* Ticket Section */}
+          <div className="bg-slate-50/50 dark:bg-slate-800/20 p-8 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 mb-8 animate-in fade-in duration-200">
+             <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-[0.2em]">✈️ Ticket / Flight</h2>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Manage flight and ticketing details</p>
+                </div>
+                <button type="button" onClick={addTicketItem} className="bg-cyan-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-cyan-600/20 hover:scale-105 active:scale-95 transition-all">+ Add Ticket</button>
+             </div>
+             
+             <div className="space-y-4">
+                {(formData.ticketItems || []).map((item: any, idx: number) => (
+                   <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-100 dark:ring-slate-800 space-y-4 relative">
+                       <button type="button" onClick={() => removeTicketItem(idx)} className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg">✕</button>
+                       
+                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-slate-400 uppercase">Pax Name</label>
+                             <HajiSelector 
+                               value={item.paxName}
+                               onSelect={(haji) => {
+                                 updateTicketItem(idx, 'paxName', haji.fullName || '');
+                                 if (haji.passportNumber) updateTicketItem(idx, 'passportNumber', haji.passportNumber);
+                               }}
+                               placeholder="Passenger Name"
+                             />
+                          </div>
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-slate-400 uppercase">Passport</label>
+                             <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-black uppercase" value={item.passportNumber} onChange={e => updateTicketItem(idx, 'passportNumber', e.target.value.toUpperCase())} />
+                          </div>
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-slate-400 uppercase">Airline</label>
+                             <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold font-sans" placeholder="e.g. PIA, SAUDI" value={item.airline} onChange={e => updateTicketItem(idx, 'airline', e.target.value)} />
+                          </div>
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-slate-400 uppercase">Sector</label>
+                             <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold font-sans" placeholder="e.g. KHI-JED-KHI" value={item.sector} onChange={e => updateTicketItem(idx, 'sector', e.target.value)} />
+                          </div>
+                       </div>
+
+                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-slate-400 uppercase">PNR / Ticket No</label>
+                             <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-black uppercase" placeholder="e.g. 125-1234567890" value={item.reference} onChange={e => updateTicketItem(idx, 'reference', e.target.value.toUpperCase())} />
+                          </div>
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-slate-400 uppercase">Rate ({formData.currency})</label>
+                             <input type="number" className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-black text-blue-600" value={item.rate} onChange={e => updateTicketItem(idx, 'rate', Number(e.target.value))} />
+                          </div>
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-slate-400 uppercase">Vendor (CR)</label>
+                             <select className="w-full bg-cyan-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-cyan-100" value={item.vendorId} onChange={e => updateTicketItem(idx, 'vendorId', e.target.value)}>
+                                <option value="">Select Vendor...</option>
+                                {vendorAccounts.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                             </select>
+                          </div>
+                       </div>
+                   </div>
+                ))}
+             </div>
+          </div>
+
           {/* Income / Service Fee */}
           <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl flex flex-col md:flex-row items-center gap-8 ring-4 ring-blue-600/20">
              <div className="flex-1 space-y-2">
@@ -723,6 +828,10 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
               <div className="text-center md:text-left">
                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Transport Total</p>
                  <p className="text-sm font-black text-slate-900 dark:text-white">{totals.transportTotal.toLocaleString()} {formData.currency}</p>
+              </div>
+              <div className="text-center md:text-left">
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Ticket Total</p>
+                 <p className="text-sm font-black text-slate-900 dark:text-white">{(totals.ticketTotal || 0).toLocaleString()} {formData.currency}</p>
               </div>
               <div className="text-center md:text-left px-6 border-l border-slate-100 dark:border-slate-800">
                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">Grand Total (PKR)</p>

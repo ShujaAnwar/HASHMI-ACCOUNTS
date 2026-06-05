@@ -32,12 +32,37 @@ export class AccountingService {
     const year = String(d.getFullYear()).slice(-2);
     
     // Get count of vouchers of this type to determine initial next serial
-    const { count, error } = await supabase
-      .from('vouchers')
-      .select('*', { count: 'exact', head: true })
-      .eq('type', type);
+    let count = 0;
+    let queryError: any = null;
+    
+    if (type === 'PKV' || type === 'PACKAGE') {
+      const { data, error } = await supabase
+        .from('vouchers')
+        .select('id, details')
+        .eq('type', 'AV');
+      if (error) queryError = error;
+      else {
+        count = (data || []).filter((v: any) => v.details?.is_package === true).length;
+      }
+    } else if (type === 'AV' || type === 'ALL_IN_ONE') {
+      const { data, error } = await supabase
+        .from('vouchers')
+        .select('id, details')
+        .eq('type', 'AV');
+      if (error) queryError = error;
+      else {
+        count = (data || []).filter((v: any) => !v.details?.is_package).length;
+      }
+    } else {
+      const { count: dbCount, error } = await supabase
+        .from('vouchers')
+        .select('*', { count: 'exact', head: true })
+        .eq('type', type);
+      if (error) queryError = error;
+      else count = dbCount || 0;
+    }
       
-    if (error) console.error("Error generating voucher number:", error);
+    if (queryError) console.error("Error generating voucher number:", queryError);
     
     let nextSerial = (count || 0) + 1;
     let voucherNum = `${type}${String(nextSerial).padStart(2, '0')}${month}${year}`;
@@ -236,10 +261,17 @@ export class AccountingService {
   static async postVoucher(vData: Partial<Voucher>) {
     const vNum = vData.voucherNum || await this.generateVoucherNumber(vData.type || 'VO' as any, vData.date);
     
+    const isPackageVoucher = vData.type === VoucherType.PACKAGE || (vData.type as any) === 'PKV' || (vData.type as any) === 'PACKAGE' || vData.details?.is_package === true || (vData as any).is_package === true;
+    // Fallback enum mapping for compatibility with database constraint rules
+    const dbType = isPackageVoucher ? 'AV' : vData.type;
+    const dbDetails = isPackageVoucher 
+      ? { ...(vData.details || {}), is_package: true } 
+      : (vData.details || {});
+
     const { data: voucher, error: vError } = await supabase
       .from('vouchers')
       .insert({
-        type: vData.type,
+        type: dbType,
         voucher_num: vNum,
         date: vData.date || new Date().toISOString(),
         currency: vData.currency,
@@ -250,7 +282,7 @@ export class AccountingService {
         status: VoucherStatus.POSTED,
         customer_id: (vData.customerId && vData.customerId !== '') ? vData.customerId : null,
         vendor_id: (vData.vendorId && vData.vendorId !== '') ? vData.vendorId : null,
-        details: vData.details || {}
+        details: dbDetails
       })
       .select()
       .single();
@@ -258,6 +290,11 @@ export class AccountingService {
     if (vError) {
       console.error("Voucher Insertion Error:", vError);
       throw vError;
+    }
+
+    // Map back the type in memory so remaining ledger posting works with original type
+    if (voucher && isPackageVoucher) {
+      voucher.type = 'PKV';
     }
 
     const amount = Number(voucher.total_amount_pkr);
@@ -468,7 +505,7 @@ export class AccountingService {
 
       if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: ticketDesc, voucher_num: voucher.voucher_num });
       if (vendorId) entries.push({ account_id: vendorId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: ticketDesc, voucher_num: voucher.voucher_num });
-    } else if (voucher.type === 'AV' || voucher.type === 'ALL_IN_ONE') {
+    } else if ((voucher.type === 'AV' && !voucher.details?.is_package) || voucher.type === 'ALL_IN_ONE') {
       const details = voucher.details || {};
       const roe = voucher.roe || 1;
       const rateMultiplier = voucher.currency === Currency.SAR ? roe : 1;
@@ -549,6 +586,156 @@ export class AccountingService {
         }
         if (incomeAccountId) {
           entries.push({ account_id: incomeAccountId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: incomeAmountPKR, description: incomeDesc, voucher_num: voucher.voucher_num });
+        }
+      }
+
+    } else if (voucher.type === 'PKV' || voucher.type === 'PACKAGE' || (voucher.type === 'AV' && voucher.details?.is_package === true)) {
+      const details = voucher.details || {};
+      const roe = voucher.roe || 1;
+      const rateMultiplier = voucher.currency === Currency.SAR ? roe : 1;
+      const hajjisList = details.hajjis || [];
+      const totalPilgrims = hajjisList.length || 1;
+      const pilgrimNames = hajjisList.map((h: any) => h.fullName).join(', ');
+      
+      console.log("Processing Package Voucher Ledger Entries:", { voucherId: voucher.id, details });
+
+      // 1. Process Customer Debit (Total Selling Price)
+      const customerTotalPKR = Number(details.packagePricePerHaji || 0) * totalPilgrims * rateMultiplier;
+      const pricePerHaji = Number(details.packagePricePerHaji || 0);
+      const currencySymbol = voucher.currency === Currency.SAR ? 'SAR' : (voucher.currency || 'USD');
+      const roeText = voucher.currency === Currency.SAR ? `(ROE: ${roe})` : '';
+      const totalInOriginal = pricePerHaji * totalPilgrims;
+      const customerDesc = `UMRAH PACKAGE: ${totalPilgrims} Pax @ ${currencySymbol} ${pricePerHaji.toLocaleString()}/Pax = ${currencySymbol} ${totalInOriginal.toLocaleString()} ${roeText} | Pilgrims: ${pilgrimNames} | Note: ${voucher.description || ''}`;
+      
+      if (customerId && customerTotalPKR > 0) {
+        entries.push({ 
+          account_id: customerId, 
+          voucher_id: voucher.id, 
+          date: voucher.date, 
+          debit: customerTotalPKR, 
+          credit: 0, 
+          description: customerDesc, 
+          voucher_num: voucher.voucher_num 
+        });
+      }
+
+      // Track individual service costs for margin calculation
+      let totalVendorCostPKR = 0;
+
+      // 2. Makkah Hotel Cost (Credit Vendor)
+      const makkahCostPKR = Number(details.makkahCost || 0) * rateMultiplier;
+      if (makkahCostPKR > 0) {
+        totalVendorCostPKR += makkahCostPKR;
+        const mVendorId = details.makkahVendorId || voucher.vendor_id;
+        if (mVendorId) {
+          const makkahDesc = `Makkah Hotel: ${details.makkahHotelName || 'N/A'} | Stay: ${details.makkahCheckIn || 'N/A'} to ${details.makkahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+          entries.push({ 
+            account_id: mVendorId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: makkahCostPKR, 
+            description: makkahDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      }
+
+      // 3. Madinah Hotel Cost (Credit Vendor)
+      const madinahCostPKR = Number(details.madinahCost || 0) * rateMultiplier;
+      if (madinahCostPKR > 0) {
+        totalVendorCostPKR += madinahCostPKR;
+        const mdVendorId = details.madinahVendorId || voucher.vendor_id;
+        if (mdVendorId) {
+          const madinahDesc = `Madinah Hotel: ${details.madinahHotelName || 'N/A'} | Stay: ${details.madinahCheckIn || 'N/A'} to ${details.madinahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+          entries.push({ 
+            account_id: mdVendorId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: madinahCostPKR, 
+            description: madinahDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      }
+
+      // 4. Transport Cost (Credit Vendor)
+      const transportCostPKR = Number(details.transportCost || 0) * rateMultiplier;
+      if (transportCostPKR > 0) {
+        totalVendorCostPKR += transportCostPKR;
+        const tVendorId = details.transportVendorId || voucher.vendor_id;
+        if (tVendorId) {
+          const transportDesc = `Transport: ${details.transportRoute || 'N/A'} (${details.transportVehicle || 'N/A'}) | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+          entries.push({ 
+            account_id: tVendorId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: transportCostPKR, 
+            description: transportDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      }
+
+      // 5. Ziyarat Cost (Credit Vendor)
+      const ziyaratCostPKR = Number(details.ziyaratCost || 0) * rateMultiplier;
+      if (ziyaratCostPKR > 0) {
+        totalVendorCostPKR += ziyaratCostPKR;
+        const zVendorId = details.ziyaratVendorId || voucher.vendor_id;
+        if (zVendorId) {
+          const ziyaratDesc = `Ziyarat: ${details.ziyaratDetails || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+          entries.push({ 
+            account_id: zVendorId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: ziyaratCostPKR, 
+            description: ziyaratDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      }
+
+      // 6. Other Services Cost (Credit Vendor)
+      const otherCostPKR = Number(details.otherCost || 0) * rateMultiplier;
+      if (otherCostPKR > 0) {
+        totalVendorCostPKR += otherCostPKR;
+        const oVendorId = details.otherVendorId || voucher.vendor_id;
+        if (oVendorId) {
+          const otherDesc = `Other Services: ${details.otherServices || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+          entries.push({ 
+            account_id: oVendorId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: otherCostPKR, 
+            description: otherDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      }
+
+      // 7. Net Margin credit (Operating Income)
+      const marginPKR = customerTotalPKR - totalVendorCostPKR;
+      if (marginPKR !== 0) {
+        let revAccountId = details.incomeAccountId;
+        if (!revAccountId) {
+          const { data: revAcc } = await supabase.from('accounts').select('id').eq('type', 'REVENUE').limit(1).maybeSingle();
+          revAccountId = revAcc?.id;
+        }
+        if (revAccountId) {
+          const marginDesc = `Package markup margin for ${totalPilgrims} Pilgrims (${pilgrimNames}) | Voucher: ${voucher.voucher_num}`;
+          entries.push({ 
+            account_id: revAccountId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: marginPKR < 0 ? Math.abs(marginPKR) : 0, 
+            credit: marginPKR > 0 ? marginPKR : 0, 
+            description: marginDesc, 
+            voucher_num: voucher.voucher_num 
+          });
         }
       }
 

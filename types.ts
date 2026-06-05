@@ -49,7 +49,8 @@ export enum VoucherType {
   VISA = 'VV',
   TICKET = 'TK',
   PAYMENT = 'PV',
-  ALL_IN_ONE = 'AV'
+  ALL_IN_ONE = 'AV',
+  PACKAGE = 'PKV'
 }
 
 export enum VoucherStatus {

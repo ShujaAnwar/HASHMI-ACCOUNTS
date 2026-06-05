@@ -438,6 +438,78 @@ const HajiTracking: React.FC = () => {
              };
              allMovements.push(vMovement as HajiMovement);
           });
+        } else if (v.type === VoucherType.PACKAGE || (v.type as string) === 'PKV') {
+          // A package voucher applies to ALL Hajjis in the package
+          const hajjisList = v.details?.hajjis || [];
+          hajjisList.forEach((hajiItem: any, hIdx: number) => {
+             const paxName = hajiItem.fullName;
+             
+             // 1. Makkah Hotel
+             if (v.details?.makkahCheckIn) {
+                const mkMovement: Partial<HajiMovement> = {
+                   id: `${v.id}-${idx}-${hIdx}-makkah`,
+                   paxName: paxName,
+                   date: new Date(v.details.makkahCheckIn),
+                   toDate: v.details.makkahCheckOut ? new Date(v.details.makkahCheckOut) : undefined,
+                   type: VoucherType.HOTEL,
+                   category: 'HOTEL',
+                   location: `${v.details.makkahHotelName || 'Hotel'} (Makkah)`,
+                   details: `${v.details.makkahHotelName || 'Hotel'} (${v.details.makkahRoomType || 'Triple'})`,
+                   actionRequired: "Check-in Arrangement",
+                   rawVoucher: v
+                };
+                allMovements.push(mkMovement as HajiMovement);
+             }
+
+             // 2. Madinah Hotel
+             if (v.details?.madinahCheckIn) {
+                const mdMovement: Partial<HajiMovement> = {
+                   id: `${v.id}-${idx}-${hIdx}-madinah`,
+                   paxName: paxName,
+                   date: new Date(v.details.madinahCheckIn),
+                   toDate: v.details.madinahCheckOut ? new Date(v.details.madinahCheckOut) : undefined,
+                   type: VoucherType.HOTEL,
+                   category: 'HOTEL',
+                   location: `${v.details.madinahHotelName || 'Hotel'} (Madinah)`,
+                   details: `${v.details.madinahHotelName || 'Hotel'} (${v.details.madinahRoomType || 'Triple'})`,
+                   actionRequired: "Check-in Arrangement",
+                   rawVoucher: v
+                };
+                allMovements.push(mdMovement as HajiMovement);
+             }
+
+             // 3. Transport
+             if (v.details?.transportRoute) {
+                const tMovement: Partial<HajiMovement> = {
+                   id: `${v.id}-${idx}-${hIdx}-transport`,
+                   paxName: paxName,
+                   date: new Date(v.date),
+                   type: VoucherType.TRANSPORT,
+                   category: 'TRANSPORT',
+                   location: v.details.transportRoute,
+                   details: `${v.details.transportVehicle || 'Bus'}: ${v.details.transportRoute}`,
+                   actionRequired: "Transport Pickup",
+                   rawVoucher: v
+                };
+                allMovements.push(tMovement as HajiMovement);
+             }
+
+             // 4. Ziyarat
+             if (v.details?.ziyaratDetails) {
+                const zMovement: Partial<HajiMovement> = {
+                   id: `${v.id}-${idx}-${hIdx}-ziyarat`,
+                   paxName: paxName,
+                   date: new Date(v.date),
+                   type: VoucherType.TRANSPORT,
+                   category: 'TRANSPORT',
+                   location: 'Local Ziyarats',
+                   details: v.details.ziyaratDetails,
+                   actionRequired: "Local Tour",
+                   rawVoucher: v
+                };
+                allMovements.push(zMovement as HajiMovement);
+             }
+          });
         }
       });
     });
@@ -447,7 +519,8 @@ const HajiTracking: React.FC = () => {
       const details = m.rawVoucher.details || {};
       const voucherHajiId = details.hajiId || 
                      (Array.isArray(details.items) ? details.items.find((it: any) => it.paxName === m.paxName)?.hajiId : null) ||
-                     (Array.isArray(details.visaItems) ? details.visaItems.find((it: any) => it.paxName === m.paxName)?.hajiId : null);
+                     (Array.isArray(details.visaItems) ? details.visaItems.find((it: any) => it.paxName === m.paxName)?.hajiId : null) ||
+                     (Array.isArray(details.hajjis) ? details.hajjis.find((it: any) => it.fullName === m.paxName)?.hajiId : null);
       
       // Try to find a master record to unify key
       const masterRecord = hajiMasterList.find(h => 

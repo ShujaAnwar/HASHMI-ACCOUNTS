@@ -1,22 +1,28 @@
   import { supabase } from './supabase';
   import { Account, Voucher, AppConfig, AccountType, Currency, VoucherType, VoucherStatus, DashboardStats } from '../types';
 
-  const mapVoucher = (v: any): Voucher => ({
-    id: v.id,
-    type: v.type as VoucherType,
-    voucherNum: v.voucher_num,
-    date: v.date,
-    currency: v.currency as Currency,
-    roe: Number(v.roe),
-    totalAmountPKR: Number(v.total_amount_pkr),
-    description: v.description,
-    status: v.status as VoucherStatus,
-    reference: v.reference,
-    customerId: v.customer_id,
-    vendorId: v.vendor_id,
-    details: v.details,
-    createdAt: v.created_at
-  });
+  const mapVoucher = (v: any): Voucher => {
+    let type = v.type as VoucherType;
+    if (v.type === 'AV' && v.details && v.details.is_package) {
+      type = VoucherType.PACKAGE;
+    }
+    return {
+      id: v.id,
+      type: type,
+      voucherNum: v.voucher_num,
+      date: v.date,
+      currency: v.currency as Currency,
+      roe: Number(v.roe),
+      totalAmountPKR: Number(v.total_amount_pkr),
+      description: v.description,
+      status: v.status as VoucherStatus,
+      reference: v.reference,
+      customerId: v.customer_id,
+      vendorId: v.vendor_id,
+      details: v.details,
+      createdAt: v.created_at
+    };
+  };
 
   const mapAccount = (a: any): Account => ({
     id: a.id,

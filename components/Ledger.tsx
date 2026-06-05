@@ -196,13 +196,27 @@ import DateInput from './DateInput';
     const getNarrativeForLedger = (entry: any, voucher: Voucher | undefined) => {
       if (!voucher || !voucher.details) return entry.description || '-';
 
-      // For Transport and Hotel vouchers, we re-generate the narrative to ensure 
-      // specific details (like multi-sectors) are always up-to-date and displayed.
+      // For Transport, Hotel, and Package vouchers, we re-generate the narrative to ensure 
+      // specific details (like multi-sectors or price and pax breakdowns) are always up-to-date and displayed.
       // For others, if we have a stored description, we can use it.
-      if (voucher.type !== VoucherType.TRANSPORT && voucher.type !== VoucherType.HOTEL) {
+      if (voucher.type !== VoucherType.TRANSPORT && voucher.type !== VoucherType.HOTEL && voucher.type !== VoucherType.PACKAGE) {
         if (entry.description && entry.description !== '-' && entry.description.trim() !== '') {
           return entry.description;
         }
+      }
+      
+      if (voucher.type === VoucherType.PACKAGE) {
+        const details = voucher.details || {};
+        const hajjisList = details.hajjis || [];
+        const totalPilgrims = hajjisList.length || 1;
+        const pilgrimNames = hajjisList.map((h: any) => h.fullName).join(', ');
+        const pricePerHaji = Number(details.packagePricePerHaji || 0);
+        const currencySymbol = voucher.currency === Currency.SAR ? 'SAR' : (voucher.currency || 'USD');
+        const roe = voucher.roe || 1;
+        const roeText = voucher.currency === Currency.SAR ? `(ROE: ${roe})` : '';
+        const totalInOriginal = pricePerHaji * totalPilgrims;
+        
+        return `UMRAH PACKAGE: ${totalPilgrims} Pax @ ${currencySymbol} ${pricePerHaji.toLocaleString()}/Pax = ${currencySymbol} ${totalInOriginal.toLocaleString()} ${roeText} | Pilgrims: ${pilgrimNames} | Note: ${voucher.description || ''}`;
       }
       
       if (voucher.type === VoucherType.HOTEL) {

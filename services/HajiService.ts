@@ -61,8 +61,28 @@ export class HajiService {
         nextNum = parseInt(match[0]) + 1;
       }
     }
-    const hajiId = `H-${String(nextNum).padStart(4, '0')}`;
+    let hajiId = `H-${String(nextNum).padStart(4, '0')}`;
 
+    // Robust uniqueness check to safeguard against race conditions or non-sequential IDs
+    let exists = true;
+    let attempts = 0;
+    while (exists && attempts < 100) {
+      const { data: checkData, error: checkError } = await supabase
+        .from('haji_master')
+        .select('id')
+        .eq('haji_id', hajiId)
+        .maybeSingle();
+      
+      if (checkError) break;
+      if (!checkData) {
+        exists = false;
+      } else {
+        nextNum++;
+        hajiId = `H-${String(nextNum).padStart(4, '0')}`;
+        attempts++;
+      }
+    }
+ 
     const { data, error } = await supabase
       .from('haji_master')
       .insert({
@@ -224,7 +244,15 @@ export class HajiService {
 
     if (vErr) throw vErr;
 
-    return (allVouchers || []).filter(v => {
+    const mappedVouchers = (allVouchers || []).map((v: any) => {
+      let type = v.type;
+      if (v.type === 'AV' && v.details && v.details.is_package) {
+        type = 'PKV';
+      }
+      return { ...v, type };
+    });
+
+    return mappedVouchers.filter((v: any) => {
       const details = v.details || {};
       const detailsStr = JSON.stringify(details).toUpperCase();
       

@@ -29,6 +29,7 @@ import VisaVoucherForm from './VisaVoucherForm';
 import HotelVoucherForm from './HotelVoucherForm';
 import TicketVoucherForm from './TicketVoucherForm';
 import AllInOneVoucherForm from './AllInOneVoucherForm';
+import { PackageVoucherForm } from './PackageVoucherForm';
 
 const amountToWords = (num: number): string => {
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
@@ -205,6 +206,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         const aiItems = v.details || {};
         const aiPax = (aiItems.paxName || 'N/A').toUpperCase();
         return `${aiPax} | ALL-IN-ONE VOUCHER | ${v.description || ''}`;
+      case VoucherType.PACKAGE:
+        const pkgDetails = v.details || {};
+        const pilgrims = (pkgDetails.hajjis || []).map((h: any) => h.fullName).join(', ');
+        const makkahRoomsStr = pkgDetails.makkahNumRooms ? `(${pkgDetails.makkahNumRooms} x ${pkgDetails.makkahRoomType})` : (pkgDetails.makkahRoomType || '');
+        return `📦 PACKAGE: ${pilgrims || 'No Hajjis'} | Room: ${makkahRoomsStr} | Cost: ${pkgDetails.makkahHotelName || ''} / ${pkgDetails.madinahHotelName || ''} | Note: ${v.description || ''}`;
       default:
         return v.description;
     }
@@ -226,6 +232,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       } else if (v.details.visaItems && Array.isArray(v.details.visaItems)) {
         const firstWithPax = v.details.visaItems.find((item: any) => item.paxName);
         if (firstWithPax) rawPaxName = firstWithPax.paxName;
+      } else if (v.details.hajjis && Array.isArray(v.details.hajjis)) {
+        const firstWithPax = v.details.hajjis[0];
+        if (firstWithPax) rawPaxName = firstWithPax.fullName;
       }
 
       // 2. Hotel Name
@@ -324,6 +333,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
     if (v.type === VoucherType.VISA || v.type === VoucherType.TRANSPORT) {
       return `${typeAndNo} - ${hajiName}.pdf`;
+    }
+
+    if (v.type === VoucherType.PACKAGE) {
+      return `${typeAndNo} - ${hajiName} - Package.pdf`;
     }
 
     return `${typeAndNo} - ${hajiName} - ${hotelShort} - ${locLabel} - ${dateShort}.pdf`;
@@ -1448,6 +1461,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       return renderOfficialInvoice(viewingVoucher);
     }
 
+    if (viewingVoucher.type === VoucherType.PACKAGE) {
+      return renderPackageVoucher(viewingVoucher);
+    }
+
     switch (inspectorView) {
       case 'OFFICIAL': return renderOfficialInvoice(viewingVoucher);
       case 'PKR': return renderConfirmationLetter(viewingVoucher);
@@ -1673,9 +1690,249 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           )}
         </div>
 
+          {/* SECTION 4: TICKET & FLIGHT VOUCHERS */}
+          {(details.ticketItems?.length > 0) && (
+            <div className="space-y-2 mb-4">
+               <h3 className="text-[10px] font-black bg-[#0f172a] text-white px-3 py-1 uppercase tracking-widest rounded-sm mb-1 font-orbitron">4. Airline Flight Ticketing</h3>
+               <table className="w-full border-collapse">
+                 <thead>
+                   <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200 font-orbitron">
+                     <th className="py-1 px-3 text-left border-r border-slate-200">PASSENGER NAME</th>
+                     <th className="py-1 px-3 text-left border-r border-slate-200">PASSPORT</th>
+                     <th className="py-1 px-3 text-center border-r border-slate-200">AIRLINE</th>
+                     <th className="py-1 px-3 text-center border-r border-slate-200">SECTOR</th>
+                     <th className="py-1 px-3 text-center border-r border-slate-200">PNR / TICKET #</th>
+                     <th className="py-1 px-3 text-right">AMOUNT ({v.currency})</th>
+                   </tr>
+                 </thead>
+                 <tbody className="text-[9px] font-bold text-slate-800">
+                   {details.ticketItems.map((item: any, i: number) => (
+                     <tr key={i} className="border border-slate-200 border-t-0">
+                       <td className="py-1 px-3 border-r border-slate-200 uppercase">{item.paxName}</td>
+                       <td className="py-1 px-3 border-r border-slate-200 uppercase">{item.passportNumber || 'N/A'}</td>
+                       <td className="py-1 px-3 text-center border-r border-slate-200 uppercase">{item.airline || 'N/A'}</td>
+                       <td className="py-1 px-3 text-center border-r border-slate-200 uppercase">{item.sector || 'N/A'}</td>
+                       <td className="py-1 px-3 text-center border-r border-slate-200 uppercase font-mono">{item.reference || 'N/A'}</td>
+                       <td className="py-1 px-3 text-right">{Number(item.rate).toLocaleString()}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+            </div>
+          )}
+
         {/* Footer Policies */}
         <div className="mt-4 pt-2 border-t border-slate-100 mb-2">
            <h4 className="text-[10px] font-black text-[#0f172a] uppercase tracking-tighter mb-1 border-b border-slate-50 pb-0.5">Important Policies & Information</h4>
+           <ul className="text-[8px] font-medium text-slate-500 space-y-0.5 leading-tight list-disc ml-4 uppercase">
+             <li>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel.</li>
+             <li>Rooms may not be available for early check-in unless confirmed in advance.</li>
+             <li>Booking cancellation charges apply as per vendor policies.</li>
+             <li>Transport arrival times are subject to local traffic and regulatory conditions.</li>
+             <li>For any queries, please contact our support team at the numbers provided in header.</li>
+           </ul>
+        </div>
+
+        {/* Booking Notes - Locked to Bottom like sample */}
+        <div className="mt-auto pt-2 pb-2">
+          <div className="border border-slate-200 p-3 rounded-md bg-slate-50">
+            <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
+              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to contact us.
+            </p>
+          </div>
+        </div>
+
+        {/* Authorized Bar */}
+        <div className="flex justify-between items-end mt-2 px-4">
+           <div className="text-center pt-4">
+              <div className="w-32 border-t border-slate-300 pt-1 text-[7px] font-black text-slate-400 uppercase tracking-widest">PREPARED BY</div>
+           </div>
+           <div className="text-center pt-4">
+              <div className="w-32 border-t border-slate-300 pt-1 text-[7px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED SIGNATURE</div>
+           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPackageVoucher = (v: Voucher) => {
+    const details = v.details || {};
+    const customer = accounts.find(a => a.id === v.customerId);
+    
+    // White-label branding logic
+    const branding = {
+      logo: customer?.logoUrl || config?.companyLogo,
+      name: customer?.companyName || customer?.name || config?.companyName || 'ENTERPRISE',
+      contact: customer?.contactNumber || customer?.cell || config?.companyCell || '0334 3666777',
+      isCustom: !!(customer?.logoUrl || customer?.companyName || customer?.contactNumber)
+    };
+
+    const hajjis = details.hajjis || [];
+
+    return (
+      <div ref={voucherRef} className="bg-white p-6 text-[#0f172a] font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+        
+        {/* Header - Dynamic Branding */}
+        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
+          <div className="w-32">
+             {branding.logo ? (
+                <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+             ) : (
+                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
+             )}
+          </div>
+          <div className="text-center flex-1 transition-all">
+            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Package Booking Voucher</h1>
+            <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
+              {branding.isCustom ? branding.name : (config?.appSubtitle || 'Travel Solutions by Shuja Anwar')}
+            </p>
+          </div>
+          <div className="w-40 text-right pr-4">
+             <div className="space-y-0.5">
+                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+                </p>
+                {!branding.isCustom && config?.companyPhone && (
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
+                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                  </p>
+                )}
+             </div>
+          </div>
+        </div>
+
+        {/* Reference Line */}
+        <div className="mb-3 flex justify-between items-end">
+          <p className="text-[13px] font-black text-[#0f172a]">Voucher Number: {v.voucherNum}</p>
+          <div className="text-right">
+            <p className="text-[11px] font-black text-slate-500 uppercase tracking-tight">
+              Date: {formatDate(v.date)}
+            </p>
+          </div>
+        </div>
+
+        {/* Guest Details bar */}
+        <div className="py-2 border-y border-slate-100 mb-3 grid grid-cols-2 gap-4">
+           <div className="space-y-0.5">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER / AGENCY</p>
+              <p className="text-[12px] font-black uppercase text-[#0f172a]">{customer?.name || 'PRIVATE GUEST'}</p>
+           </div>
+           <div className="space-y-0.5 text-right">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">PACKAGE TYPE</p>
+              <p className="text-[12px] font-black uppercase text-[#0f172a]">Group Umrah Package ({hajjis.length} Hajjis)</p>
+           </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 space-y-4 overflow-hidden">
+          
+          {/* SECTION 1: HOTEL ACCOMMODATIONS */}
+          {(details.makkahHotelName || details.madinahHotelName) && (
+            <div className="space-y-2">
+               <h3 className="text-[10px] font-black bg-[#0f172a] text-white px-3 py-1 uppercase tracking-widest rounded-sm mb-2 font-orbitron">1. Hotel Accommodations</h3>
+               
+               <div className="grid grid-cols-2 gap-4">
+                 {details.makkahHotelName && (
+                   <div className="border border-slate-100 rounded-lg p-3 space-y-1.5">
+                     <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest font-orbitron">MAKKAH HOTEL</p>
+                     <p className="text-[13px] font-black uppercase text-[#0f172a] leading-tight">{details.makkahHotelName}</p>
+                     
+                     <div className="grid grid-cols-2 gap-2 text-[10px] font-bold pt-1 text-slate-700">
+                        <div>Check-In: <span className="font-black text-[#0f172a]">{details.makkahCheckIn ? formatDate(details.makkahCheckIn) : 'N/A'}</span></div>
+                        <div>Check-Out: <span className="font-black text-[#0f172a]">{details.makkahCheckOut ? formatDate(details.makkahCheckOut) : 'N/A'}</span></div>
+                        <div>Nights: <span className="font-black text-[#0f172a]">{details.makkahNights || 'N/A'}</span></div>
+                        <div>Room: <span className="font-black text-[#0f172a] uppercase">{details.makkahRoomType} {details.makkahNumRooms ? `(${details.makkahNumRooms} Rooms)` : ''}</span></div>
+                        <div className="col-span-2">Meal Option: <span className="font-black text-[#0f172a] uppercase">{details.makkahMealPlan}</span></div>
+                     </div>
+                   </div>
+                 )}
+
+                 {details.madinahHotelName && (
+                   <div className="border border-slate-100 rounded-lg p-3 space-y-1.5">
+                     <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest font-orbitron">MADINAH HOTEL</p>
+                     <p className="text-[13px] font-black uppercase text-[#0f172a] leading-tight">{details.madinahHotelName}</p>
+                     
+                     <div className="grid grid-cols-2 gap-2 text-[10px] font-bold pt-1 text-slate-700">
+                        <div>Check-In: <span className="font-black text-[#0f172a]">{details.madinahCheckIn ? formatDate(details.madinahCheckIn) : 'N/A'}</span></div>
+                        <div>Check-Out: <span className="font-black text-[#0f172a]">{details.madinahCheckOut ? formatDate(details.madinahCheckOut) : 'N/A'}</span></div>
+                        <div>Nights: <span className="font-black text-[#0f172a]">{details.madinahNights || 'N/A'}</span></div>
+                        <div>Room: <span className="font-black text-[#0f172a] uppercase">{details.madinahRoomType} {details.madinahNumRooms ? `(${details.madinahNumRooms} Rooms)` : ''}</span></div>
+                        <div className="col-span-2">Meal Option: <span className="font-black text-[#0f172a] uppercase">{details.madinahMealPlan}</span></div>
+                     </div>
+                   </div>
+                 )}
+               </div>
+            </div>
+          )}
+
+          {/* SECTION 2: TRANSPORT & LOGISTICS */}
+          {(details.transportRoute || details.ziyaratDetails || details.otherServices) && (
+            <div className="space-y-2">
+               <h3 className="text-[10px] font-black bg-[#0f172a] text-white px-3 py-1 uppercase tracking-widest rounded-sm mb-2 font-orbitron">2. Included Logistics & Services</h3>
+               
+               <table className="w-full border-collapse">
+                 <thead>
+                   <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200">
+                     <th className="py-1 px-3 text-left border-r border-slate-200 w-1/3">SERVICE CATEGORY</th>
+                     <th className="py-1 px-3 text-left">SERVICE DETAILS & DESCRIPTION</th>
+                   </tr>
+                 </thead>
+                 <tbody className="text-[10px] font-bold text-slate-800">
+                   {details.transportRoute && (
+                     <tr className="border border-slate-200 border-t-0">
+                       <td className="py-1.5 px-3 border-r border-slate-200 uppercase text-slate-400 font-extrabold text-[9px]">🚗 TRANSPORTATION</td>
+                       <td className="py-1.5 px-3 uppercase text-[#0f172a]">{details.transportVehicle || 'Bus'}: {details.transportRoute}</td>
+                     </tr>
+                   )}
+                   {details.ziyaratDetails && (
+                     <tr className="border border-slate-200 border-t-0">
+                       <td className="py-1.5 px-3 border-r border-slate-200 uppercase text-slate-400 font-extrabold text-[9px]">🕌 ZIYARAT SIGHTSEEING</td>
+                       <td className="py-1.5 px-3 uppercase text-[#0f172a]">{details.ziyaratDetails}</td>
+                     </tr>
+                   )}
+                   {details.otherServices && (
+                     <tr className="border border-slate-200 border-t-0">
+                       <td className="py-1.5 px-3 border-r border-slate-200 uppercase text-slate-400 font-extrabold text-[9px]">📦 ADDITIONAL SERVICES</td>
+                       <td className="py-1.5 px-3 uppercase text-[#0f172a]">{details.otherServices}</td>
+                     </tr>
+                   )}
+                 </tbody>
+               </table>
+            </div>
+          )}
+
+          {/* SECTION 3: REGISTERED GROUP PILGRIMS */}
+          {hajjis.length > 0 && (
+            <div className="space-y-2">
+               <h3 className="text-[10px] font-black bg-[#0f172a] text-white px-3 py-1 uppercase tracking-widest rounded-sm mb-2 font-orbitron">3. Registered Group Pilgrims</h3>
+               
+               <table className="w-full border-collapse">
+                 <thead>
+                   <tr className="text-[8px] font-black uppercase tracking-widest text-[#0f172a] bg-slate-50 border border-slate-200 font-orbitron">
+                     <th className="py-1 px-3 text-center border-r border-slate-200 w-16">SR #</th>
+                     <th className="py-1 px-3 text-left border-r border-slate-200">PILGRIM FULL NAME</th>
+                     <th className="py-1 px-3 text-center border-r border-slate-200">PASSPORT NUMBER</th>
+                     <th className="py-1 px-3 text-center w-36">PILGRIM MASTER ID</th>
+                   </tr>
+                 </thead>
+                 <tbody className="text-[10px] font-bold text-slate-800">
+                   {hajjis.map((haji: any, i: number) => (
+                     <tr key={i} className="border border-slate-200 border-t-0">
+                       <td className="py-1 px-3 border-r border-slate-200 text-center text-slate-400">{i + 1}</td>
+                       <td className="py-1 px-3 border-r border-slate-200 uppercase text-[#0f172a] font-bold">{haji.fullName}</td>
+                       <td className="py-1 px-3 border-r border-slate-200 text-center font-mono text-blue-600">{haji.passportNumber || 'N/A'}</td>
+                       <td className="py-1 px-3 text-center font-mono text-slate-400 text-[10px] uppercase">{haji.hajiId || 'N/A'}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Policies */}
+        <div className="mt-4 pt-2 border-t border-slate-100 mb-2">
+           <h4 className="text-[10px] font-black text-[#0f172a] uppercase tracking-tighter mb-1 border-b border-slate-50 pb-0.5 font-orbitron">Important Policies & Information</h4>
            <ul className="text-[8px] font-medium text-slate-500 space-y-0.5 leading-tight list-disc ml-4 uppercase">
              <li>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel.</li>
              <li>Rooms may not be available for early check-in unless confirmed in advance.</li>
@@ -1723,6 +1980,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       case VoucherType.TICKET: return <TicketVoucherForm {...props} />;
       case VoucherType.PAYMENT: return <PaymentVoucherForm {...props} />;
       case VoucherType.ALL_IN_ONE: return <AllInOneVoucherForm {...props} />;
+      case VoucherType.PACKAGE: return <PackageVoucherForm {...props} />;
       default: return null;
     }
   };
