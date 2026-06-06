@@ -165,6 +165,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     return allVouchers.filter(v => v.type === activeType);
   }, [allVouchers, activeType]);
 
+  const totalAmountFiltered = useMemo(() => {
+    return filteredVouchers.reduce((sum, v) => sum + (v.totalAmountPKR || 0), 0);
+  }, [filteredVouchers]);
+
   const getDetailedNarrative = (v: Voucher) => {
     if (!v.details) return v.description;
     
@@ -2088,6 +2092,30 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           >
             {isSaving ? 'Saving...' : '+ New Voucher'}
           </button>
+        </div>
+      </div>
+
+      {/* Dynamic Summary Stats Panel on Top of the Table */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800/40 dark:to-slate-800/20 px-6 py-4 rounded-[1.5rem] md:rounded-2xl border border-blue-100/50 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 no-print text-[11px] font-black">
+        <div className="flex items-center space-x-3">
+          <span className="text-xl">📊</span>
+          <div>
+            <span className="text-slate-400 uppercase tracking-widest text-[9px] block">Active Voucher Category</span>
+            <span className="text-blue-600 dark:text-blue-400 uppercase text-[14px] font-bold tracking-tight">{activeType} Vouchers</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="text-right">
+            <span className="text-slate-400 uppercase tracking-widest text-[9px] block">Voucher Count</span>
+            <span className="text-slate-900 dark:text-white text-[15px] font-bold tracking-tight">{filteredVouchers.length} Items</span>
+          </div>
+          <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+          <div className="text-right">
+            <span className="text-slate-400 uppercase tracking-widest text-[9px] block">Total Amount</span>
+            <span className="text-emerald-600 dark:text-emerald-400 text-lg md:text-xl font-orbitron font-extrabold tracking-tighter">
+              Rs {totalAmountFiltered.toLocaleString()}
+            </span>
+          </div>
         </div>
       </div>
 

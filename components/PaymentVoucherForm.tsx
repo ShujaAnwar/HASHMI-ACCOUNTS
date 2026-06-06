@@ -53,6 +53,7 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
   const expenseAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.EXPENSE), [accounts]);
   const vendorAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.VENDOR), [accounts]);
   const cashBankAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CASH_BANK), [accounts]);
+  const customerAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CUSTOMER), [accounts]);
 
   useEffect(() => {
     if (config && !initialData && cashBankAccounts.length > 0) {
@@ -204,6 +205,12 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
                         </optgroup>
                         <optgroup label="Vendor Settlements">
                           {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                        </optgroup>
+                        <optgroup label="Cash & Bank">
+                          {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                        </optgroup>
+                        <optgroup label="Customers">
+                          {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
                         </optgroup>
                       </select>
                     </td>
