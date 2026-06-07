@@ -93,6 +93,8 @@ export interface AppConfig {
   showHotelsList?: boolean;
   autoRefreshEnabled?: boolean;
   autoRefreshIntervalMinutes?: number;
+  hotelPoliciesShow?: boolean;
+  hotelPoliciesText?: string;
 }
 
 export interface HajiMaster {

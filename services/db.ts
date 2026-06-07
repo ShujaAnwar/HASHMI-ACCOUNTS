@@ -132,7 +132,9 @@
           logoSize: 80,
           fontSize: 16,
           accountNameCase: 'Sentence Case',
-          banks: []
+          banks: [],
+          hotelPoliciesShow: true,
+          hotelPoliciesText: "The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.\n\nRooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.\n\nNote that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.\n\nThe usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.\n\nFor any specific queries related to a particular hotel, kindly reach out to local support team for further assistance"
         };
       }
 
@@ -155,7 +157,9 @@
         autoBackupIntervalHours: d.auto_backup_interval_hours || 6,
         showHotelsList: d.show_hotels_list !== false,
         autoRefreshEnabled: d.auto_refresh_enabled || false,
-        autoRefreshIntervalMinutes: d.auto_refresh_interval_minutes || 5
+        autoRefreshIntervalMinutes: d.auto_refresh_interval_minutes || 5,
+        hotelPoliciesShow: d.hotel_policies_show !== false,
+        hotelPoliciesText: d.hotel_policies_text || "The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.\n\nRooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.\n\nNote that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.\n\nThe usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.\n\nFor any specific queries related to a particular hotel, kindly reach out to local support team for further assistance"
       };
     } catch (err) {
       return {
@@ -175,7 +179,9 @@
         autoBackupIntervalHours: 6,
         showHotelsList: true,
         autoRefreshEnabled: false,
-        autoRefreshIntervalMinutes: 5
+        autoRefreshIntervalMinutes: 5,
+        hotelPoliciesShow: true,
+        hotelPoliciesText: "The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.\n\nRooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.\n\nNote that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.\n\nThe usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.\n\nFor any specific queries related to a particular hotel, kindly reach out to local support team for further assistance"
       };
     }
   };
@@ -200,7 +206,9 @@
       auto_backup_interval_hours: config.autoBackupIntervalHours,
       show_hotels_list: config.showHotelsList !== false,
       auto_refresh_enabled: config.autoRefreshEnabled,
-      auto_refresh_interval_minutes: config.autoRefreshIntervalMinutes
+      auto_refresh_interval_minutes: config.autoRefreshIntervalMinutes,
+      hotel_policies_show: config.hotelPoliciesShow !== false,
+      hotel_policies_text: config.hotelPoliciesText
     };
 
     const { error } = await retryFetch(() => supabase
@@ -219,6 +227,8 @@
       delete fallbackPayload.show_hotels_list;
       delete fallbackPayload.auto_refresh_enabled;
       delete fallbackPayload.auto_refresh_interval_minutes;
+      delete fallbackPayload.hotel_policies_show;
+      delete fallbackPayload.hotel_policies_text;
       
       const { error: fallbackError } = await supabase
         .from('app_config')

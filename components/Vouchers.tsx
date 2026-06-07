@@ -1138,17 +1138,27 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           </table>
         </div>
 
-        {/* Policies - Updated to match screenshot exactly */}
-        <div className="mb-2">
-          <h4 className="text-[11px] font-black text-[#0f172a] uppercase tracking-tighter mb-2 border-b border-slate-100 pb-1">Check-in/Check-out Timings & Policies</h4>
-          <ul className="text-[9px] font-medium text-slate-600 space-y-1 leading-tight list-disc ml-4">
-            <li>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.</li>
-            <li>Rooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.</li>
-            <li>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.</li>
-            <li>The usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.</li>
-            <li>For any specific queries related to a particular hotel, kindly reach out to local support team for further assistance</li>
-          </ul>
-        </div>
+        {/* Policies - Managed dynamically via Control Panel */}
+        {config?.hotelPoliciesShow !== false && (
+          <div className="mb-2">
+            <h4 className="text-[11px] font-black text-[#0f172a] uppercase tracking-tighter mb-2 border-b border-slate-100 pb-1">Check-in/Check-out Timings & Policies</h4>
+            <ul className="text-[9px] font-medium text-slate-600 space-y-1 leading-tight list-disc ml-4">
+              {config?.hotelPoliciesText ? (
+                config.hotelPoliciesText.split('\n').filter(line => line.trim() !== '').map((policyLine, idx) => (
+                  <li key={idx}>{policyLine.trim()}</li>
+                ))
+              ) : (
+                <>
+                  <li>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.</li>
+                  <li>Rooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.</li>
+                  <li>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.</li>
+                  <li>The usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.</li>
+                  <li>For any specific queries related to a particular hotel, kindly reach out to local support team for further assistance</li>
+                </>
+              )}
+            </ul>
+          </div>
+        )}
 
         {/* Booking Notes - Updated narrative and locked to bottom */}
         <div className="mt-auto pt-2 pb-1 border-t border-slate-100">

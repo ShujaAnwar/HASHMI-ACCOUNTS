@@ -468,6 +468,37 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                       <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
+                  
+                  <div className="md:col-span-2 border-t dark:border-slate-800 pt-6">
+                    <div className="flex items-center justify-between bg-rose-50/50 dark:bg-rose-950/10 p-4 rounded-xl border border-rose-100 dark:border-rose-900/13 mb-4">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-rose-600">Show Hotel Voucher Policies</span>
+                        <span className="text-[8px] text-slate-500 uppercase font-bold">Show/hide terms & policies on printed hotel vouchers</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={config.hotelPoliciesShow !== false} 
+                          onChange={e => setConfig({...config, hotelPoliciesShow: e.target.checked})} 
+                        />
+                        <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {config.hotelPoliciesShow !== false && (
+                    <div className="md:col-span-2 space-y-2 animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-[10px] font-black text-rose-600 uppercase mb-2 block tracking-widest">Hotel Voucher Policies Text</label>
+                      <textarea 
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 h-48 font-medium text-xs shadow-inner resize-y outline-none leading-relaxed text-slate-700 dark:text-slate-300" 
+                        value={config.hotelPoliciesText || ''} 
+                        onChange={e => setConfig({...config, hotelPoliciesText: e.target.value})}
+                        placeholder="Enter policies, each newline represents a single bullet point..."
+                      />
+                      <p className="text-[8px] text-slate-400 font-bold uppercase ml-2">Note: Dynamic updates apply globally upon saving configuration.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -777,6 +808,8 @@ ALTER TABLE app_config ADD COLUMN IF NOT EXISTS banks JSONB DEFAULT '[]';
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS hotel_policies_show BOOLEAN DEFAULT TRUE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS hotel_policies_text TEXT DEFAULT 'The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.\\n\\nRooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.\\n\\nNote that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.\\n\\nThe usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.\\n\\nFor any specific queries related to a particular hotel, kindly reach out to local support team for further assistance';
 -- Update branding to Hashmi Travel Solutions
 UPDATE app_config SET company_name = 'Hashmi Travel Solutions', app_subtitle = 'Travel Solutions by Shuja Anwar', company_phone = '0313-2710182', company_cell = '0313-2710182', company_email = 'Shujaanwaar@gmail.com' WHERE id = '00000000-0000-0000-0000-000000000001';
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_name TEXT;
@@ -810,6 +843,8 @@ ALTER TABLE app_config ADD COLUMN IF NOT EXISTS banks JSONB DEFAULT '[]';
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_enabled BOOLEAN DEFAULT FALSE;
 ALTER TABLE app_config ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS hotel_policies_show BOOLEAN DEFAULT TRUE;
+ALTER TABLE app_config ADD COLUMN IF NOT EXISTS hotel_policies_text TEXT DEFAULT 'The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.\n\nRooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.\n\nNote that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.\n\nThe usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.\n\nFor any specific queries related to a particular hotel, kindly reach out to local support team for further assistance';
 UPDATE app_config SET company_name = 'Hashmi Travel Solutions', app_subtitle = 'Travel Solutions by Shuja Anwar', company_phone = '0313-2710182', company_cell = '0313-2710182', company_email = 'Shujaanwaar@gmail.com' WHERE id = '00000000-0000-0000-0000-000000000001';
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_name TEXT;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS contact_number TEXT;

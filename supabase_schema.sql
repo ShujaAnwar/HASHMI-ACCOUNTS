@@ -41,7 +41,9 @@
     ADD COLUMN IF NOT EXISTS auto_backup_interval_hours INTEGER DEFAULT 6,
     ADD COLUMN IF NOT EXISTS show_hotels_list BOOLEAN DEFAULT TRUE,
     ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS auto_refresh_interval_minutes INTEGER DEFAULT 5;
+    ADD COLUMN IF NOT EXISTS auto_refresh_interval_minutes INTEGER DEFAULT 5,
+    ADD COLUMN IF NOT EXISTS hotel_policies_show BOOLEAN DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS hotel_policies_text TEXT DEFAULT 'The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.\n\nRooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.\n\nNote that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.\n\nThe usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.\n\nFor any specific queries related to a particular hotel, kindly reach out to local support team for further assistance';
 
     -- 4. Ensure Ledger Entries has the voucher_num column for better tracking
     ALTER TABLE public.ledger_entries 
