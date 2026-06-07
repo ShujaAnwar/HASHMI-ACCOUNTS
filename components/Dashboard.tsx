@@ -156,6 +156,10 @@ const Dashboard: React.FC<{
     { name: 'Payables', value: Math.max(stats.totalPayables, 0.1), color: '#EF4444' }
   ], [stats]);
 
+  const cashBankAccounts = useMemo(() => {
+    return accounts.filter(a => a.type === AccountType.CASH_BANK);
+  }, [accounts]);
+
   const lineData = useMemo(() => {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const now = new Date();
@@ -525,6 +529,47 @@ const Dashboard: React.FC<{
         ))}
       </div>
 
+      {/* Mobile Cash & Bank Balances Breakdown */}
+      {cashBankAccounts.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h3 className="text-sm font-black text-blue-600 uppercase tracking-tight">Account Balances</h3>
+              <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Cash & Bank Breakdown</p>
+            </div>
+            <span className="text-[8px] bg-slate-100 dark:bg-slate-800 px-2 text-slate-500 rounded-full font-bold uppercase py-0.5">{cashBankAccounts.length} Accounts</span>
+          </div>
+          <div className="space-y-3 max-h-64 overflow-y-auto pr-1 no-scrollbar">
+            {cashBankAccounts.map((acc) => {
+              const isCash = acc.name.toLowerCase().includes('cash') || acc.name.toLowerCase().includes('hand') || acc.name.toLowerCase().includes('pett');
+              return (
+                <div 
+                  key={acc.id}
+                  onClick={() => onNavigate?.('ledger')}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100/50 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-950 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className="text-xl p-2 rounded-xl bg-white dark:bg-slate-800 shadow-sm">{isCash ? '💵' : '🏦'}</span>
+                    <div>
+                      <span className="text-[7px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1 py-0.5 rounded">
+                        {acc.code || 'COA'}
+                      </span>
+                      <p className="font-bold text-slate-800 dark:text-slate-100 text-[11px] uppercase tracking-tight mt-1 truncate max-w-[130px]">{acc.name}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-orbitron font-extrabold tracking-tighter text-xs ${acc.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                      Rs {formatCurrency(Math.floor(Math.abs(acc.balance)))}
+                    </p>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">{acc.balance >= 0 ? 'Dr' : 'Cr'}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Daily Summary Toggle */}
       <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800">
         <button 
@@ -775,70 +820,71 @@ const Dashboard: React.FC<{
               ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Income Trends Chart */}
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-bold">Consolidated Trends</h3>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue vs Exposure</span>
-                </div>
-                <div className="h-72 w-full min-h-[300px] min-w-0">
-                  {vouchers.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768 && (
-                    <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={lineData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
-                        tickLine={false} 
-                        tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
-                        dy={10}
-                      />
-                      <YAxis 
-                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
-                        tickLine={false} 
-                        tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
-                        tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
-                      />
-                      <Tooltip 
-                        formatter={(value: number) => [`PKR ${value.toLocaleString()}`]}
-                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} 
-                      />
-                      <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '10px' }} />
-                      
-                      <Line 
-                        name="Revenue" 
-                        type="monotone" 
-                        dataKey="revenue" 
-                        stroke="#3B82F6" 
-                        strokeWidth={4} 
-                        dot={{ r: 4, fill: '#3B82F6', strokeWidth: 0 }} 
-                        activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} 
-                      />
-                      <Line 
-                        name="Receivables" 
-                        type="monotone" 
-                        dataKey="receivables" 
-                        stroke="#10B981" 
-                        strokeWidth={2} 
-                        strokeDasharray="5 5"
-                        dot={{ r: 3, fill: '#10B981', strokeWidth: 0 }} 
-                      />
-                      <Line 
-                        name="Payables" 
-                        type="monotone" 
-                        dataKey="payables" 
-                        stroke="#F43F5E" 
-                        strokeWidth={2} 
-                        strokeDasharray="3 3"
-                        dot={{ r: 3, fill: '#F43F5E', strokeWidth: 0 }} 
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-                </div>
+            {/* Income Trends Chart (Full Width for Premium Clutter-Free Display) */}
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm min-w-0">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold">Consolidated Trends</h3>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Revenue vs Exposure</span>
               </div>
+              <div className="h-72 w-full min-h-[300px] min-w-0">
+                {vouchers.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768 && (
+                  <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={lineData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} 
+                      tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => [`PKR ${value.toLocaleString()}`]}
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} 
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '10px' }} />
+                    
+                    <Line 
+                      name="Revenue" 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="#3B82F6" 
+                      strokeWidth={4} 
+                      dot={{ r: 4, fill: '#3B82F6', strokeWidth: 0 }} 
+                      activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }} 
+                    />
+                    <Line 
+                      name="Receivables" 
+                      type="monotone" 
+                      dataKey="receivables" 
+                      stroke="#10B981" 
+                      strokeWidth={2} 
+                      strokeDasharray="5 5"
+                      dot={{ r: 3, fill: '#10B981', strokeWidth: 0 }} 
+                    />
+                    <Line 
+                      name="Payables" 
+                      type="monotone" 
+                      dataKey="payables" 
+                      stroke="#F43F5E" 
+                      strokeWidth={2} 
+                      strokeDasharray="3 3"
+                      dot={{ r: 3, fill: '#F43F5E', strokeWidth: 0 }} 
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+              </div>
+            </div>
 
+            {/* Symmetrical Split for Exposure Donut & Liquid Accounts List */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Exposure Breakdown Chart */}
               <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center min-w-0">
                 <div className="w-full flex justify-between items-center mb-2 px-2">
@@ -890,6 +936,55 @@ const Dashboard: React.FC<{
                       <p className="text-xs font-black uppercase truncate">PKR {formatCurrency(Math.floor(item.value))}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Cash & Bank Balances Breakdown (Liquid Accounts) */}
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col min-w-0">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold">Liquid Accounts</h3>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cash & Bank Balances</span>
+                </div>
+                <div className="flex-1 overflow-y-auto max-h-[310px] space-y-4 pr-1 no-scrollbar min-h-[300px]">
+                  {cashBankAccounts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 py-12">
+                      <span className="text-3xl mb-2">🏦</span>
+                      <p className="text-[10px] font-black uppercase tracking-wider">No Accounts Defined</p>
+                    </div>
+                  ) : (
+                    cashBankAccounts.map((acc) => {
+                      const isCash = acc.name.toLowerCase().includes('cash') || acc.name.toLowerCase().includes('hand') || acc.name.toLowerCase().includes('pett');
+                      return (
+                        <div 
+                          key={acc.id}
+                          onClick={() => onNavigate?.('ledger')}
+                          className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100/50 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900/30 hover:shadow-md transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center space-x-3.5">
+                            <span className="text-2xl p-2.5 rounded-xl bg-white dark:bg-slate-800 shadow-sm group-hover:scale-110 transition-transform select-none">
+                              {isCash ? '💵' : '🏦'}
+                            </span>
+                            <div>
+                              <span className="text-[8px] font-mono font-black text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-md">
+                                {acc.code || 'COA'}
+                              </span>
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1.5 line-clamp-1">
+                                {acc.name}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-orbitron font-extrabold tracking-tighter ${acc.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                              Rs {formatCurrency(Math.floor(Math.abs(acc.balance)))}
+                            </p>
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5 block">
+                              {acc.balance >= 0 ? 'Dr' : 'Cr'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>

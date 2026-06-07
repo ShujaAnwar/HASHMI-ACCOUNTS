@@ -24,20 +24,8 @@
     };
   };
 
-  const mapAccount = (a: any): Account => ({
-    id: a.id,
-    code: a.code,
-    name: a.name,
-    type: a.type as AccountType,
-    cell: a.cell,
-    location: a.location,
-    // Safety: Fallback to PKR if column is missing or null
-    currency: (a.currency as Currency) || Currency.PKR,
-    balance: Number(a.balance),
-    companyName: a.company_name,
-    contactNumber: a.contact_number,
-    logoUrl: a.logo_url,
-    ledger: (a.ledger || []).map((l: any) => ({
+  const mapAccount = (a: any): Account => {
+    const ledger = (a.ledger || []).map((l: any) => ({
       id: l.id,
       date: l.date,
       voucherId: l.voucher_id,
@@ -47,8 +35,29 @@
       credit: Number(l.credit),
       balanceAfter: Number(l.balance_after),
       createdAt: l.created_at
-    }))
-  });
+    }));
+
+    // Safety: Fallback to PKR if column is missing or null
+    const currency = (a.currency as Currency) || Currency.PKR;
+
+    // Recalculate dynamic balance from ledger entries
+    const balance = ledger.reduce((sum, item) => sum + (item.debit - item.credit), 0);
+
+    return {
+      id: a.id,
+      code: a.code,
+      name: a.name,
+      type: a.type as AccountType,
+      cell: a.cell,
+      location: a.location,
+      currency,
+      balance,
+      companyName: a.company_name,
+      contactNumber: a.contact_number,
+      logoUrl: a.logo_url,
+      ledger
+    };
+  };
 
   export const getAccounts = async (): Promise<Account[]> => {
     try {

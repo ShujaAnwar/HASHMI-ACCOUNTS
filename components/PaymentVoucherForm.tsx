@@ -39,21 +39,44 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
     load();
   }, [isClone, initialData]);
 
-  const [formData, setFormData] = useState({
-    date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0],
-    currency: initialData?.currency || Currency.PKR,
-    roe: initialData?.roe || 1,
-    voucherNum: initialData?.voucherNum || '',
-    bankId: initialData?.details?.bankId || '',
-    description: initialData?.description || '',
-    reference: isClone ? '' : (initialData?.reference || ''),
-    items: initialData?.details?.items || [{ accountId: '', description: '', amount: 0 }]
+  const [formData, setFormData] = useState(() => {
+    const defaultDate = initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0];
+    const rawItems = initialData?.details?.items || [{ accountId: '', description: '', amount: 0 }];
+    const parsedItems = rawItems.map((item: any) => ({
+      accountId: item.accountId || '',
+      description: item.description || '',
+      amount: item.amount || 0,
+      date: item.date || defaultDate
+    }));
+    return {
+      date: defaultDate,
+      currency: initialData?.currency || Currency.PKR,
+      roe: initialData?.roe || 1,
+      voucherNum: initialData?.voucherNum || '',
+      bankId: initialData?.details?.bankId || '',
+      description: initialData?.description || '',
+      reference: isClone ? '' : (initialData?.reference || ''),
+      items: parsedItems
+    };
   });
 
   const expenseAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.EXPENSE), [accounts]);
   const vendorAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.VENDOR), [accounts]);
   const cashBankAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CASH_BANK), [accounts]);
   const customerAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CUSTOMER), [accounts]);
+
+  const handleDateChange = (newDate: string) => {
+    setFormData(prev => {
+      const oldDate = prev.date;
+      const updatedItems = prev.items.map((item: any) => {
+        if (item.date === oldDate || !item.date) {
+          return { ...item, date: newDate };
+        }
+        return item;
+      });
+      return { ...prev, date: newDate, items: updatedItems };
+    });
+  };
 
   useEffect(() => {
     if (config && !initialData && cashBankAccounts.length > 0) {
@@ -73,12 +96,12 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
   }, [totalAmount, formData.roe, formData.currency]);
 
   const handleAddItem = () => {
-    setFormData({ ...formData, items: [...formData.items, { accountId: '', description: '', amount: 0 }] });
+    setFormData({ ...formData, items: [...formData.items, { accountId: '', description: '', amount: 0, date: formData.date }] });
   };
 
   const handleRemoveItem = (index: number) => {
     if (formData.items.length === 1) {
-      setFormData({ ...formData, items: [{ accountId: '', description: '', amount: 0 }] });
+      setFormData({ ...formData, items: [{ accountId: '', description: '', amount: 0, date: formData.date }] });
       return;
     }
     const newItems = [...formData.items];
@@ -123,7 +146,7 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 overflow-y-auto no-print">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2.5rem] shadow-2xl flex flex-col border border-slate-200 dark:border-white/5 animate-in zoom-in-95 duration-200 max-h-[95vh] overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl md:max-w-6xl rounded-[2.5rem] shadow-2xl flex flex-col border border-slate-200 dark:border-white/5 animate-in zoom-in-95 duration-200 max-h-[95vh] overflow-hidden">
         
         {/* Header */}
         <div className="px-8 py-6 border-b dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
@@ -142,7 +165,7 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
             <span className="text-xl">✕</span>
           </button>
         </div>
-
+ 
         {/* Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6">
           
@@ -150,7 +173,7 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border dark:border-slate-800">
             <div>
               <InputLabel>Disbursal Date</InputLabel>
-              <DateInput required className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-rose-500 outline-none transition-all" value={formData.date} onChange={val => setFormData({...formData, date: val})} />
+              <DateInput required className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-rose-500 outline-none transition-all" value={formData.date} onChange={handleDateChange} />
             </div>
             <div>
               <InputLabel>Currency</InputLabel>
@@ -171,68 +194,87 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
               </select>
             </div>
           </div>
-
+ 
           {/* Itemized Expenses Table */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
             <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b dark:border-slate-800">
                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit Accounts (Paid To)</h4>
                <button type="button" onClick={handleAddItem} className="text-[10px] font-bold text-rose-600 hover:text-rose-500 uppercase tracking-widest">+ Add Expense Head</button>
             </div>
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-white dark:bg-slate-900 border-b dark:border-slate-800">
-                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-12">#</th>
-                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-64">Expense Head</th>
-                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase">Description / Narration</th>
-                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-36 text-right">Amount</th>
-                  <th className="px-6 py-3 w-12"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y dark:divide-slate-800">
-                {formData.items.map((item: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all">
-                    <td className="px-6 py-4 text-xs font-mono text-slate-300">{idx + 1}</td>
-                    <td className="px-6 py-4">
-                      <select 
-                        required
-                        className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-slate-100 cursor-pointer"
-                        value={item.accountId}
-                        onChange={e => updateItem(idx, 'accountId', e.target.value)}
-                      >
-                        <option value="">Select Account...</option>
-                        <optgroup label="Operating Expenses">
-                          {expenseAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                        </optgroup>
-                        <optgroup label="Vendor Settlements">
-                          {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                        </optgroup>
-                        <optgroup label="Cash & Bank">
-                          {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                        </optgroup>
-                        <optgroup label="Customers">
-                          {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                        </optgroup>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4">
-                      <input 
-                        className="w-full bg-transparent border-none focus:ring-0 text-xs font-medium text-slate-600 dark:text-slate-400"
-                        placeholder="Purpose of expense..."
-                        value={item.description}
-                        onChange={e => updateItem(idx, 'description', e.target.value)}
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <input type="number" step="0.01" className="w-full bg-transparent border-none focus:ring-0 text-right font-orbitron font-bold text-rose-600" value={item.amount} onChange={e => updateItem(idx, 'amount', Number(e.target.value))} />
-                    </td>
-                    <td className="px-6 py-4 text-right flex items-center justify-end space-x-1">
-                      <button type="button" onClick={() => handleCloneItem(idx)} className="text-slate-300 hover:text-indigo-500 p-2" title="Clone Line">👯</button>
-                      <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-rose-500 p-2" title="Remove Line">✕</button>
-                    </td>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full min-w-[950px] text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/55 dark:bg-slate-900 border-b dark:border-slate-800 text-slate-400">
+                    <th className="px-4 py-3.5 text-[9px] font-black uppercase w-12 text-center">#</th>
+                    <th className="px-4 py-3.5 text-[9px] font-black uppercase w-40">Entry Date</th>
+                    <th className="px-4 py-3.5 text-[9px] font-black uppercase w-72">Debit Account (Paid To)</th>
+                    <th className="px-4 py-3.5 text-[9px] font-black uppercase">Description / Narration</th>
+                    <th className="px-4 py-3.5 text-[9px] font-black uppercase w-36 text-right">Amount</th>
+                    <th className="px-4 py-3.5 text-[9px] font-black uppercase w-28 text-center">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y dark:divide-slate-800">
+                  {formData.items.map((item: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all">
+                      <td className="px-4 py-4 text-xs font-mono text-slate-400 text-center">{idx + 1}</td>
+                      <td className="px-2 py-4">
+                        <DateInput 
+                          required 
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-bold outline-none transition-all text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-rose-500" 
+                          value={item.date || formData.date} 
+                          onChange={val => updateItem(idx, 'date', val)} 
+                        />
+                      </td>
+                      <td className="px-2 py-4">
+                        <select 
+                          required
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 cursor-pointer focus:ring-2 focus:ring-rose-500 outline-none"
+                          value={item.accountId}
+                          onChange={e => updateItem(idx, 'accountId', e.target.value)}
+                        >
+                          <option value="">Select Account...</option>
+                          <optgroup label="Operating Expenses">
+                            {expenseAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                          </optgroup>
+                          <optgroup label="Vendor Settlements">
+                            {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                          </optgroup>
+                          <optgroup label="Cash & Bank">
+                            {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                          </optgroup>
+                          <optgroup label="Customers">
+                            {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
+                          </optgroup>
+                        </select>
+                      </td>
+                      <td className="px-2 py-4">
+                        <input 
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-rose-500 outline-none placeholder:text-slate-400"
+                          placeholder="Purpose of expense..."
+                          value={item.description}
+                          onChange={e => updateItem(idx, 'description', e.target.value)}
+                        />
+                      </td>
+                      <td className="px-2 py-4">
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-right font-orbitron font-bold text-rose-600 text-xs focus:ring-2 focus:ring-rose-500 outline-none" 
+                          value={item.amount} 
+                          onChange={e => updateItem(idx, 'amount', Number(e.target.value))} 
+                        />
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex items-center justify-center space-x-1.5">
+                          <button type="button" onClick={() => handleCloneItem(idx)} className="text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 p-2 text-xs border border-slate-100 dark:border-slate-800 rounded-xl transition-all" title="Clone Line">👯</button>
+                          <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 p-2 text-xs border border-transparent rounded-xl transition-all" title="Remove Line">✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Footer Narrative */}

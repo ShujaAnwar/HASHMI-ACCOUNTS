@@ -335,6 +335,13 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     }
     const typeAndNo = `${typeCode}-${numPart}`;
 
+    if (v.type === VoucherType.RECEIPT) {
+      const recFromAccount = accounts.find(a => a.id === v.customerId || a.id === v.vendorId);
+      const recFromName = recFromAccount?.name || 'Guest';
+      const cleanRecFrom = recFromName.trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, ' ') || 'Guest';
+      return `RV:${numPart} - ${cleanRecFrom} - ${dateShort}.pdf`;
+    }
+
     if (v.type === VoucherType.VISA || v.type === VoucherType.TRANSPORT) {
       return `${typeAndNo} - ${hajiName}.pdf`;
     }
@@ -568,7 +575,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 v.details.items.map((item: any, i: number) => (
                   <tr key={i} className={i > 0 ? 'border-t border-slate-200' : ''}>
                     <td className="py-2 px-2 border-r border-slate-300 uppercase">
-                      {formatDate(v.date)}
+                      {formatDate(item.date || v.date)}
                     </td>
                     <td className="py-2 px-2 border-r border-slate-300 uppercase text-left">
                       {item.description || v.description}

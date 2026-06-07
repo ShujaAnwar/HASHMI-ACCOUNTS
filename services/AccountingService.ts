@@ -748,13 +748,14 @@ export class AccountingService {
         items.forEach((item: any) => {
           const itemAmount = Number(item.amount) * (voucher.currency === Currency.SAR ? voucher.roe : 1);
           const itemDesc = item.description || voucher.description;
+          const itemDate = item.date || voucher.date;
           
           if (item.accountId) {
             // Debit entry for the expense/vendor account
             entries.push({ 
               account_id: item.accountId, 
               voucher_id: voucher.id, 
-              date: voucher.date, 
+              date: itemDate, 
               debit: itemAmount, 
               credit: 0, 
               description: itemDesc, 
@@ -766,7 +767,7 @@ export class AccountingService {
               entries.push({ 
                 account_id: bankId, 
                 voucher_id: voucher.id, 
-                date: voucher.date, 
+                date: itemDate, 
                 debit: 0, 
                 credit: itemAmount, 
                 description: itemDesc, 
