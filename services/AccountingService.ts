@@ -622,41 +622,64 @@ export class AccountingService {
       // Track individual service costs for margin calculation
       let totalVendorCostPKR = 0;
 
-      // 2. Makkah Hotel Cost (Credit Vendor)
-      const makkahCostPKR = Number(details.makkahCost || 0) * rateMultiplier;
-      if (makkahCostPKR > 0) {
-        totalVendorCostPKR += makkahCostPKR;
-        const mVendorId = details.makkahVendorId || voucher.vendor_id;
-        if (mVendorId) {
-          const makkahDesc = `Makkah Hotel: ${details.makkahHotelName || 'N/A'} | Stay: ${details.makkahCheckIn || 'N/A'} to ${details.makkahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
-          entries.push({ 
-            account_id: mVendorId, 
-            voucher_id: voucher.id, 
-            date: voucher.date, 
-            debit: 0, 
-            credit: makkahCostPKR, 
-            description: makkahDesc, 
-            voucher_num: voucher.voucher_num 
-          });
+      // 2. Hotel Costs (From dynamic hotelStays if present, else fallback to legacy makkahCost/madinahCost)
+      if (details.hotelStays && Array.isArray(details.hotelStays) && details.hotelStays.length > 0) {
+        details.hotelStays.forEach((stay: any, idx: number) => {
+          const stayCostPKR = Number(stay.cost || 0) * rateMultiplier;
+          if (stayCostPKR > 0) {
+            totalVendorCostPKR += stayCostPKR;
+            const sVendorId = stay.vendorId || voucher.vendor_id;
+            if (sVendorId) {
+              const stayDesc = `${stay.city} Hotel Stay #${idx + 1}: ${stay.hotelName || 'N/A'} | Stay: ${stay.checkIn || 'N/A'} to ${stay.checkOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+              entries.push({ 
+                account_id: sVendorId, 
+                voucher_id: voucher.id, 
+                date: voucher.date, 
+                debit: 0, 
+                credit: stayCostPKR, 
+                description: stayDesc, 
+                voucher_num: voucher.voucher_num 
+              });
+            }
+          }
+        });
+      } else {
+        // Legacy Makkah Hotel Cost (Credit Vendor)
+        const makkahCostPKR = Number(details.makkahCost || 0) * rateMultiplier;
+        if (makkahCostPKR > 0) {
+          totalVendorCostPKR += makkahCostPKR;
+          const mVendorId = details.makkahVendorId || voucher.vendor_id;
+          if (mVendorId) {
+            const makkahDesc = `Makkah Hotel: ${details.makkahHotelName || 'N/A'} | Stay: ${details.makkahCheckIn || 'N/A'} to ${details.makkahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+            entries.push({ 
+              account_id: mVendorId, 
+              voucher_id: voucher.id, 
+              date: voucher.date, 
+              debit: 0, 
+              credit: makkahCostPKR, 
+              description: makkahDesc, 
+              voucher_num: voucher.voucher_num 
+            });
+          }
         }
-      }
 
-      // 3. Madinah Hotel Cost (Credit Vendor)
-      const madinahCostPKR = Number(details.madinahCost || 0) * rateMultiplier;
-      if (madinahCostPKR > 0) {
-        totalVendorCostPKR += madinahCostPKR;
-        const mdVendorId = details.madinahVendorId || voucher.vendor_id;
-        if (mdVendorId) {
-          const madinahDesc = `Madinah Hotel: ${details.madinahHotelName || 'N/A'} | Stay: ${details.madinahCheckIn || 'N/A'} to ${details.madinahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
-          entries.push({ 
-            account_id: mdVendorId, 
-            voucher_id: voucher.id, 
-            date: voucher.date, 
-            debit: 0, 
-            credit: madinahCostPKR, 
-            description: madinahDesc, 
-            voucher_num: voucher.voucher_num 
-          });
+        // Legacy Madinah Hotel Cost (Credit Vendor)
+        const madinahCostPKR = Number(details.madinahCost || 0) * rateMultiplier;
+        if (madinahCostPKR > 0) {
+          totalVendorCostPKR += madinahCostPKR;
+          const mdVendorId = details.madinahVendorId || voucher.vendor_id;
+          if (mdVendorId) {
+            const madinahDesc = `Madinah Hotel: ${details.madinahHotelName || 'N/A'} | Stay: ${details.madinahCheckIn || 'N/A'} to ${details.madinahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+            entries.push({ 
+              account_id: mdVendorId, 
+              voucher_id: voucher.id, 
+              date: voucher.date, 
+              debit: 0, 
+              credit: madinahCostPKR, 
+              description: madinahDesc, 
+              voucher_num: voucher.voucher_num 
+            });
+          }
         }
       }
 
@@ -693,6 +716,25 @@ export class AccountingService {
             debit: 0, 
             credit: ziyaratCostPKR, 
             description: ziyaratDesc, 
+            voucher_num: voucher.voucher_num 
+          });
+        }
+      }
+
+      // 5.5 Flight Ticket Cost (Credit Vendor)
+      const ticketCostPKR = Number(details.ticketCost || 0) * rateMultiplier;
+      if (ticketCostPKR > 0) {
+        totalVendorCostPKR += ticketCostPKR;
+        const tkVendorId = details.ticketVendorId || voucher.vendor_id;
+        if (tkVendorId) {
+          const ticketDesc = `Ticket: ${details.ticketAirline || 'N/A'} | PNR: ${details.ticketPNR || 'N/A'} | Sector: ${details.ticketSector || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+          entries.push({ 
+            account_id: tkVendorId, 
+            voucher_id: voucher.id, 
+            date: voucher.date, 
+            debit: 0, 
+            credit: ticketCostPKR, 
+            description: ticketDesc, 
             voucher_num: voucher.voucher_num 
           });
         }

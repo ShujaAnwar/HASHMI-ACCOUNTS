@@ -186,6 +186,21 @@ const MADINAH_HOTELS = [
   "Sky View",
 ];
 
+interface HotelStay {
+  id: string;
+  city: "Makkah" | "Madinah";
+  hotelName: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  roomType: string;
+  numRooms: number;
+  mealPlan: string;
+  vendorId: string;
+  cost: number;
+  isCostEdited?: boolean;
+}
+
 export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
   initialData,
   onSave,
@@ -195,6 +210,87 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Default state initialization of hotelStays
+  const defaultHotelStays = useMemo<HotelStay[]>(() => {
+    const rawStays = initialData?.details?.hotelStays;
+    if (rawStays && Array.isArray(rawStays)) {
+      return rawStays;
+    }
+
+    const legacyStays: HotelStay[] = [];
+    const mackHotel = initialData?.details?.makkahHotelName || "";
+    if (mackHotel) {
+      legacyStays.push({
+        id: "makkah-legacy",
+        city: "Makkah",
+        hotelName: mackHotel,
+        checkIn: initialData?.details?.makkahCheckIn || "",
+        checkOut: initialData?.details?.makkahCheckOut || "",
+        nights: Number(initialData?.details?.makkahNights) || 0,
+        roomType: initialData?.details?.makkahRoomType || "Triple",
+        numRooms: Number(initialData?.details?.makkahNumRooms) || 1,
+        mealPlan: initialData?.details?.makkahMealPlan || "Breakfast",
+        vendorId: initialData?.details?.makkahVendorId || "",
+        cost: Number(initialData?.details?.makkahCost) || 0,
+        isCostEdited: true,
+      });
+    }
+
+    const madHotel = initialData?.details?.madinahHotelName || "";
+    if (madHotel) {
+      legacyStays.push({
+        id: "madinah-legacy",
+        city: "Madinah",
+        hotelName: madHotel,
+        checkIn: initialData?.details?.madinahCheckIn || "",
+        checkOut: initialData?.details?.madinahCheckOut || "",
+        nights: Number(initialData?.details?.madinahNights) || 0,
+        roomType: initialData?.details?.madinahRoomType || "Triple",
+        numRooms: Number(initialData?.details?.madinahNumRooms) || 1,
+        mealPlan: initialData?.details?.madinahMealPlan || "Breakfast",
+        vendorId: initialData?.details?.madinahVendorId || "",
+        cost: Number(initialData?.details?.madinahCost) || 0,
+        isCostEdited: true,
+      });
+    }
+
+    if (legacyStays.length > 0) {
+      return legacyStays;
+    }
+
+    // Default 1 Makkah & 1 Madinah stays
+    return [
+      {
+        id: "makkah-init-" + Date.now(),
+        city: "Makkah",
+        hotelName: "",
+        checkIn: "",
+        checkOut: "",
+        nights: 0,
+        roomType: "Triple",
+        numRooms: 1,
+        mealPlan: "Breakfast",
+        vendorId: "",
+        cost: 0,
+        isCostEdited: false,
+      },
+      {
+        id: "madinah-init-" + (Date.now() + 1),
+        city: "Madinah",
+        hotelName: "",
+        checkIn: "",
+        checkOut: "",
+        nights: 0,
+        roomType: "Triple",
+        numRooms: 1,
+        mealPlan: "Breakfast",
+        vendorId: "",
+        cost: 0,
+        isCostEdited: false,
+      }
+    ];
+  }, [initialData]);
 
   // Default state initialization
   const [formData, setFormData] = useState({
@@ -208,26 +304,8 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
     description: initialData?.description || "",
     reference: initialData?.reference || "",
 
-    // Package parameters
-    makkahHotelName: initialData?.details?.makkahHotelName || "",
-    makkahCheckIn: initialData?.details?.makkahCheckIn || "",
-    makkahCheckOut: initialData?.details?.makkahCheckOut || "",
-    makkahNights: initialData?.details?.makkahNights || 0,
-    makkahRoomType: initialData?.details?.makkahRoomType || "Triple",
-    makkahNumRooms: initialData?.details?.makkahNumRooms || 1,
-    makkahMealPlan: initialData?.details?.makkahMealPlan || "Breakfast",
-    makkahVendorId: initialData?.details?.makkahVendorId || "",
-    makkahCost: initialData?.details?.makkahCost || 0,
-
-    madinahHotelName: initialData?.details?.madinahHotelName || "",
-    madinahCheckIn: initialData?.details?.madinahCheckIn || "",
-    madinahCheckOut: initialData?.details?.madinahCheckOut || "",
-    madinahNights: initialData?.details?.madinahNights || 0,
-    madinahRoomType: initialData?.details?.madinahRoomType || "Triple",
-    madinahNumRooms: initialData?.details?.madinahNumRooms || 1,
-    madinahMealPlan: initialData?.details?.madinahMealPlan || "Breakfast",
-    madinahVendorId: initialData?.details?.madinahVendorId || "",
-    madinahCost: initialData?.details?.madinahCost || 0,
+    // Package parameters (Dynamic hotel stays)
+    hotelStays: defaultHotelStays,
 
     transportRoute: initialData?.details?.transportRoute || "",
     transportVehicle: initialData?.details?.transportVehicle || "Bus",
@@ -242,6 +320,13 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
     otherVendorId: initialData?.details?.otherVendorId || "",
     otherCost: initialData?.details?.otherCost || 0,
 
+    // Flight Ticket Parameters
+    ticketPNR: initialData?.details?.ticketPNR || "",
+    ticketAirline: initialData?.details?.ticketAirline || "",
+    ticketSector: initialData?.details?.ticketSector || "",
+    ticketVendorId: initialData?.details?.ticketVendorId || "",
+    ticketCost: initialData?.details?.ticketCost || 0,
+
     packagePricePerHaji: initialData?.details?.packagePricePerHaji || 0,
     incomeAccountId: initialData?.details?.incomeAccountId || "",
 
@@ -252,11 +337,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
   });
 
   const [editedFields, setEditedFields] = useState({
-    makkahCost: !!initialData,
-    madinahCost: !!initialData,
     transportCost: !!initialData,
     ziyaratCost: !!initialData,
     otherCost: !!initialData,
+    ticketCost: !!initialData,
   });
 
   const customerAccounts = useMemo(
@@ -314,30 +398,24 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
     const totalCustomerAmountTrans = Number(formData.packagePricePerHaji) * formData.hajjis.length;
     
     setFormData(prev => {
-      let updated = { ...prev };
       let changed = false;
-
-      // 1. Makkah Hotel Cost
-      if (prev.makkahVendorId) {
-        if (!editedFields.makkahCost && prev.makkahCost !== totalCustomerAmountTrans) {
-          updated.makkahCost = totalCustomerAmountTrans;
+      const updatedStays = (prev.hotelStays || []).map(stay => {
+        if (stay.vendorId) {
+          if (!stay.isCostEdited && stay.cost !== totalCustomerAmountTrans) {
+            changed = true;
+            return { ...stay, cost: totalCustomerAmountTrans };
+          }
+        } else if (stay.cost !== 0) {
           changed = true;
+          return { ...stay, cost: 0 };
         }
-      } else if (prev.makkahCost !== 0) {
-        updated.makkahCost = 0;
-        changed = true;
-      }
+        return stay;
+      });
 
-      // 2. Madinah Hotel Cost
-      if (prev.madinahVendorId) {
-        if (!editedFields.madinahCost && prev.madinahCost !== totalCustomerAmountTrans) {
-          updated.madinahCost = totalCustomerAmountTrans;
-          changed = true;
-        }
-      } else if (prev.madinahCost !== 0) {
-        updated.madinahCost = 0;
-        changed = true;
-      }
+      let updated = { 
+        ...prev,
+        hotelStays: updatedStays
+      };
 
       // 3. Transport Cost
       if (prev.transportVendorId) {
@@ -361,6 +439,17 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
         changed = true;
       }
 
+      // 4.5. Ticket Cost
+      if (prev.ticketVendorId) {
+        if (!editedFields.ticketCost && prev.ticketCost !== totalCustomerAmountTrans) {
+          updated.ticketCost = totalCustomerAmountTrans;
+          changed = true;
+        }
+      } else if (prev.ticketCost !== 0) {
+        updated.ticketCost = 0;
+        changed = true;
+      }
+
       // 5. Other/Services Cost
       if (prev.otherVendorId) {
         if (!editedFields.otherCost && prev.otherCost !== totalCustomerAmountTrans) {
@@ -377,36 +466,171 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
   }, [
     formData.packagePricePerHaji, 
     formData.hajjis.length, 
-    formData.makkahVendorId, 
-    formData.madinahVendorId, 
+    formData.hotelStays?.map(s => s.vendorId).join(','),
+    formData.hotelStays?.map(s => s.isCostEdited).join(','),
     formData.transportVendorId, 
     formData.ziyaratVendorId, 
+    formData.ticketVendorId,
     formData.otherVendorId,
     editedFields
   ]);
 
   // Handle hotel night calculations
-  useEffect(() => {
-    if (formData.makkahCheckIn && formData.makkahCheckOut) {
-      const start = new Date(formData.makkahCheckIn);
-      const end = new Date(formData.makkahCheckOut);
-      const diff = Math.ceil(
-        (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      setFormData((prev) => ({ ...prev, makkahNights: diff > 0 ? diff : 0 }));
-    }
-  }, [formData.makkahCheckIn, formData.makkahCheckOut]);
+  // Dynamic Stay mutation methods
+  const updateStayField = (id: string, field: keyof HotelStay, value: any) => {
+    setFormData((prev) => {
+      const updated = (prev.hotelStays || []).map((stay) => {
+        if (stay.id === id) {
+          let updatedStay = { ...stay, [field]: value };
+          if (field === "checkIn" || field === "checkOut") {
+            if (updatedStay.checkIn && updatedStay.checkOut) {
+              const start = new Date(updatedStay.checkIn);
+              const end = new Date(updatedStay.checkOut);
+              const originalDiff = Math.ceil(
+                (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+              );
+              updatedStay.nights = originalDiff > 0 ? originalDiff : 0;
+            }
+          }
+          if (field === "vendorId" && !value) {
+            updatedStay.cost = 0;
+            updatedStay.isCostEdited = false;
+          }
+          if (field === "cost") {
+            updatedStay.isCostEdited = true;
+          }
+          return updatedStay;
+        }
+        return stay;
+      });
+      return { ...prev, hotelStays: updated };
+    });
+  };
 
-  useEffect(() => {
-    if (formData.madinahCheckIn && formData.madinahCheckOut) {
-      const start = new Date(formData.madinahCheckIn);
-      const end = new Date(formData.madinahCheckOut);
-      const diff = Math.ceil(
-        (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      setFormData((prev) => ({ ...prev, madinahNights: diff > 0 ? diff : 0 }));
+  const addStay = (city: "Makkah" | "Madinah") => {
+    setFormData((prev) => ({
+      ...prev,
+      hotelStays: [
+        ...(prev.hotelStays || []),
+        {
+          id: city.toLowerCase() + "-" + Date.now() + Math.random().toString(36).substr(2, 4),
+          city,
+          hotelName: "",
+          checkIn: "",
+          checkOut: "",
+          nights: 0,
+          roomType: "Triple",
+          numRooms: 1,
+          mealPlan: "Breakfast",
+          vendorId: "",
+          cost: 0,
+          isCostEdited: false,
+        },
+      ],
+    }));
+  };
+
+  const cloneStay = (stayToClone: HotelStay) => {
+    setFormData((prev) => {
+      // Setup default dates for next stay based on the cloned stay's checkout
+      let checkIn = stayToClone.checkOut || stayToClone.checkIn;
+      let checkOut = "";
+      if (checkIn && stayToClone.nights > 0) {
+        const d = new Date(checkIn);
+        d.setDate(d.getDate() + stayToClone.nights);
+        checkOut = d.toISOString().split("T")[0];
+      }
+
+      // Automatically alternative city to provide a seamless travel rotation!
+      const nextCity = stayToClone.city === "Makkah" ? "Madinah" : "Makkah";
+
+      return {
+        ...prev,
+        hotelStays: [
+          ...(prev.hotelStays || []),
+          {
+            ...stayToClone,
+            id: nextCity.toLowerCase() + "-" + Date.now() + Math.random().toString(36).substr(2, 4),
+            city: nextCity,
+            checkIn: checkIn,
+            checkOut: checkOut,
+            isCostEdited: true, // Keep costs
+          }
+        ]
+      };
+    });
+  };
+
+  const removeStay = (id: string) => {
+    if ((formData.hotelStays || []).length === 1) {
+      alert("At least one hotel stay is required.");
+      return;
     }
-  }, [formData.madinahCheckIn, formData.madinahCheckOut]);
+    setFormData((prev) => ({
+      ...prev,
+      hotelStays: (prev.hotelStays || []).filter((s) => s.id !== id),
+    }));
+  };
+
+  const cloneMakkahToMadinah = () => {};
+  const cloneMadinahToMakkah = () => {};
+
+  const cloneFromTransportToZiyarat = () => {
+    setFormData((p) => {
+      setEditedFields((pf) => ({
+        ...pf,
+        ziyaratCost: editedFields.transportCost,
+      }));
+      return {
+        ...p,
+        ziyaratDetails: p.transportRoute ? `ZIYARAT / TRANSPORT ROUTE: ${p.transportRoute} (${p.transportVehicle})` : p.ziyaratDetails,
+        ziyaratVendorId: p.transportVendorId,
+        ziyaratCost: p.transportCost,
+      };
+    });
+  };
+
+  const cloneFromZiyaratToTransport = () => {
+    setFormData((p) => {
+      setEditedFields((pf) => ({
+        ...pf,
+        transportCost: editedFields.ziyaratCost,
+      }));
+      return {
+        ...p,
+        transportRoute: p.ziyaratDetails ? p.ziyaratDetails.substring(0, 100) : p.transportRoute,
+        transportVendorId: p.ziyaratVendorId,
+        transportCost: p.ziyaratCost,
+      };
+    });
+  };
+
+  const autoGenerateRouteFromStays = () => {
+    const stays = formData.hotelStays || [];
+    if (stays.length === 0) {
+      alert("No hotel stays defined yet to build a route.");
+      return;
+    }
+    const sorted = [...stays].sort((a, b) => {
+      if (!a.checkIn) return 1;
+      if (!b.checkIn) return -1;
+      return new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime();
+    });
+
+    const routeCities: string[] = ["Jeddah Airport"];
+    sorted.forEach((stay) => {
+      if (stay.city && !routeCities.includes(stay.city)) {
+        routeCities.push(stay.city);
+      }
+    });
+    routeCities.push("Jeddah Airport");
+
+    const constructedRoute = routeCities.join(" → ");
+    setFormData((p) => ({
+      ...p,
+      transportRoute: constructedRoute,
+    }));
+  };
 
   // Pilgrim List modification
   const addHajiRow = () => {
@@ -443,12 +667,15 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
     const rateMultiplier =
       formData.currency === Currency.SAR ? formData.roe : 1;
 
+    // Total cost from all dynamic hotel stays
+    const hotelStaysCost = (formData.hotelStays || []).reduce((acc, s) => acc + Number(s.cost || 0), 0);
+
     // Total cost from all vendors
     const vendorCosts =
-      Number(formData.makkahCost) +
-      Number(formData.madinahCost) +
+      hotelStaysCost +
       Number(formData.transportCost) +
       Number(formData.ziyaratCost) +
+      Number(formData.ticketCost) +
       Number(formData.otherCost);
 
     const totalPilgrims = formData.hajjis.length;
@@ -773,17 +1000,263 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
             </div>
           </div>
 
-          {/* Section D: Accommodation & Services details once */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* D1: Makkah Hotel Accommodation */}
-            <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-3xl shadow-sm space-y-4">
+          {/* Section D: Accommodation details */}
+          <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-3xl shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 dark:border-slate-800/10 pb-4">
               <div>
                 <h3 className="text-xs font-black text-rose-600 uppercase tracking-wider font-orbitron">
-                  Makkah Accommodation
+                  🏢 Hotel Accommodations / Stays
                 </h3>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                  Hotel stay in Makkah Mukarramah
+                  Manage sequence of stays (e.g. Makkah ➔ Madinah ➔ Makkah)
                 </p>
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto no-print">
+                <button
+                  type="button"
+                  onClick={() => addStay("Makkah")}
+                  className="flex-1 sm:flex-none bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-100 dark:border-rose-900/10 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all hover:scale-102 active:scale-98 flex items-center justify-center gap-1.5"
+                >
+                  🕋 Add Makkah Stay
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addStay("Madinah")}
+                  className="flex-1 sm:flex-none bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-105 dark:border-emerald-900/10 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all hover:scale-102 active:scale-98 flex items-center justify-center gap-1.5"
+                >
+                  🕌 Add Madinah Stay
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {(formData.hotelStays || []).map((stay, idx) => {
+                const isMakkah = stay.city === "Makkah";
+                const dotColor = isMakkah ? "bg-rose-500" : "bg-emerald-500";
+                const badgeBg = isMakkah
+                  ? "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/10"
+                  : "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/10";
+                const cityDatalist = isMakkah ? "makkah_suggestions" : "madinah_suggestions";
+
+                return (
+                  <div
+                    key={stay.id}
+                    className="bg-slate-50/10 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 rounded-3xl hover:border-slate-200 dark:hover:border-slate-705 transition-all flex flex-col justify-between space-y-4"
+                  >
+                    {/* Header of Stay card */}
+                    <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-850/20 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/55">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${dotColor} animate-pulse`} />
+                        <div>
+                          <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border ${badgeBg}`}>
+                            Stay #{idx + 1}: {stay.city}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 no-print">
+                        <button
+                          type="button"
+                          onClick={() => cloneStay(stay)}
+                          className="bg-sky-50 hover:bg-sky-100 text-sky-600 dark:bg-sky-950/20 dark:text-sky-400 border border-sky-100 dark:border-sky-900/10 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+                          title="Clone this stay to next destination stay"
+                        >
+                          👯 Clone Stay
+                        </button>
+                        {(formData.hotelStays || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeStay(stay.id)}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-100 dark:border-rose-900/10 p-1.5 rounded-xl text-[10px] font-black uppercase transition-all hover:scale-105 active:scale-95 text-xs w-7 h-7 flex items-center justify-center font-bold"
+                            title="Delete this stay"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Inputs of Card */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
+                          Hotel Name
+                        </label>
+                        <input
+                          list={cityDatalist}
+                          type="text"
+                          required
+                          placeholder="Select or enter hotel name"
+                          className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase shadow-inner outline-none text-slate-800 dark:text-white"
+                          value={stay.hotelName}
+                          onChange={(e) => updateStayField(stay.id, "hotelName", e.target.value)}
+                        />
+                        <datalist id="makkah_suggestions">
+                          {MAKKAH_HOTELS.map((hotel) => (
+                            <option key={hotel} value={hotel} />
+                          ))}
+                        </datalist>
+                        <datalist id="madinah_suggestions">
+                          {MADINAH_HOTELS.map((hotel) => (
+                            <option key={hotel} value={hotel} />
+                          ))}
+                        </datalist>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
+                          Check-in Date
+                        </label>
+                        <DateInput
+                          value={stay.checkIn}
+                          onChange={(v) => updateStayField(stay.id, "checkIn", v)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block font-orbitron">
+                          Check-out Date
+                        </label>
+                        <DateInput
+                          value={stay.checkOut}
+                          onChange={(v) => updateStayField(stay.id, "checkOut", v)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block font-orbitron">
+                          Nights Count
+                        </label>
+                        <input
+                          type="number"
+                          disabled
+                          placeholder="..."
+                          className="w-full bg-slate-200 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black shadow-inner outline-none text-slate-500 dark:text-slate-400 select-none cursor-not-allowed"
+                          value={stay.nights}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
+                          Room Type Category
+                        </label>
+                        <select
+                          className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                          value={stay.roomType}
+                          onChange={(e) => updateStayField(stay.id, "roomType", e.target.value)}
+                        >
+                          {ROOM_TYPES.map((rt) => (
+                            <option key={rt} value={rt}>
+                              {rt}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block text-slate-500">
+                          No. of Rooms
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black shadow-inner outline-none text-slate-800 dark:text-white"
+                          value={stay.numRooms}
+                          onChange={(e) => updateStayField(stay.id, "numRooms", parseInt(e.target.value) || 1)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
+                          Meal Plan Arrangement
+                        </label>
+                        <select
+                          className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white font-orbitron"
+                          value={stay.mealPlan}
+                          onChange={(e) => updateStayField(stay.id, "mealPlan", e.target.value)}
+                        >
+                          {MEALS.map((meal) => (
+                            <option key={meal} value={meal}>
+                              {meal}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/50">
+                        <div>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
+                            Hotel Vendor/Supplier Account
+                          </label>
+                          <select
+                            className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                            value={stay.vendorId}
+                            onChange={(e) => updateStayField(stay.id, "vendorId", e.target.value)}
+                          >
+                            <option value="">No vendor (No credit ledger entry)</option>
+                            {vendorAccounts.map((ac) => (
+                              <option key={ac.id} value={ac.id}>
+                                {ac.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 flex items-center justify-between">
+                            <span>Hotel Cost ({formData.currency})</span>
+                            {stay.vendorId && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const totalCustomerAmountTrans = Number(formData.packagePricePerHaji) * formData.hajjis.length;
+                                  updateStayField(stay.id, "cost", totalCustomerAmountTrans);
+                                }}
+                                className="text-[9px] font-bold text-emerald-500 hover:text-emerald-700 underline focus:outline-none"
+                              >
+                                Set to Total ({(Number(formData.packagePricePerHaji) * formData.hajjis.length).toLocaleString()})
+                              </button>
+                            )}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="Vendor cost"
+                            className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black shadow-inner outline-none text-slate-800 dark:text-white"
+                            value={stay.cost || ""}
+                            onChange={(e) => updateStayField(stay.id, "cost", Number(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* D1: Makkah Hotel Accommodation */}
+            <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-3xl shadow-sm space-y-4">
+              <div className="flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/10 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-xs font-black text-rose-600 uppercase tracking-wider font-orbitron">
+                    Makkah Accommodation
+                  </h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    Hotel stay in Makkah Mukarramah
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={cloneMakkahToMadinah}
+                  className="bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 flex items-center gap-1 border border-rose-100 dark:border-rose-900/10 no-print"
+                  title="Copy Accommodation details to Madinah section"
+                >
+                  👯 Clone to Madinah
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -961,13 +1434,23 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
 
             {/* D2: Madinah Hotel Accommodation */}
             <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-3xl shadow-sm space-y-4">
-              <div>
-                <h3 className="text-xs font-black text-emerald-600 uppercase tracking-wider font-orbitron">
-                  Madinah Accommodation
-                </h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                  Hotel stay in Madinah Munawwarah
-                </p>
+              <div className="flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/10 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-xs font-black text-emerald-600 uppercase tracking-wider font-orbitron">
+                    Madinah Accommodation
+                  </h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    Hotel stay in Madinah Munawwarah
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={cloneMadinahToMakkah}
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 flex items-center gap-1 border border-emerald-100 dark:border-emerald-900/10 no-print"
+                  title="Copy Accommodation details to Makkah section"
+                >
+                  👯 Clone to Makkah
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1143,23 +1626,44 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
               </div>
             </div>
           </div>
+          </div>
 
           {/* Section E: Transport & Ziyarat & Services details once */}
           <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-3xl shadow-sm space-y-6">
             <div>
               <h3 className="text-xs font-black text-blue-600 uppercase tracking-wider font-orbitron">
-                Transport, Ziyarat & Other Services
+                Transport, Ziyarat, Flights & Other Services
               </h3>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                Define transport logs, ziyarat routing, and visas/other packages
+                Define transport logs, ziyarat routing, flight tickets, and visas/other packages
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Transport details */}
-              <div className="space-y-4 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-4 md:pb-0 md:pr-6">
-                <div className="text-[10px] font-black text-slate-400 tracking-wider uppercase">
-                  🚗 Transportation
+              <div className="space-y-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 pb-4 lg:pb-0 lg:pr-6">
+                <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800/80 mb-1">
+                  <div className="text-[10px] font-black text-slate-500 dark:text-slate-400 tracking-wider uppercase">
+                    🚗 Transportation
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={autoGenerateRouteFromStays}
+                      className="text-[9px] font-black text-blue-500 hover:text-blue-700 underline uppercase"
+                      title="Generate route sequence from hotels stays"
+                    >
+                      🪄 Auto Route
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cloneFromZiyaratToTransport}
+                      className="text-[9px] font-black text-emerald-500 hover:text-emerald-700 underline uppercase"
+                      title="Copy vendor, cost & details from Ziyarat"
+                    >
+                      👯 Copy Ziyarat
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -1270,9 +1774,19 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
               </div>
 
               {/* Ziyarat details */}
-              <div className="space-y-4 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-4 md:pb-0 md:px-6">
-                <div className="text-[10px] font-black text-slate-400 tracking-wider uppercase">
-                  🕌 Ziyarat Tours
+              <div className="space-y-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 pb-4 lg:pb-0 lg:px-6">
+                <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800/80 mb-1">
+                  <div className="text-[10px] font-black text-slate-500 dark:text-slate-400 tracking-wider uppercase">
+                    🕌 Ziyarat Tours
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cloneFromTransportToZiyarat}
+                    className="text-[9px] font-black text-blue-500 hover:text-blue-700 underline uppercase"
+                    title="Copy vendor, cost & route details from Transportation"
+                  >
+                    👯 Copy Transport
+                  </button>
                 </div>
 
                 <div>
@@ -1354,8 +1868,129 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                 </div>
               </div>
 
+              {/* Flight Ticket details */}
+              <div className="space-y-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 pb-4 lg:pb-0 lg:px-6">
+                <div className="text-[10px] font-black text-slate-400 tracking-wider uppercase">
+                  ✈️ Flight Tickets
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
+                    PNR / Ticket Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1A-FXYZWE"
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white font-orbitron"
+                    value={formData.ticketPNR}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        ticketPNR: e.target.value.toUpperCase(),
+                      }))
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
+                    Airline / Carrier
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Saudia, PIA"
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                    value={formData.ticketAirline}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        ticketAirline: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
+                    Ticket Sector
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. LHE-JED-KHI"
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                    value={formData.ticketSector}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        ticketSector: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block font-orbitron">
+                    Ticket Vendor
+                  </label>
+                  <select
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                    value={formData.ticketVendorId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        setEditedFields((p) => ({ ...p, ticketCost: false }));
+                      }
+                      setFormData((p) => ({
+                        ...p,
+                        ticketVendorId: val,
+                      }));
+                    }}
+                  >
+                    <option value="">No vendor</option>
+                    {vendorAccounts.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block flex justify-between items-center">
+                    <span>Ticket Cost ({formData.currency})</span>
+                    {formData.ticketVendorId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditedFields((p) => ({ ...p, ticketCost: true }));
+                          const totalCustomerAmountTrans = Number(formData.packagePricePerHaji) * formData.hajjis.length;
+                          setFormData((p) => ({ ...p, ticketCost: totalCustomerAmountTrans }));
+                        }}
+                        className="text-[9px] font-bold text-emerald-500 hover:text-emerald-700 underline focus:outline-none"
+                      >
+                        Set to Total ({(Number(formData.packagePricePerHaji) * formData.hajjis.length).toLocaleString()})
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Vendor cost"
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black shadow-inner outline-none text-slate-800 dark:text-white font-orbitron"
+                    value={formData.ticketCost || ""}
+                    onChange={(e) => {
+                      setEditedFields((p) => ({ ...p, ticketCost: true }));
+                      setFormData((p) => ({
+                        ...p,
+                        ticketCost: Number(e.target.value) || 0,
+                      }));
+                    }}
+                  />
+                </div>
+              </div>
+
               {/* Other Services details */}
-              <div className="space-y-4 md:pl-6">
+              <div className="space-y-4 lg:pl-6">
                 <div className="text-[10px] font-black text-slate-400 tracking-wider uppercase">
                   📦 Other Included Services
                 </div>
