@@ -4,6 +4,23 @@ import { formatDate } from '../utils/format';
 import { exportFullDatabase } from '../services/db';
 import * as XLSX from 'xlsx';
 
+const safeForExcel = <T extends Record<string, any>>(arr: T[]): T[] => {
+  return arr.map(item => {
+    const newItem: any = {};
+    for (const key in item) {
+      if (Object.prototype.hasOwnProperty.call(item, key)) {
+        const val = item[key];
+        if (typeof val === 'string' && val.length > 32700) {
+          newItem[key] = val.substring(0, 32700);
+        } else {
+          newItem[key] = val;
+        }
+      }
+    }
+    return newItem as T;
+  });
+};
+
 interface AutoBackupManagerProps {
   config: AppConfig;
 }
@@ -38,7 +55,7 @@ const AutoBackupManager: React.FC<AutoBackupManagerProps> = ({ config }) => {
           ID: a.id, Code: a.code, Name: a.name, Type: a.type,
           Cell: a.cell, Location: a.location, Currency: a.currency, Balance: a.balance
         }));
-        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(accountsData), "Accounts");
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(safeForExcel(accountsData)), "Accounts");
 
         // Vouchers
         const vouchersData = data.vouchers.map(v => ({
@@ -48,7 +65,7 @@ const AutoBackupManager: React.FC<AutoBackupManagerProps> = ({ config }) => {
           CustomerID: v.customerId, VendorID: v.vendorId, Details: JSON.stringify(v.details),
           CreatedAt: v.createdAt
         }));
-        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(vouchersData), "Vouchers");
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(safeForExcel(vouchersData)), "Vouchers");
 
         // Ledger
         const ledgerEntries: any[] = [];
@@ -63,10 +80,10 @@ const AutoBackupManager: React.FC<AutoBackupManagerProps> = ({ config }) => {
             });
           }
         });
-        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ledgerEntries), "LedgerEntries");
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(safeForExcel(ledgerEntries)), "LedgerEntries");
 
         // Config
-        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([data.config]), "Config");
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(safeForExcel([data.config])), "Config");
 
         XLSX.writeFile(workbook, `${prefix}_${timestamp}.xlsx`);
 

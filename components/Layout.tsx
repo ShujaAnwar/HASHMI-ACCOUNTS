@@ -275,7 +275,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
         <aside className="no-print hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col h-[calc(100vh-48px)] sticky top-[48px] flex-shrink-0 z-20 transition-colors duration-300">
           <div className="p-6 flex-shrink-0">
             {config.companyLogo ? (
-              <img src={config.companyLogo} alt="Logo" className="h-10 w-auto mb-2 object-contain" />
+              <img src={config.companyLogo} alt="Logo" style={{ height: `${config.logoSize || 80}px` }} className="w-auto mb-2 object-contain" />
             ) : (
               <h1 className="text-2xl font-orbitron font-bold tracking-tighter uppercase break-words leading-tight">
                 <span className="text-blue-600">{config.companyName.substring(0, Math.ceil(config.companyName.length / 2))}</span>

@@ -5,6 +5,23 @@ import { AppConfig, Account, Voucher } from '../types';
 import { supabase } from '../services/supabase';
 import * as XLSX from 'xlsx';
 
+const safeForExcel = <T extends Record<string, any>>(arr: T[]): T[] => {
+  return arr.map(item => {
+    const newItem: any = {};
+    for (const key in item) {
+      if (Object.prototype.hasOwnProperty.call(item, key)) {
+        const val = item[key];
+        if (typeof val === 'string' && val.length > 32700) {
+          newItem[key] = val.substring(0, 32700);
+        } else {
+          newItem[key] = val;
+        }
+      }
+    }
+    return newItem as T;
+  });
+};
+
 interface ControlPanelProps {
   config: AppConfig;
   onConfigUpdate?: () => void;
@@ -140,7 +157,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
       Currency: a.currency,
       Balance: a.balance
     }));
-    const accountsSheet = XLSX.utils.json_to_sheet(accountsData);
+    const accountsSheet = XLSX.utils.json_to_sheet(safeForExcel(accountsData));
     XLSX.utils.book_append_sheet(workbook, accountsSheet, "Accounts");
 
     // Vouchers Sheet
@@ -160,7 +177,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
       Details: JSON.stringify(v.details),
       CreatedAt: v.createdAt
     }));
-    const vouchersSheet = XLSX.utils.json_to_sheet(vouchersData);
+    const vouchersSheet = XLSX.utils.json_to_sheet(safeForExcel(vouchersData));
     XLSX.utils.book_append_sheet(workbook, vouchersSheet, "Vouchers");
 
     // Ledger Entries Sheet
@@ -183,11 +200,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
         });
       }
     });
-    const ledgerSheet = XLSX.utils.json_to_sheet(ledgerEntries);
+    const ledgerSheet = XLSX.utils.json_to_sheet(safeForExcel(ledgerEntries));
     XLSX.utils.book_append_sheet(workbook, ledgerSheet, "LedgerEntries");
 
     // Config Sheet
-    const configSheet = XLSX.utils.json_to_sheet([data.config]);
+    const configSheet = XLSX.utils.json_to_sheet(safeForExcel([data.config]));
     XLSX.utils.book_append_sheet(workbook, configSheet, "Config");
 
     XLSX.writeFile(workbook, `TLP_Backup_${formatDate(new Date())}.xlsx`);
@@ -231,10 +248,20 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
           // Reconstruct data structure
           data = {
             config: rawConfig,
-            vouchers: rawVouchers.map((v: any) => ({
-              ...v,
-              details: v.Details ? JSON.parse(v.Details) : {}
-            })),
+            vouchers: rawVouchers.map((v: any) => {
+              let parsedDetails = {};
+              if (v.Details) {
+                try {
+                  parsedDetails = JSON.parse(v.Details);
+                } catch (e) {
+                  console.warn("Failed to parse Details JSON", e);
+                }
+              }
+              return {
+                ...v,
+                details: parsedDetails
+              };
+            }),
             accounts: rawAccounts.map((a: any) => {
               const accountLedger = rawLedger
                 .filter((l: any) => l.AccountID === a.ID)
