@@ -416,8 +416,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-[10px] font-bold text-amber-600 uppercase mb-2 block tracking-widest flex justify-between">
-                      Global Logo Scale (Vouchers & Reports)
-                      <span className="font-orbitron font-black text-xs">{config.logoSize || 100}%</span>
+                      Global Logo Height (Vouchers & Reports)
+                      <span className="font-orbitron font-black text-xs">{config.logoSize || 80}px</span>
                     </label>
                     <div className="flex items-center space-x-6 bg-amber-50/50 dark:bg-amber-900/10 p-6 rounded-2xl border border-amber-100 dark:border-amber-900/10">
                       <input 
@@ -425,12 +425,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config: initialConfig, onCo
                         min="20" 
                         max="300" 
                         className="flex-1 accent-amber-600 cursor-pointer"
-                        value={config.logoSize || 100}
+                        value={config.logoSize || 80}
                         onChange={e => setConfig({...config, logoSize: Number(e.target.value)})}
                       />
                       <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-800 flex items-center justify-center overflow-hidden">
                         {config.companyLogo ? (
-                          <img src={config.companyLogo} alt="Preview" style={{ zoom: (config.logoSize || 100) / 400 }} className="object-contain" />
+                          <img src={config.companyLogo} alt="Preview" style={{ height: `${Math.min(60, config.logoSize || 80)}px` }} className="object-contain" />
                         ) : (
                           <span className="text-[10px] font-black text-slate-300 uppercase">Logo Preview</span>
                         )}

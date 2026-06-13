@@ -963,7 +963,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         
         {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="w-32">
+          <div className="shrink-0" style={{ minWidth: "128px" }}>
              {branding.logo ? (
                <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
@@ -1179,7 +1179,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         
         {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="w-32">
+          <div className="shrink-0" style={{ minWidth: "128px" }}>
              {branding.logo ? (
                <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
@@ -1342,7 +1342,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         
         {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="w-32">
+          <div className="shrink-0" style={{ minWidth: "128px" }}>
              {branding.logo ? (
                <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
@@ -1516,7 +1516,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         
         {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="w-32">
+          <div className="shrink-0" style={{ minWidth: "128px" }}>
              {branding.logo ? (
                <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
@@ -1805,7 +1805,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         
         {/* Header - Dynamic Branding */}
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="w-32">
+          <div className="shrink-0" style={{ minWidth: "128px" }}>
              {branding.logo ? (
                 <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
              ) : (
