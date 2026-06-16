@@ -60,7 +60,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, companyName }) => {
             <span className="text-3xl">💼</span>
           </div>
           <h1 className="text-3xl font-black font-orbitron text-slate-900 dark:text-white uppercase tracking-tighter">
-            Hashmi Travel Solutions
+            {companyName || 'Hashmi Travel Solutions'}
           </h1>
           <p className="text-[9px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest mt-4 bg-slate-100 dark:bg-slate-800 py-2 px-4 rounded-lg inline-block">
             by Shuja Anwar Ahmed Hashmi

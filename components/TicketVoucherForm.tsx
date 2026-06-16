@@ -117,7 +117,7 @@ const TicketVoucherForm: React.FC<TicketVoucherFormProps> = ({ initialData, onSa
               <h3 className="text-xl font-orbitron font-bold text-slate-900 dark:text-white uppercase tracking-tighter">
                 {isClone ? 'Clone' : (initialData ? 'Edit' : 'Post')} Ticket Voucher
               </h3>
-              <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.2em]">Hashmi Books Aviation Ledger</p>
+              <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.2em]">{config.companyName} Aviation Ledger</p>
             </div>
           </div>
           <button onClick={onCancel} className="text-slate-400 hover:text-rose-500 transition-colors">

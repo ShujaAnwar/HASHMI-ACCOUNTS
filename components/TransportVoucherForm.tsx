@@ -281,7 +281,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
               <h3 className="text-xl font-orbitron font-bold text-slate-900 dark:text-white uppercase tracking-tighter">
                 {isClone ? 'Clone' : (initialData ? 'Edit' : 'Post')} Transport Voucher
               </h3>
-              <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.2em]">Hashmi Books Logistics Engine</p>
+              <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.2em]">{config.companyName} Logistics Engine</p>
             </div>
           </div>
           <button onClick={onCancel} className="text-slate-400 hover:text-rose-500 transition-colors">

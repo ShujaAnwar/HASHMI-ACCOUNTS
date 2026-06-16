@@ -531,7 +531,10 @@ import DateInput from './DateInput';
             }`}
           >
             <div className="flex justify-between items-center mb-3">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{formatDate(entry.date)}</span>
+              <div className="flex items-center space-x-2">
+                <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">S.No: {idx + 1}</span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{formatDate(entry.date)}</span>
+              </div>
               {entry.voucherId && (
                 <button 
                   onClick={() => onViewVoucher?.(vouchers.find(v => v.id === entry.voucherId)!)}
@@ -857,6 +860,7 @@ import DateInput from './DateInput';
                   <table className="w-full text-left border-collapse table-auto mx-auto" style={{ pageBreakInside: 'auto' }}>
                       <thead className="bg-[#0f172a] text-white text-[10px] uppercase font-black tracking-wider" style={{ display: 'table-header-group' }}>
                         <tr>
+                          <th className="px-1 py-3 text-center w-[40px]">S.No</th>
                           <th className="px-1 py-3 text-center w-[80px]">DATE</th>
                           <th className="px-1 py-3 text-center w-[80px]" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>REF #</th>
                           <th className="px-1 py-3 text-center w-[40px]">TYPE</th>
@@ -881,6 +885,9 @@ import DateInput from './DateInput';
 
                           return (
                             <tr key={i} className={`border-b border-slate-50 ${(entry as any).isOpening ? 'bg-slate-50/50' : ''}`} style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}>
+                              <td className="px-1 py-2 text-center font-bold text-slate-400">
+                                {i + 1}
+                              </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
                                 {(entry as any).isOpening ? '-' : (entry.date === '-' ? '-' : formatDate(entry.date))}
                               </td>
@@ -940,7 +947,7 @@ import DateInput from './DateInput';
                       </tbody>
                       <tfoot className="text-[#0f172a] font-black text-[11px] uppercase" style={{ display: 'table-header-group' }}>
                         <tr>
-                          <td colSpan={7} className="px-4 py-4 text-right font-black tracking-tight border-t-2 border-slate-900">TOTAL FOR PERIOD:</td>
+                          <td colSpan={8} className="px-4 py-4 text-right font-black tracking-tight border-t-2 border-slate-900">TOTAL FOR PERIOD:</td>
                           <td className="px-1 py-4 text-right text-emerald-700 bg-slate-50/50 border-t-2 border-slate-900">
                             {getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </td>

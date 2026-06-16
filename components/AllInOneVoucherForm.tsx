@@ -405,7 +405,7 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
                 <h1 className="text-xl font-black font-orbitron text-slate-800 dark:text-white uppercase tracking-tighter">
                     ALL-IN-ONE VOUCHER
                 </h1>
-                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">Unified Travel Management - Hashmi Travel Solutions</p>
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">Unified Travel Management - {config.companyName}</p>
             </div>
             <button onClick={onCancel} className="bg-white dark:bg-slate-800 p-3 rounded-2xl text-slate-400 hover:text-rose-500 transition-colors shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">✕</button>
         </div>

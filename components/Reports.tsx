@@ -644,7 +644,7 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
                       <div className="text-center md:text-left"><p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Audit Profile</p><h5 className="text-2xl font-bold font-orbitron uppercase tracking-tighter text-slate-900">{selectedAccount.name}</h5>{selectedAccount.code && <p className="text-xs font-mono text-slate-400 mt-1 font-bold">Standard COA Code: {selectedAccount.code}</p>}</div>
                       <div className="text-center md:text-right"><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Ledger Closing Balance</p><p className={`text-4xl font-orbitron font-bold ${selectedAccount.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{formatCurrency(selectedAccount.balance)} <span className="text-sm font-sans font-bold bg-slate-200 px-2 py-0.5 rounded ml-2 text-slate-700">{selectedAccount.balance >= 0 ? 'DR' : 'CR'}</span></p></div>
                     </div>
-                    <div className="overflow-x-auto"><table className="w-full"><thead className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><tr><th className="py-4 text-left">Post Date</th><th className="py-4 text-left">Voucher #</th><th className="py-4 text-left">Narrative</th><th className="py-4 text-right">Debit</th><th className="py-4 text-right">Credit</th><th className="py-4 text-right pr-4">Accumulated Balance</th></tr></thead>
+                    <div className="overflow-x-auto"><table className="w-full"><thead className="text-slate-400 text-[10px] font-bold uppercase border-b-2 tracking-widest"><tr><th className="py-4 text-left w-12">S.No</th><th className="py-4 text-left">Post Date</th><th className="py-4 text-left">Voucher #</th><th className="py-4 text-left">Narrative</th><th className="py-4 text-right">Debit</th><th className="py-4 text-right">Credit</th><th className="py-4 text-right pr-4">Accumulated Balance</th></tr></thead>
                       <tbody className="divide-y divide-slate-100">
                         {glLedgerWithAccumulated.map((entry, idx) => {
                           const voucher = vouchers.find(v => v.id === entry.voucherId);
@@ -709,6 +709,7 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
 
                           return (
                             <tr key={idx} className={`hover:bg-slate-50 transition-all text-sm ${isOpening ? 'bg-slate-50/50 font-bold' : ''}`}>
+                              <td className="py-4 text-slate-400 font-bold text-xs">{idx + 1}</td>
                               <td className="py-4 text-slate-500">{isOpening ? '-' : formatDate(entry.date)}</td>
                               <td className="py-4">
                                 {voucher ? (
