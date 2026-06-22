@@ -150,7 +150,7 @@ const App: React.FC = () => {
       case 'vouchers':
         return <Vouchers config={config} refreshKey={refreshKey} externalIntent={intent} clearIntent={() => setIntent(null)} />;
       case 'haji-tracking':
-        return <HajiTracking />;
+        return <HajiTracking config={config} />;
       case 'reports':
         return <Reports config={config} refreshKey={refreshKey} onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
       case 'control':

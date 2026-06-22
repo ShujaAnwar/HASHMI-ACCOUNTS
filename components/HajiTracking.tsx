@@ -65,14 +65,58 @@ const SummaryCard = ({ label, value, icon, active, onClick, color }: any) => {
   );
 };
 
-const HajiTracking: React.FC = () => {
+interface HajiTrackingProps {
+  config?: any;
+}
+
+const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHaji, setSelectedHaji] = useState<HajiStatus | null>(null);
   const [filterType, setFilterType] = useState<'ALL' | 'MAKKAH' | 'MADINA' | 'JEDDAH_AIRPORT' | 'URGENT' | 'UPCOMING' | 'TRANSPORT_REQ'>('ALL');
-  
+  const [isExporting, setIsExporting] = useState(false);
+  const pdfRef = React.useRef<HTMLDivElement>(null);
+
+  const handleExportPDF = async () => {
+    if (!pdfRef.current) return;
+    setIsExporting(true);
+
+    const companyName = config?.companyName || 'Hashmi Travel Solutions';
+    const fileName = `Haji_Tracking_Status_Report_${companyName.replace(/\s+/g, '_')}_${formatDate(new Date())}.pdf`;
+    
+    const element = pdfRef.current;
+    
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 1122,
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    try {
+      const html2pdf = (window as any).html2pdf;
+      if (!html2pdf) {
+        throw new Error("html2pdf library is not loaded. Please try again or refresh the page.");
+      }
+      await html2pdf().set(opt).from(element).save();
+    } catch (err: any) {
+      console.error("PDF Export Error:", err);
+      alert(`Failed to generate PDF: ${err.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Haji Master State
   const [activeView, setActiveView] = useState<'TRACKING' | 'MASTER'>('TRACKING');
   const [trackingTab, setTrackingTab] = useState<'PENDING' | 'RESOLVED'>('PENDING');
@@ -896,6 +940,17 @@ const HajiTracking: React.FC = () => {
               ➕
             </button>
           )}
+          {activeView === 'TRACKING' && (
+            <button 
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white rounded-2xl shadow-lg hover:scale-105 transition-all active:scale-95 flex items-center space-x-2 font-black uppercase text-[10px] tracking-widest whitespace-nowrap"
+              title="Download Tracking Status PDF Report"
+            >
+              <span>{isExporting ? '⌛' : '📥'}</span>
+              <span>{isExporting ? 'Exporting...' : 'Complete Status PDF'}</span>
+            </button>
+          )}
         </div>
       </div>
       
@@ -1318,7 +1373,8 @@ const HajiTracking: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest pl-8">Haji Details</th>
+                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest pl-8 w-16">S.No</th>
+                  <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Haji Details</th>
                   <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Passport</th>
                   <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nationality</th>
                   <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</th>
@@ -1341,7 +1397,10 @@ const HajiTracking: React.FC = () => {
                     transition={{ delay: idx * 0.01 }}
                     className="hover:bg-slate-50/30 dark:hover:bg-slate-800/20 transition-colors group"
                   >
-                    <td className="p-5 pl-8">
+                    <td className="p-5 pl-8 text-xs font-orbitron font-bold text-slate-500">
+                      {idx + 1}
+                    </td>
+                    <td className="p-5">
                       <div className="flex items-center space-x-4">
                         <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center font-black group-hover:bg-blue-600 group-hover:text-white transition-all">
                           {haji.fullName.charAt(0)}
@@ -1571,6 +1630,148 @@ const HajiTracking: React.FC = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Hidden PDF Printable Report Container */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', overflow: 'hidden' }}>
+        <div 
+          ref={pdfRef} 
+          className="bg-white p-12 text-slate-900 w-[1122px] font-sans" 
+          style={{ width: '1122px', backgroundColor: '#ffffff', color: '#0f172a' }}
+        >
+          {/* Header section */}
+          <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
+            <div>
+              <p className="text-xs font-black text-blue-600 uppercase tracking-widest">{config?.appSubtitle || 'INTELLIGENT TRAVEL MANAGER'}</p>
+              <h1 className="text-3xl font-black font-orbitron uppercase tracking-tighter text-slate-900 mt-1">
+                {config?.companyName || 'Hashmi Travel Solutions'}
+              </h1>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                {config?.companyAddress || 'Main Office, Jinja Road, Kampala'}
+              </p>
+              <p className="text-[10px] text-slate-400 font-bold tracking-tight mt-0.5">
+                Contact: {config?.companyPhone || 'N/A'} {config?.companyCell && `| Cell: ${config.companyCell}`} {config?.companyEmail && `| Email: ${config.companyEmail}`}
+              </p>
+            </div>
+            
+            <div className="text-right">
+              <div className="bg-blue-600 text-white font-orbitron font-black text-xs uppercase px-4 py-2 rounded-xl tracking-wider inline-block">
+                HAJI STATUS REPORT
+              </div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-3">Date Generated</p>
+              <p className="text-xs font-black text-slate-800 font-orbitron mt-0.5">{formatDate(new Date())} - {new Date().toLocaleTimeString()}</p>
+            </div>
+          </div>
+
+          {/* Quick Summary Section */}
+          <div className="grid grid-cols-6 gap-4 mb-8">
+            <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Pilgrims</p>
+              <p className="text-xl font-orbitron font-black text-slate-800">{stats.total}</p>
+            </div>
+            <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Currently Makkah</p>
+              <p className="text-xl font-orbitron font-black text-blue-600">{stats.makkah}</p>
+            </div>
+            <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Currently Madina</p>
+              <p className="text-xl font-orbitron font-black text-emerald-600">{stats.madina}</p>
+            </div>
+            <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Airport/Jeddah</p>
+              <p className="text-xl font-orbitron font-black text-indigo-600">{stats.jeddahAirport}</p>
+            </div>
+            <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center text-rose-600">
+              <p className="text-[9px] font-black text-rose-400 uppercase tracking-wider mb-1">Urgent Actions</p>
+              <p className="text-xl font-orbitron font-black">{stats.urgentActions}</p>
+            </div>
+            <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center text-amber-600">
+              <p className="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1">Upcoming Sectors</p>
+              <p className="text-xl font-orbitron font-black">{stats.upcomingMovements}</p>
+            </div>
+          </div>
+
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-4 pb-2 border-b border-slate-200">
+            CURRENT PILGRIM MOVEMENT & POSITION TRACKING SHEET
+          </h3>
+
+          <table className="w-full text-left border-collapse table-auto text-xs">
+            <thead>
+              <tr className="bg-slate-900 text-white uppercase font-black tracking-wider text-[9px] border-b border-slate-900">
+                <th className="p-3 text-center w-12">S.No</th>
+                <th className="p-3">Haji Name / Passport</th>
+                <th className="p-3">Position / Current City</th>
+                <th className="p-3">Current Status</th>
+                <th className="p-3">Tomorrow/Next Movement</th>
+                <th className="p-3">Alert Status & Issues</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {hajiTrackingData.map((haji, idx) => (
+                <tr key={haji.id} className="hover:bg-slate-50 text-slate-800">
+                  <td className="p-3 text-center font-bold text-slate-400 ring-1 ring-slate-50">
+                    {idx + 1}
+                  </td>
+                  <td className="p-3">
+                    <p className="font-bold uppercase text-slate-900 leading-tight">{haji.paxName}</p>
+                    {haji.hajiId && <p className="text-[9px] font-orbitron text-slate-400 leading-none mt-1">ID: {haji.hajiId}</p>}
+                    {haji.passportNumber && <p className="text-[9px] font-mono text-slate-500 mt-0.5">Passport: {haji.passportNumber}</p>}
+                  </td>
+                  <td className="p-3">
+                    <p className="font-bold text-slate-800 leading-tight">{haji.currentLocation || 'In Transit'}</p>
+                    {haji.currentCity && <span className="inline-block bg-slate-100 text-[8px] font-black tracking-widest uppercase px-2 py-0.5 rounded mt-1">{haji.currentCity}</span>}
+                  </td>
+                  <td className="p-3 font-semibold text-slate-600 leading-tight">
+                    {haji.currentStatusText || 'Waiting'}
+                  </td>
+                  <td className="p-3">
+                    {haji.nextMovement ? (
+                      <div>
+                        <p className="font-bold text-slate-800 leading-tight">{haji.nextMovementText}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Sched: {haji.nextMovementDate}</p>
+                      </div>
+                    ) : (
+                      <p className="text-slate-400 italic text-[10px]">No further movements logged</p>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <div className="flex items-center space-x-2">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${
+                        haji.alertLevel === 'RED' ? 'bg-rose-500' :
+                        haji.alertLevel === 'YELLOW' ? 'bg-amber-500' :
+                        'bg-emerald-500'
+                      }`}></span>
+                      <p className={`font-black uppercase text-[9px] ${
+                        haji.alertLevel === 'RED' ? 'text-rose-600' :
+                        haji.alertLevel === 'YELLOW' ? 'text-amber-600' :
+                        'text-emerald-700'
+                      }`}>
+                        {haji.alertLevel === 'RED' ? 'URGENT' : haji.alertLevel === 'YELLOW' ? 'WARNING' : 'OK / PEACEFUL'}
+                      </p>
+                    </div>
+                    {haji.actionRequired && haji.actionRequired !== 'No immediate action' && (
+                      <p className="text-[10px] text-red-600 font-bold mt-1 bg-red-50 p-1.5 rounded border border-red-100 uppercase tracking-tighter leading-tight">
+                        📢 {haji.actionRequired}
+                      </p>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {hajiTrackingData.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-12 text-center text-slate-400 italic">No Haji tracking records currently loaded.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* Footer info inside the landscape PDF */}
+          <div className="mt-12 pt-6 border-t border-slate-200 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+            <p>Hashmi Books Aviation & Logistics Ledgers System</p>
+            <p className="font-black text-rose-500">Confidential Report — internal travel tracking only</p>
+            <p>© {new Date().getFullYear()} Shuja Anwar Ahmed Hashmi</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
