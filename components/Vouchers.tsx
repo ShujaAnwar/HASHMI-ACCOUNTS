@@ -956,7 +956,6 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const fromDateStr = v.details?.fromDate ? formatDate(v.details.fromDate) : '-';
     const toDateStr = v.details?.toDate ? formatDate(v.details.toDate) : '-';
     const branding = getBranding(v);
-    const customer = accounts.find(a => a.id === (v.customerId || v.vendorId));
     
     return (
       <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
@@ -1002,15 +1001,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
         {/* Details Grid */}
         <div className="mb-3">
-          <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3 mb-3">
+          <div className="border-b border-slate-100 pb-3 mb-3">
             <div className="space-y-0.5">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER / AGENCY</p>
-              <p className="text-[12px] font-black uppercase text-[#0f172a] leading-tight">
-                {customer?.name || 'PRIVATE GUEST'}
-              </p>
-            </div>
-            <div className="space-y-0.5 text-right">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">PASSENGER NAME</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">PASSENGER NAME</p>
               <p className="text-[12px] font-black uppercase text-[#0f172a] leading-tight">
                 {v.details?.paxName || 'N/A'}
               </p>
@@ -1554,12 +1547,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         </div>
 
         {/* Guest Details bar */}
-        <div className="py-2 border-y border-slate-100 mb-3 grid grid-cols-2 gap-4">
+        <div className="py-2 border-y border-slate-100 mb-3">
            <div className="space-y-0.5">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER / AGENCY</p>
-              <p className="text-[12px] font-black uppercase text-[#0f172a]">{customer?.name || 'PRIVATE GUEST'}</p>
-           </div>
-           <div className="space-y-0.5 text-right">
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">PASSENGER NAME</p>
               <p className="text-[12px] font-black uppercase text-[#0f172a]">{details.paxName || 'N/A'}</p>
            </div>
@@ -1843,12 +1832,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         </div>
 
         {/* Guest Details bar */}
-        <div className="py-2 border-y border-slate-100 mb-3 grid grid-cols-2 gap-4">
+        <div className="py-2 border-y border-slate-100 mb-3">
            <div className="space-y-0.5">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER / AGENCY</p>
-              <p className="text-[12px] font-black uppercase text-[#0f172a]">{customer?.name || 'PRIVATE GUEST'}</p>
-           </div>
-           <div className="space-y-0.5 text-right">
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">PACKAGE TYPE</p>
               <p className="text-[12px] font-black uppercase text-[#0f172a]">Group Umrah Package ({hajjis.length} Hajjis)</p>
            </div>
