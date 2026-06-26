@@ -883,6 +883,32 @@ import DateInput from './DateInput';
                           const itemRoe = voucher?.roe || currentROE;
                           const isSar = voucher?.currency === Currency.SAR;
 
+                          let displayRateSar = '-';
+                          let displayNights = '-';
+
+                          if (voucher?.type === VoucherType.HOTEL) {
+                            const items = voucher.details?.items || [];
+                            const item = items.find((it: any) => entry.description?.includes(it.hotelName)) || items[0] || voucher.details;
+                            const rateVal = item?.unitRate !== undefined ? Number(item.unitRate) : (voucher.details?.unitRate !== undefined ? Number(voucher.details.unitRate) : undefined);
+                            if (rateVal !== undefined && !isNaN(rateVal) && rateVal > 0) {
+                              displayRateSar = (isSar ? rateVal : rateVal / (voucher.roe || currentROE || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                            } else if (isSar) {
+                              displayRateSar = ((entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                            }
+                            displayNights = item?.numNights || voucher.details?.numNights || '-';
+                          } else if (voucher?.type === VoucherType.ALL_IN_ONE && (entry.description?.includes('Hotel:') || (voucher.details?.hotelItems && voucher.details.hotelItems.length > 0))) {
+                            const hotelItems = voucher.details?.hotelItems || [];
+                            const item = hotelItems.find((it: any) => entry.description?.includes(it.hotelName)) || hotelItems[0];
+                            if (item && item.unitRate !== undefined && Number(item.unitRate) > 0) {
+                              displayRateSar = Number(item.unitRate).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                              displayNights = item.numNights || '-';
+                            } else if (isSar) {
+                              displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                            }
+                          } else if (isSar) {
+                            displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                          }
+
                           return (
                             <tr key={i} className={`border-b border-slate-50 ${(entry as any).isOpening ? 'bg-slate-50/50' : ''}`} style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
@@ -923,10 +949,10 @@ import DateInput from './DateInput';
                                 {displayDescription}
                               </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {isSar ? (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 }) : '-'}
+                                {displayRateSar}
                               </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {voucher?.type === VoucherType.HOTEL ? (voucher.details?.items?.[0]?.numNights || voucher.details?.numNights || '-') : '-'}
+                                {displayNights}
                               </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
                                 {isSar ? itemRoe : '-'}
