@@ -193,6 +193,58 @@ import DateInput from './DateInput';
       return val / (roe || 1);
     }, [viewCurrency, currentROE]);
 
+    const findMatchingBookingItem = (entry: any, voucher: Voucher | undefined) => {
+      if (!voucher || !voucher.details) return undefined;
+      const items = voucher.details.items || voucher.details.hotelItems || voucher.details.hotelStays || [];
+      if (!items.length) return voucher.details;
+      if (items.length === 1) return items[0];
+
+      const desc = entry.description || '';
+
+      // 1. Check explicit index tag like (#1), (#2), Stay #1
+      const idxTagMatch = desc.match(/\(#(\d+)\)\s*$/) || desc.match(/Stay #(\d+)/i) || desc.match(/\b#(\d+)\b\s*$/);
+      if (idxTagMatch) {
+        const idx = parseInt(idxTagMatch[1], 10) - 1;
+        if (items[idx]) return items[idx];
+      }
+
+      const amt = Number(entry.debit || entry.credit || 0);
+      const rateMul = voucher.currency === Currency.SAR ? (voucher.roe || 1) : 1;
+
+      const getExpectedPKR = (it: any) => {
+        if (it.cost !== undefined && Number(it.cost) > 0 && (voucher.type === VoucherType.PACKAGE || !it.unitRate)) {
+          return Number(it.cost) * rateMul;
+        }
+        const ur = Number(it.unitRate || 0);
+        const rooms = Number(it.numRooms || 1);
+        const nights = Number(it.numNights || it.nights || 1);
+        return ur * rooms * nights * rateMul;
+      };
+
+      const descLower = desc.toLowerCase();
+      const byHotel = items.filter((it: any) => it.hotelName && descLower.includes(String(it.hotelName).toLowerCase()));
+      const pool = byHotel.length > 0 ? byHotel : items;
+
+      if (amt > 0) {
+        const matchedByAmt = pool.filter((it: any) => Math.abs(getExpectedPKR(it) - amt) <= 2);
+        if (matchedByAmt.length === 1) return matchedByAmt[0];
+        if (matchedByAmt.length > 1) {
+          const sub = matchedByAmt.find((it: any) => {
+            const ci = it.fromDate ? formatDate(it.fromDate).toLowerCase() : (it.checkIn ? String(it.checkIn).toLowerCase() : '');
+            return ci && descLower.includes(ci);
+          });
+          if (sub) return sub;
+          return matchedByAmt[0];
+        }
+      }
+
+      const sub = pool.find((it: any) => {
+        const ci = it.fromDate ? formatDate(it.fromDate).toLowerCase() : (it.checkIn ? String(it.checkIn).toLowerCase() : '');
+        return ci && descLower.includes(ci);
+      });
+      return sub || pool[0];
+    };
+
     const getNarrativeForLedger = (entry: any, voucher: Voucher | undefined) => {
       if (!voucher || !voucher.details) return entry.description || '-';
 
@@ -206,6 +258,9 @@ import DateInput from './DateInput';
       }
       
       if (voucher.type === VoucherType.PACKAGE) {
+        if (entry.description && !entry.description.startsWith('UMRAH PACKAGE')) {
+          return entry.description;
+        }
         const details = voucher.details || {};
         const hajjisList = details.hajjis || [];
         const totalPilgrims = hajjisList.length || 1;
@@ -220,15 +275,14 @@ import DateInput from './DateInput';
       }
       
       if (voucher.type === VoucherType.HOTEL) {
-        const items = voucher.details.items || [];
-        const firstItem = items[0] || {};
+        const matchedItem = findMatchingBookingItem(entry, voucher) || voucher.details.items?.[0] || voucher.details || {};
         
-        const pax = (voucher.details.paxName || firstItem.paxName || 'N/A').toUpperCase();
-        const hotel = (firstItem.hotelName || voucher.details.hotelName || 'N/A').toUpperCase();
-        const ci = firstItem.fromDate || voucher.details.fromDate || '-';
-        const co = firstItem.toDate || voucher.details.toDate || '-';
-        const nights = firstItem.numNights || voucher.details.numNights || '0';
-        const mealsRaw = firstItem.meals || voucher.details.meals;
+        const pax = (voucher.details.paxName || matchedItem.paxName || 'N/A').toUpperCase();
+        const hotel = (matchedItem.hotelName || voucher.details.hotelName || 'N/A').toUpperCase();
+        const ci = matchedItem.fromDate || voucher.details.fromDate || '-';
+        const co = matchedItem.toDate || voucher.details.toDate || '-';
+        const nights = matchedItem.numNights || voucher.details.numNights || '0';
+        const mealsRaw = matchedItem.meals || voucher.details.meals;
         const meals = Array.isArray(mealsRaw) 
           ? mealsRaw.join(', ') 
           : (mealsRaw && mealsRaw !== 'NONE' ? mealsRaw : 'N/A');
@@ -887,8 +941,7 @@ import DateInput from './DateInput';
                           let displayNights = '-';
 
                           if (voucher?.type === VoucherType.HOTEL) {
-                            const items = voucher.details?.items || [];
-                            const item = items.find((it: any) => entry.description?.includes(it.hotelName)) || items[0] || voucher.details;
+                            const item = findMatchingBookingItem(entry, voucher) || voucher.details.items?.[0] || voucher.details;
                             const rateVal = item?.unitRate !== undefined ? Number(item.unitRate) : (voucher.details?.unitRate !== undefined ? Number(voucher.details.unitRate) : undefined);
                             if (rateVal !== undefined && !isNaN(rateVal) && rateVal > 0) {
                               displayRateSar = (isSar ? rateVal : rateVal / (voucher.roe || currentROE || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
@@ -897,13 +950,23 @@ import DateInput from './DateInput';
                             }
                             displayNights = item?.numNights || voucher.details?.numNights || '-';
                           } else if (voucher?.type === VoucherType.ALL_IN_ONE && (entry.description?.includes('Hotel:') || (voucher.details?.hotelItems && voucher.details.hotelItems.length > 0))) {
-                            const hotelItems = voucher.details?.hotelItems || [];
-                            const item = hotelItems.find((it: any) => entry.description?.includes(it.hotelName)) || hotelItems[0];
+                            const item = findMatchingBookingItem(entry, voucher) || voucher.details?.hotelItems?.[0];
                             if (item && item.unitRate !== undefined && Number(item.unitRate) > 0) {
                               displayRateSar = Number(item.unitRate).toLocaleString(undefined, { minimumFractionDigits: 0 });
                               displayNights = item.numNights || '-';
                             } else if (isSar) {
                               displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                            }
+                          } else if (voucher?.type === VoucherType.PACKAGE && entry.description?.toLowerCase().includes('hotel stay')) {
+                            const item = findMatchingBookingItem(entry, voucher);
+                            if (item) {
+                              displayNights = item.nights || item.numNights || '-';
+                              const costVal = Number(item.cost || 0);
+                              const roomsVal = Number(item.numRooms || 1);
+                              const nightsVal = Number(item.nights || item.numNights || 1);
+                              if (costVal > 0 && nightsVal > 0 && roomsVal > 0) {
+                                displayRateSar = (costVal / (roomsVal * nightsVal)).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                              }
                             }
                           } else if (isSar) {
                             displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });

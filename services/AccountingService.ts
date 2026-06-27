@@ -391,14 +391,14 @@ export class AccountingService {
       const rate = currency === Currency.SAR ? roe : 1;
 
       if (items.length > 0) {
-        items.forEach((item: any) => {
+        items.forEach((item: any, idx: number) => {
           const itemAmountPKR = (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)) * rate;
           const paxName = voucher.details?.paxName || item.paxName || 'N/A';
           const checkIn = this.formatDate(item.fromDate);
           const checkOut = this.formatDate(item.toDate);
           const meals = this.formatMeals(item.meals);
           
-          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${item.numNights} | Meals: ${meals} | NORs: ${item.numRooms}`;
+          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${item.numNights} | Meals: ${meals} | NORs: ${item.numRooms} (#${idx + 1})`;
           
           if (customerId) {
             entries.push({ 
