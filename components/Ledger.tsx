@@ -282,12 +282,13 @@ import DateInput from './DateInput';
         const ci = matchedItem.fromDate || voucher.details.fromDate || '-';
         const co = matchedItem.toDate || voucher.details.toDate || '-';
         const nights = matchedItem.numNights || voucher.details.numNights || '0';
+        const rooms = matchedItem.numRooms || voucher.details.numRooms || '1';
         const mealsRaw = matchedItem.meals || voucher.details.meals;
         const meals = Array.isArray(mealsRaw) 
           ? mealsRaw.join(', ') 
           : (mealsRaw && mealsRaw !== 'NONE' ? mealsRaw : 'N/A');
         
-        return `${pax} | ${hotel} | Checkin: ${ci} | Checkout: ${co} | Nights: ${nights} | Meals: ${meals}`;
+        return `${pax} | ${hotel} | Checkin: ${ci} | Checkout: ${co} | Nights: ${nights} | Rooms: ${rooms} | Meals: ${meals}`;
       }
 
       if (voucher.type === VoucherType.TRANSPORT) {
@@ -920,6 +921,7 @@ import DateInput from './DateInput';
                           <th className="px-1 py-3 text-center w-[40px]">TYPE</th>
                           <th className="px-2 py-3 min-w-[300px]">TRANSACTION NARRATION</th>
                           <th className="px-1 py-3 text-center w-[80px]">RATE(SAR)</th>
+                          <th className="px-1 py-3 text-center w-[60px]">ROOMS</th>
                           <th className="px-1 py-3 text-center w-[60px]">NIGHTS</th>
                           <th className="px-1 py-3 text-center w-[60px]">ROE</th>
                           <th className="px-1 py-3 text-right w-[100px]">DEBIT</th>
@@ -938,6 +940,7 @@ import DateInput from './DateInput';
                           const isSar = voucher?.currency === Currency.SAR;
 
                           let displayRateSar = '-';
+                          let displayRooms = '-';
                           let displayNights = '-';
 
                           if (voucher?.type === VoucherType.HOTEL) {
@@ -948,11 +951,13 @@ import DateInput from './DateInput';
                             } else if (isSar) {
                               displayRateSar = ((entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
                             }
+                            displayRooms = item?.numRooms || voucher.details?.numRooms || '-';
                             displayNights = item?.numNights || voucher.details?.numNights || '-';
                           } else if (voucher?.type === VoucherType.ALL_IN_ONE && (entry.description?.includes('Hotel:') || (voucher.details?.hotelItems && voucher.details.hotelItems.length > 0))) {
                             const item = findMatchingBookingItem(entry, voucher) || voucher.details?.hotelItems?.[0];
                             if (item && item.unitRate !== undefined && Number(item.unitRate) > 0) {
                               displayRateSar = Number(item.unitRate).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                              displayRooms = item.numRooms || '-';
                               displayNights = item.numNights || '-';
                             } else if (isSar) {
                               displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
@@ -960,6 +965,7 @@ import DateInput from './DateInput';
                           } else if (voucher?.type === VoucherType.PACKAGE && entry.description?.toLowerCase().includes('hotel stay')) {
                             const item = findMatchingBookingItem(entry, voucher);
                             if (item) {
+                              displayRooms = item.numRooms || '-';
                               displayNights = item.nights || item.numNights || '-';
                               const costVal = Number(item.cost || 0);
                               const roomsVal = Number(item.numRooms || 1);
@@ -1013,6 +1019,9 @@ import DateInput from './DateInput';
                               </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
                                 {displayRateSar}
+                              </td>
+                              <td className="px-1 py-2 text-center font-bold text-slate-400">
+                                {displayRooms}
                               </td>
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
                                 {displayNights}
