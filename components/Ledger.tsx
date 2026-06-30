@@ -374,6 +374,35 @@ import DateInput from './DateInput';
       return [openingBalanceRow, ...periodEntries];
     }, [selectedAccount, fromDate, toDate]);
 
+    const visaColorsMap = useMemo(() => {
+      const visaVoucherNums = new Set<string>();
+      ledgerWithRunningBalance.forEach(entry => {
+        const voucher = vouchers.find(v => v.id === entry.voucherId);
+        const displayType = voucher?.type || ((entry.description?.includes('Opening') || (entry as any).isOpening) ? 'OP' : '-');
+        const isVisa = voucher?.type === VoucherType.VISA || displayType === 'VV' || entry.voucherNum?.startsWith('VV');
+        if (isVisa && entry.voucherNum) {
+          visaVoucherNums.add(entry.voucherNum);
+        }
+      });
+
+      const uniqueVouchers = Array.from(visaVoucherNums);
+      const colorList = [
+        'bg-blue-50/60 dark:bg-blue-950/20 border-blue-100/80 dark:border-blue-900/20 text-slate-800 dark:text-slate-200',
+        'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-100/80 dark:border-emerald-900/20 text-slate-800 dark:text-slate-200',
+        'bg-amber-50/60 dark:bg-amber-950/20 border-amber-100/80 dark:border-amber-900/20 text-slate-800 dark:text-slate-200',
+        'bg-violet-50/60 dark:bg-violet-950/20 border-violet-100/80 dark:border-violet-900/20 text-slate-800 dark:text-slate-200',
+        'bg-rose-50/60 dark:bg-rose-950/20 border-rose-100/80 dark:border-rose-900/20 text-slate-800 dark:text-slate-200',
+        'bg-cyan-50/60 dark:bg-cyan-950/20 border-cyan-100/80 dark:border-cyan-900/20 text-slate-800 dark:text-slate-200',
+        'bg-orange-50/60 dark:bg-orange-950/20 border-orange-100/80 dark:border-orange-900/20 text-slate-800 dark:text-slate-200',
+      ];
+
+      const map: Record<string, string> = {};
+      uniqueVouchers.forEach((vNum, index) => {
+        map[vNum] = colorList[index % colorList.length];
+      });
+      return map;
+    }, [ledgerWithRunningBalance, vouchers]);
+
     const handleDownloadPDF = async () => {
       if (!pdfRef.current || !selectedAccount) return;
       
@@ -576,59 +605,73 @@ import DateInput from './DateInput';
 
     const renderMobileLedger = () => (
       <div className="md:hidden space-y-4">
-        {ledgerWithRunningBalance.map((entry, idx) => (
-          <div 
-            key={idx}
-            className={`p-5 rounded-[2rem] border transition-all ${
-              (entry as any).isOpening 
-                ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' 
-                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
-            }`}
-          >
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center space-x-2">
-                <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">S.No: {idx + 1}</span>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{formatDate(entry.date)}</span>
-              </div>
-              {entry.voucherId && (
-                <button 
-                  onClick={() => onViewVoucher?.(vouchers.find(v => v.id === entry.voucherId)!)}
-                  className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full text-[8px] font-black uppercase tracking-widest"
-                >
-                  View Ref
-                </button>
-              )}
-            </div>
-            
-            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-relaxed mb-4">
-              {getNarrativeForLedger(entry, vouchers.find(v => v.id === entry.voucherId))}
-            </p>
-            
-            <div className="flex justify-between items-end">
-              <div className="space-y-1">
-                {entry.debit > 0 && (
-                  <div>
-                    <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest block">Debit (+)</span>
-                    <span className="text-sm font-orbitron font-black text-emerald-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal(entry.debit))}</span>
-                  </div>
-                )}
-                {entry.credit > 0 && (
-                  <div>
-                    <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest block">Credit (-)</span>
-                    <span className="text-sm font-orbitron font-black text-rose-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal(entry.credit))}</span>
-                  </div>
+        {ledgerWithRunningBalance.map((entry, idx) => {
+          const voucher = vouchers.find(v => v.id === entry.voucherId);
+          const displayType = voucher?.type || ((entry.description?.includes('Opening') || (entry as any).isOpening) ? 'OP' : '-');
+          const isVisa = voucher?.type === VoucherType.VISA || displayType === 'VV' || entry.voucherNum?.startsWith('VV');
+          const highlightClass = (!isExporting && !isSharing && isVisa && entry.voucherNum) 
+            ? visaColorsMap[entry.voucherNum] || '' 
+            : '';
+          const bgAndBorder = highlightClass 
+            ? highlightClass.split(' ').filter(c => c.startsWith('bg-') || c.includes('dark:bg-') || c.startsWith('border-') || c.includes('dark:border-')).join(' ') 
+            : '';
+
+          return (
+            <div 
+              key={idx}
+              className={`p-5 rounded-[2rem] border transition-all ${
+                (entry as any).isOpening 
+                  ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' 
+                  : bgAndBorder 
+                    ? `${bgAndBorder} print:!bg-transparent print:!border-slate-100` 
+                    : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+              }`}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">S.No: {idx + 1}</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{formatDate(entry.date)}</span>
+                </div>
+                {entry.voucherId && (
+                  <button 
+                    onClick={() => onViewVoucher?.(vouchers.find(v => v.id === entry.voucherId)!)}
+                    className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full text-[8px] font-black uppercase tracking-widest"
+                  >
+                    View Ref
+                  </button>
                 )}
               </div>
               
-              <div className="text-right">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Running Bal</span>
-                <span className="text-md font-orbitron font-bold text-slate-800 dark:text-white">
-                  {viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal((entry as any).balanceAfter))}
-                </span>
+              <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-relaxed mb-4">
+                {getNarrativeForLedger(entry, vouchers.find(v => v.id === entry.voucherId))}
+              </p>
+              
+              <div className="flex justify-between items-end">
+                <div className="space-y-1">
+                  {entry.debit > 0 && (
+                    <div>
+                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest block">Debit (+)</span>
+                      <span className="text-sm font-orbitron font-black text-emerald-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal(entry.debit))}</span>
+                    </div>
+                  )}
+                  {entry.credit > 0 && (
+                    <div>
+                      <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest block">Credit (-)</span>
+                      <span className="text-sm font-orbitron font-black text-rose-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal(entry.credit))}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="text-right">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Running Bal</span>
+                  <span className="text-md font-orbitron font-bold text-slate-800 dark:text-white">
+                    {viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal((entry as any).balanceAfter))}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {ledgerWithRunningBalance.length === 0 && (
           <div className="py-20 text-center">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No transaction history</p>
@@ -939,6 +982,14 @@ import DateInput from './DateInput';
                           const itemRoe = voucher?.roe || currentROE;
                           const isSar = voucher?.currency === Currency.SAR;
 
+                          const isVisa = voucher?.type === VoucherType.VISA || displayType === 'VV' || entry.voucherNum?.startsWith('VV');
+                          const highlightClass = (!isExporting && !isSharing && isVisa && entry.voucherNum) 
+                            ? visaColorsMap[entry.voucherNum] || '' 
+                            : '';
+                          const bgClass = highlightClass 
+                            ? highlightClass.split(' ').filter(c => c.startsWith('bg-') || c.includes('dark:bg-')).join(' ') 
+                            : '';
+
                           let displayRateSar = '-';
                           let displayRooms = '-';
                           let displayNights = '-';
@@ -979,7 +1030,17 @@ import DateInput from './DateInput';
                           }
 
                           return (
-                            <tr key={i} className={`border-b border-slate-50 ${(entry as any).isOpening ? 'bg-slate-50/50' : ''}`} style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}>
+                            <tr 
+                              key={i} 
+                              className={`border-b border-slate-50 transition-colors ${
+                                (entry as any).isOpening 
+                                  ? 'bg-slate-50/50' 
+                                  : bgClass 
+                                    ? `${bgClass} print:!bg-transparent` 
+                                    : ''
+                              }`} 
+                              style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}
+                            >
                               <td className="px-1 py-2 text-center font-bold text-slate-400">
                                 {i + 1}
                               </td>
