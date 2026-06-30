@@ -609,7 +609,7 @@ import DateInput from './DateInput';
           const voucher = vouchers.find(v => v.id === entry.voucherId);
           const displayType = voucher?.type || ((entry.description?.includes('Opening') || (entry as any).isOpening) ? 'OP' : '-');
           const isVisa = voucher?.type === VoucherType.VISA || displayType === 'VV' || entry.voucherNum?.startsWith('VV');
-          const highlightClass = (!isExporting && !isSharing && isVisa && entry.voucherNum) 
+          const highlightClass = (isVisa && entry.voucherNum) 
             ? visaColorsMap[entry.voucherNum] || '' 
             : '';
           const bgAndBorder = highlightClass 
@@ -623,7 +623,7 @@ import DateInput from './DateInput';
                 (entry as any).isOpening 
                   ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' 
                   : bgAndBorder 
-                    ? `${bgAndBorder} print:!bg-transparent print:!border-slate-100` 
+                    ? bgAndBorder 
                     : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
               }`}
             >
@@ -983,7 +983,7 @@ import DateInput from './DateInput';
                           const isSar = voucher?.currency === Currency.SAR;
 
                           const isVisa = voucher?.type === VoucherType.VISA || displayType === 'VV' || entry.voucherNum?.startsWith('VV');
-                          const highlightClass = (!isExporting && !isSharing && isVisa && entry.voucherNum) 
+                          const highlightClass = (isVisa && entry.voucherNum) 
                             ? visaColorsMap[entry.voucherNum] || '' 
                             : '';
                           const bgClass = highlightClass 
@@ -1036,7 +1036,7 @@ import DateInput from './DateInput';
                                 (entry as any).isOpening 
                                   ? 'bg-slate-50/50' 
                                   : bgClass 
-                                    ? `${bgClass} print:!bg-transparent` 
+                                    ? bgClass 
                                     : ''
                               }`} 
                               style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}
