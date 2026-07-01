@@ -39,6 +39,36 @@
             animation: blink 1s infinite cubic-bezier(0.4, 0, 0.6, 1);
         }
 
+        @keyframes action-blink-red {
+            0%, 100% { background-color: rgb(225, 29, 72); border-color: rgb(244, 63, 94); box-shadow: 0 10px 15px -3px rgba(244, 63, 94, 0.4); }
+            50% { background-color: rgb(159, 18, 57); border-color: rgb(225, 29, 72); box-shadow: 0 4px 6px -1px rgba(244, 63, 94, 0.1); }
+        }
+        @keyframes action-blink-amber {
+            0%, 100% { background-color: rgba(254, 243, 199, 1); border-color: rgba(251, 191, 36, 0.6); }
+            50% { background-color: rgba(254, 243, 199, 0.4); border-color: rgba(251, 191, 36, 0.25); }
+        }
+        @keyframes action-blink-amber-dark {
+            0%, 100% { background-color: rgba(120, 53, 4, 0.3); border-color: rgba(251, 191, 36, 0.5); }
+            50% { background-color: rgba(120, 53, 4, 0.1); border-color: rgba(251, 191, 36, 0.2); }
+        }
+        .animate-action-red {
+            animation: action-blink-red 1.5s infinite ease-in-out;
+        }
+        .animate-action-amber {
+            animation: action-blink-amber 1.5s infinite ease-in-out;
+        }
+        .animate-action-amber-dark {
+            animation: action-blink-amber-dark 1.5s infinite ease-in-out;
+        }
+
+        @keyframes badge-blink-yellow {
+            0%, 100% { background-color: rgb(245, 158, 11); }
+            50% { background-color: rgb(180, 83, 9); }
+        }
+        .animate-badge-yellow {
+            animation: badge-blink-yellow 1.5s infinite ease-in-out;
+        }
+
         .print-only { display: none; }
 
         @media print {

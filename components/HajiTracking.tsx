@@ -347,6 +347,26 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       return end;
     };
 
+    const cleanPaxName = (n: string): string => {
+      return n.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').trim();
+    };
+
+    const splitPaxNames = (paxNameStr: string | null | undefined): string[] => {
+      if (!paxNameStr) return [];
+      const separators = /,|\/|;|\\|&|\s+and\s+|\+/gi;
+      return paxNameStr
+        .split(separators)
+        .map(n => cleanPaxName(n))
+        .filter(n => {
+          const lower = n.toLowerCase();
+          return n.length > 0 && 
+                 lower !== 'n/a' && 
+                 lower !== 'unknown' && 
+                 lower !== 'unknown pax' &&
+                 !/^\d+$/.test(n);
+        });
+    };
+
     // 1. Extract all movements
     const allMovements: HajiMovement[] = [];
 
@@ -355,204 +375,212 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       .forEach(v => {
       const items = v.details?.items || [v.details]; 
       items.forEach((item: any, idx: number) => {
-        const globalPaxName = item?.paxName || v.details?.paxName || v.details?.headName || null;
-        const paxName = globalPaxName;
-        if (!paxName || paxName === 'N/A' || paxName === 'Unknown Pax') return;
-
-        let movement: Partial<HajiMovement> = {
-          id: `${v.id}-${idx}`,
-          paxName,
-          rawVoucher: v,
-        };
-
-        if (v.type === VoucherType.HOTEL) {
-          const fromDate = item?.fromDate || v.details?.fromDate;
-          const toDate = item?.toDate || v.details?.toDate;
-          const numNights = Number(item?.numNights || v.details?.numNights || 0);
-          
-          if (fromDate) {
-            movement.date = new Date(fromDate);
-            if (toDate) {
-              movement.toDate = new Date(toDate);
-            } else if (numNights > 0) {
-              const end = new Date(movement.date);
-              end.setDate(end.getDate() + numNights);
-              movement.toDate = end;
-            }
-            movement.type = VoucherType.HOTEL;
-            movement.category = 'HOTEL';
-            const city = item?.city || v.details?.city || v.details?.location || '';
-            movement.location = `${item?.hotelName || v.details?.hotelName || 'Hotel'}${city ? ' (' + city + ')' : ''}`;
-            movement.details = `${item?.hotelName || v.details?.hotelName} (${item?.roomType || v.details?.roomType || 'Standard'})`;
-            movement.actionRequired = "Check-in Arrangement";
-            allMovements.push(movement as HajiMovement);
-          }
-        } else if (v.type === VoucherType.TRANSPORT) {
-          if (item?.isMultiSector && item?.subSectors?.length > 0) {
-            item.subSectors.forEach((sub: any, sIdx: number) => {
-              const subMovement = { ...movement };
-              subMovement.id = `${v.id}-${idx}-s-${sIdx}`;
-              subMovement.date = new Date(sub.date || v.date);
-              subMovement.type = VoucherType.TRANSPORT;
-              subMovement.category = 'TRANSPORT';
-              subMovement.location = sub.route;
-              subMovement.details = `${item.vehicle}: ${sub.route}${sub.note ? ' (' + sub.note + ')' : ''}`;
-              
-              if (sub.route.toLowerCase().includes('airport')) {
-                subMovement.actionRequired = "Airport Logistics";
-              } else {
-                subMovement.actionRequired = "Transport Pickup";
-              }
-              allMovements.push(subMovement as HajiMovement);
-            });
-          } else {
-            const transportDate = item?.date || v.details?.date || v.date;
-            movement.date = new Date(transportDate);
-            movement.type = VoucherType.TRANSPORT;
-            movement.category = 'TRANSPORT';
-            const sector = item?.sector === 'MULTI_SECTOR' ? item?.customLabel : (item?.sector || v.details?.sector || item?.route || v.details?.route || 'Transit');
-            movement.location = sector;
-            movement.details = `${item?.vehicle || v.details?.vehicle || 'Vehicle'}: ${sector}${item?.note ? ' (' + item.note + ')' : ''}`;
-            
-            if (sector && sector.toLowerCase().includes('airport')) {
-              movement.actionRequired = "Airport Logistics";
-            } else {
-              movement.actionRequired = "Transport Pickup";
-            }
-            allMovements.push(movement as HajiMovement);
-          }
-        } else if (v.type === VoucherType.TICKET) {
-          const flightDate = item?.date || v.details?.date || v.date;
-          movement.date = new Date(flightDate);
-          movement.type = VoucherType.TICKET;
-          movement.category = 'FLIGHT';
-          movement.location = item?.sector || v.details?.sector || 'Airport';
-          movement.details = `Flight ${item?.flightNum || v.details?.flightNum || ''}: ${movement.location}`;
-          movement.actionRequired = "Flight Monitoring";
-          allMovements.push(movement as HajiMovement);
-        } else if (v.type === VoucherType.ALL_IN_ONE || (v.type as string) === 'AV') {
-          // 1. Hotel Items
-          (v.details?.hotelItems || []).forEach((hItem: any, hIdx: number) => {
-             if (hItem.fromDate) {
-               const hMovement: Partial<HajiMovement> = {
-                  id: `${v.id}-${idx}-h-${hIdx}`,
-                  paxName: hItem.paxName || v.details?.paxName || globalPaxName,
-                  date: new Date(hItem.fromDate),
-                  toDate: hItem.toDate ? new Date(hItem.toDate) : undefined,
-                  type: VoucherType.HOTEL,
-                  category: 'HOTEL',
-                  location: `${hItem.hotelName} (${hItem.city || 'KSA'})`,
-                  details: `${hItem.hotelName} (${hItem.roomType || 'Standard'})`,
-                  actionRequired: "Check-in Arrangement",
-                  rawVoucher: v
-               };
-               allMovements.push(hMovement as HajiMovement);
-             }
-          });
-
-          // 2. Transport Items
-          (v.details?.transportItems || []).forEach((tItem: any, tIdx: number) => {
-             const tDate = tItem.date || v.date;
-             const tMovement: Partial<HajiMovement> = {
-                id: `${v.id}-${idx}-t-${tIdx}`,
-                paxName: tItem.paxName || v.details?.paxName || globalPaxName,
-                date: new Date(tDate),
-                type: VoucherType.TRANSPORT,
-                category: 'TRANSPORT',
-                location: tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector,
-                details: `${tItem.vehicle}: ${tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector}`,
-                actionRequired: "Transport Pickup",
-                rawVoucher: v
-             };
-             allMovements.push(tMovement as HajiMovement);
-          });
-
-          // 3. Visa Items (Optional for tracking, but good for context)
-          (v.details?.visaItems || []).forEach((vItem: any, vIdx: number) => {
-             const vMovement: Partial<HajiMovement> = {
-                id: `${v.id}-${idx}-v-${vIdx}`,
-                paxName: vItem.paxName || v.details?.paxName || globalPaxName,
-                date: new Date(v.date),
-                type: VoucherType.VISA,
-                category: 'VISA',
-                location: 'Visa Processing',
-                details: `Passport: ${vItem.passportNumber || v.details?.passportNumber || 'N/A'}`,
-                actionRequired: "Visa Status Check",
-                rawVoucher: v
-             };
-             allMovements.push(vMovement as HajiMovement);
-          });
-        } else if (v.type === VoucherType.PACKAGE || (v.type as string) === 'PKV') {
+        if (v.type === VoucherType.PACKAGE || (v.type as string) === 'PKV') {
           // A package voucher applies to ALL Hajjis in the package
           const hajjisList = v.details?.hajjis || [];
           hajjisList.forEach((hajiItem: any, hIdx: number) => {
-             const paxName = hajiItem.fullName;
-             
-             // 1. Makkah Hotel
-             if (v.details?.makkahCheckIn) {
-                const mkMovement: Partial<HajiMovement> = {
-                   id: `${v.id}-${idx}-${hIdx}-makkah`,
-                   paxName: paxName,
-                   date: new Date(v.details.makkahCheckIn),
-                   toDate: v.details.makkahCheckOut ? new Date(v.details.makkahCheckOut) : undefined,
-                   type: VoucherType.HOTEL,
-                   category: 'HOTEL',
-                   location: `${v.details.makkahHotelName || 'Hotel'} (Makkah)`,
-                   details: `${v.details.makkahHotelName || 'Hotel'} (${v.details.makkahRoomType || 'Triple'})`,
-                   actionRequired: "Check-in Arrangement",
-                   rawVoucher: v
-                };
-                allMovements.push(mkMovement as HajiMovement);
-             }
+             const rawPaxName = hajiItem.fullName;
+             const paxNames = splitPaxNames(rawPaxName);
+             paxNames.forEach((paxName) => {
+               // 1. Makkah Hotel
+               if (v.details?.makkahCheckIn) {
+                  const mkMovement: Partial<HajiMovement> = {
+                     id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-makkah`,
+                     paxName: paxName,
+                     date: new Date(v.details.makkahCheckIn),
+                     toDate: v.details.makkahCheckOut ? new Date(v.details.makkahCheckOut) : undefined,
+                     type: VoucherType.HOTEL,
+                     category: 'HOTEL',
+                     location: `${v.details.makkahHotelName || 'Hotel'} (Makkah)`,
+                     details: `${v.details.makkahHotelName || 'Hotel'} (${v.details.makkahRoomType || 'Triple'})`,
+                     actionRequired: "Check-in Arrangement",
+                     rawVoucher: v
+                  };
+                  allMovements.push(mkMovement as HajiMovement);
+               }
 
-             // 2. Madinah Hotel
-             if (v.details?.madinahCheckIn) {
-                const mdMovement: Partial<HajiMovement> = {
-                   id: `${v.id}-${idx}-${hIdx}-madinah`,
-                   paxName: paxName,
-                   date: new Date(v.details.madinahCheckIn),
-                   toDate: v.details.madinahCheckOut ? new Date(v.details.madinahCheckOut) : undefined,
-                   type: VoucherType.HOTEL,
-                   category: 'HOTEL',
-                   location: `${v.details.madinahHotelName || 'Hotel'} (Madinah)`,
-                   details: `${v.details.madinahHotelName || 'Hotel'} (${v.details.madinahRoomType || 'Triple'})`,
-                   actionRequired: "Check-in Arrangement",
-                   rawVoucher: v
-                };
-                allMovements.push(mdMovement as HajiMovement);
-             }
+               // 2. Madinah Hotel
+               if (v.details?.madinahCheckIn) {
+                  const mdMovement: Partial<HajiMovement> = {
+                     id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-madinah`,
+                     paxName: paxName,
+                     date: new Date(v.details.madinahCheckIn),
+                     toDate: v.details.madinahCheckOut ? new Date(v.details.madinahCheckOut) : undefined,
+                     type: VoucherType.HOTEL,
+                     category: 'HOTEL',
+                     location: `${v.details.madinahHotelName || 'Hotel'} (Madinah)`,
+                     details: `${v.details.madinahHotelName || 'Hotel'} (${v.details.madinahRoomType || 'Triple'})`,
+                     actionRequired: "Check-in Arrangement",
+                     rawVoucher: v
+                  };
+                  allMovements.push(mdMovement as HajiMovement);
+               }
 
-             // 3. Transport
-             if (v.details?.transportRoute) {
-                const tMovement: Partial<HajiMovement> = {
-                   id: `${v.id}-${idx}-${hIdx}-transport`,
-                   paxName: paxName,
-                   date: new Date(v.date),
-                   type: VoucherType.TRANSPORT,
-                   category: 'TRANSPORT',
-                   location: v.details.transportRoute,
-                   details: `${v.details.transportVehicle || 'Bus'}: ${v.details.transportRoute}`,
-                   actionRequired: "Transport Pickup",
-                   rawVoucher: v
-                };
-                allMovements.push(tMovement as HajiMovement);
-             }
+               // 3. Transport
+               if (v.details?.transportRoute) {
+                  const tMovement: Partial<HajiMovement> = {
+                     id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-transport`,
+                     paxName: paxName,
+                     date: new Date(v.date),
+                     type: VoucherType.TRANSPORT,
+                     category: 'TRANSPORT',
+                     location: v.details.transportRoute,
+                     details: `${v.details.transportVehicle || 'Bus'}: ${v.details.transportRoute}`,
+                     actionRequired: "Transport Pickup",
+                     rawVoucher: v
+                  };
+                  allMovements.push(tMovement as HajiMovement);
+               }
 
-             // 4. Ziyarat
-             if (v.details?.ziyaratDetails) {
-                const zMovement: Partial<HajiMovement> = {
-                   id: `${v.id}-${idx}-${hIdx}-ziyarat`,
-                   paxName: paxName,
-                   date: new Date(v.date),
-                   type: VoucherType.TRANSPORT,
-                   category: 'TRANSPORT',
-                   location: 'Local Ziyarats',
-                   details: v.details.ziyaratDetails,
-                   actionRequired: "Local Tour",
-                   rawVoucher: v
-                };
-                allMovements.push(zMovement as HajiMovement);
-             }
+               // 4. Ziyarat
+               if (v.details?.ziyaratDetails) {
+                  const zMovement: Partial<HajiMovement> = {
+                     id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-ziyarat`,
+                     paxName: paxName,
+                     date: new Date(v.date),
+                     type: VoucherType.TRANSPORT,
+                     category: 'TRANSPORT',
+                     location: 'Local Ziyarats',
+                     details: v.details.ziyaratDetails,
+                     actionRequired: "Local Tour",
+                     rawVoucher: v
+                  };
+                  allMovements.push(zMovement as HajiMovement);
+               }
+             });
+          });
+        } else {
+          // Non-package vouchers: Hotel, Transport, Ticket, All-In-One
+          const globalPaxName = item?.paxName || v.details?.paxName || v.details?.headName || null;
+          if (!globalPaxName) return;
+
+          const paxNames = splitPaxNames(globalPaxName);
+          paxNames.forEach((paxName) => {
+            let movement: Partial<HajiMovement> = {
+              id: `${v.id}-${idx}-${paxName.replace(/\s+/g, '_')}`,
+              paxName,
+              rawVoucher: v,
+            };
+
+            if (v.type === VoucherType.HOTEL) {
+              const fromDate = item?.fromDate || v.details?.fromDate;
+              const toDate = item?.toDate || v.details?.toDate;
+              const numNights = Number(item?.numNights || v.details?.numNights || 0);
+              
+              if (fromDate) {
+                movement.date = new Date(fromDate);
+                if (toDate) {
+                  movement.toDate = new Date(toDate);
+                } else if (numNights > 0) {
+                  const end = new Date(movement.date);
+                  end.setDate(end.getDate() + numNights);
+                  movement.toDate = end;
+                }
+                movement.type = VoucherType.HOTEL;
+                movement.category = 'HOTEL';
+                const city = item?.city || v.details?.city || v.details?.location || '';
+                movement.location = `${item?.hotelName || v.details?.hotelName || 'Hotel'}${city ? ' (' + city + ')' : ''}`;
+                movement.details = `${item?.hotelName || v.details?.hotelName} (${item?.roomType || v.details?.roomType || 'Standard'})`;
+                movement.actionRequired = "Check-in Arrangement";
+                allMovements.push(movement as HajiMovement);
+              }
+            } else if (v.type === VoucherType.TRANSPORT) {
+              if (item?.isMultiSector && item?.subSectors?.length > 0) {
+                item.subSectors.forEach((sub: any, sIdx: number) => {
+                  const subMovement = { ...movement };
+                  subMovement.id = `${v.id}-${idx}-s-${sIdx}-${paxName.replace(/\s+/g, '_')}`;
+                  subMovement.date = new Date(sub.date || v.date);
+                  subMovement.type = VoucherType.TRANSPORT;
+                  subMovement.category = 'TRANSPORT';
+                  subMovement.location = sub.route;
+                  subMovement.details = `${item.vehicle}: ${sub.route}${sub.note ? ' (' + sub.note + ')' : ''}`;
+                  
+                  if (sub.route.toLowerCase().includes('airport')) {
+                    subMovement.actionRequired = "Airport Logistics";
+                  } else {
+                    subMovement.actionRequired = "Transport Pickup";
+                  }
+                  allMovements.push(subMovement as HajiMovement);
+                });
+              } else {
+                const transportDate = item?.date || v.details?.date || v.date;
+                movement.date = new Date(transportDate);
+                movement.type = VoucherType.TRANSPORT;
+                movement.category = 'TRANSPORT';
+                const sector = item?.sector === 'MULTI_SECTOR' ? item?.customLabel : (item?.sector || v.details?.sector || item?.route || v.details?.route || 'Transit');
+                movement.location = sector;
+                movement.details = `${item?.vehicle || v.details?.vehicle || 'Vehicle'}: ${sector}${item?.note ? ' (' + item.note + ')' : ''}`;
+                
+                if (sector && sector.toLowerCase().includes('airport')) {
+                  movement.actionRequired = "Airport Logistics";
+                  movement.date.setHours(12, 0, 0, 0); // Keep transit date clear
+                } else {
+                  movement.actionRequired = "Transport Pickup";
+                }
+                allMovements.push(movement as HajiMovement);
+              }
+            } else if (v.type === VoucherType.TICKET) {
+              const flightDate = item?.date || v.details?.date || v.date;
+              movement.date = new Date(flightDate);
+              movement.type = VoucherType.TICKET;
+              movement.category = 'FLIGHT';
+              movement.location = item?.sector || v.details?.sector || 'Airport';
+              movement.details = `Flight ${item?.flightNum || v.details?.flightNum || ''}: ${movement.location}`;
+              movement.actionRequired = "Flight Monitoring";
+              allMovements.push(movement as HajiMovement);
+            } else if (v.type === VoucherType.ALL_IN_ONE || (v.type as string) === 'AV') {
+              // 1. Hotel Items
+              (v.details?.hotelItems || []).forEach((hItem: any, hIdx: number) => {
+                 if (hItem.fromDate) {
+                   const hMovement: Partial<HajiMovement> = {
+                      id: `${v.id}-${idx}-h-${hIdx}-${paxName.replace(/\s+/g, '_')}`,
+                      paxName: paxName,
+                      date: new Date(hItem.fromDate),
+                      toDate: hItem.toDate ? new Date(hItem.toDate) : undefined,
+                      type: VoucherType.HOTEL,
+                      category: 'HOTEL',
+                      location: `${hItem.hotelName} (${hItem.city || 'KSA'})`,
+                      details: `${hItem.hotelName} (${hItem.roomType || 'Standard'})`,
+                      actionRequired: "Check-in Arrangement",
+                      rawVoucher: v
+                   };
+                   allMovements.push(hMovement as HajiMovement);
+                 }
+              });
+
+              // 2. Transport Items
+              (v.details?.transportItems || []).forEach((tItem: any, tIdx: number) => {
+                  const tDate = tItem.date || v.date;
+                  const tMovement: Partial<HajiMovement> = {
+                     id: `${v.id}-${idx}-t-${tIdx}-${paxName.replace(/\s+/g, '_')}`,
+                     paxName: paxName,
+                     date: new Date(tDate),
+                     type: VoucherType.TRANSPORT,
+                     category: 'TRANSPORT',
+                     location: tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector,
+                     details: `${tItem.vehicle}: ${tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector}`,
+                     actionRequired: "Transport Pickup",
+                     rawVoucher: v
+                  };
+                  allMovements.push(tMovement as HajiMovement);
+              });
+
+              // 3. Visa Items (Optional for tracking, but good for context)
+              (v.details?.visaItems || []).forEach((vItem: any, vIdx: number) => {
+                  const vMovement: Partial<HajiMovement> = {
+                     id: `${v.id}-${idx}-v-${vIdx}-${paxName.replace(/\s+/g, '_')}`,
+                     paxName: paxName,
+                     date: new Date(v.date),
+                     type: VoucherType.VISA,
+                     category: 'VISA',
+                     location: 'Visa Processing',
+                     details: `Passport: ${vItem.passportNumber || v.details?.passportNumber || 'N/A'}`,
+                     actionRequired: "Visa Status Check",
+                     rawVoucher: v
+                  };
+                  allMovements.push(vMovement as HajiMovement);
+              });
+            }
           });
         }
       });
@@ -562,15 +590,21 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
     const grouped = allMovements.reduce((acc, m) => {
       const details = m.rawVoucher.details || {};
       const voucherHajiId = details.hajiId || 
-                     (Array.isArray(details.items) ? details.items.find((it: any) => it.paxName === m.paxName)?.hajiId : null) ||
-                     (Array.isArray(details.visaItems) ? details.visaItems.find((it: any) => it.paxName === m.paxName)?.hajiId : null) ||
-                     (Array.isArray(details.hajjis) ? details.hajjis.find((it: any) => it.fullName === m.paxName)?.hajiId : null);
+                     (Array.isArray(details.items) ? details.items.find((it: any) => 
+                        it.paxName && splitPaxNames(it.paxName).some(pn => pn.toLowerCase() === m.paxName.toLowerCase())
+                     )?.hajiId : null) ||
+                     (Array.isArray(details.visaItems) ? details.visaItems.find((it: any) => 
+                        it.paxName && splitPaxNames(it.paxName).some(pn => pn.toLowerCase() === m.paxName.toLowerCase())
+                     )?.hajiId : null) ||
+                     (Array.isArray(details.hajjis) ? details.hajjis.find((it: any) => 
+                        it.fullName && splitPaxNames(it.fullName).some(pn => pn.toLowerCase() === m.paxName.toLowerCase())
+                     )?.hajiId : null);
       
       // Try to find a master record to unify key
       const masterRecord = hajiMasterList.find(h => 
         (voucherHajiId && h.hajiId === voucherHajiId) || 
-        h.fullName === m.paxName || 
-        (h.passportNumber && details.passportNumber === h.passportNumber)
+        (h.fullName && m.paxName && h.fullName.trim().toLowerCase() === m.paxName.trim().toLowerCase()) || 
+        (h.passportNumber && details.passportNumber && h.passportNumber.trim().toUpperCase().replace(/\s+/g, '') === details.passportNumber.trim().toUpperCase().replace(/\s+/g, ''))
       );
 
       const key = masterRecord?.hajiId || voucherHajiId || m.paxName;
@@ -578,6 +612,8 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       acc[key].push(m);
       return acc;
     }, {} as Record<string, HajiMovement[]>);
+
+
 
     // 3. Calculate Status for each Group
     return Object.keys(grouped).map(key => {
@@ -1120,8 +1156,8 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                           <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase inline-block ${
                             haji.isCompleted ? 'bg-slate-400 text-white' :
                             haji.isResolved ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                            haji.alertLevel === 'RED' ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20' :
-                            haji.alertLevel === 'YELLOW' ? 'bg-amber-500 text-white' :
+                            haji.alertLevel === 'RED' ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20 animate-action-red' :
+                            haji.alertLevel === 'YELLOW' ? 'text-white animate-badge-yellow' :
                             'bg-emerald-500 text-white'
                           }`}>
                             {haji.isCompleted ? 'Finished' : haji.isResolved ? 'Resolved' : haji.alertLevel === 'RED' ? 'Immediate Action' : haji.alertLevel === 'YELLOW' ? 'Prepare Next' : 'Plan Ahead'}
@@ -1165,12 +1201,12 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                   </div>
 
                   {haji.actionRequired !== 'No immediate action' && !haji.isCompleted && (
-                    <div className={`mt-6 p-4 rounded-2xl border flex items-center justify-between ${
+                    <div className={`mt-6 p-4 rounded-2xl border flex items-center justify-between transition-all ${
                       haji.isResolved 
                         ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30'
                         : haji.alertLevel === 'RED' 
-                          ? 'bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/20' 
-                          : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
+                          ? 'text-white border-rose-500 shadow-lg shadow-rose-500/20 animate-action-red' 
+                          : 'text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30 animate-action-amber dark:animate-action-amber-dark'
                     }`}>
                       <div className="flex items-center space-x-3">
                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-lg ${
@@ -1749,7 +1785,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                       </p>
                     </div>
                     {haji.actionRequired && haji.actionRequired !== 'No immediate action' && (
-                      <p className="text-[10px] text-red-600 font-bold mt-1 bg-red-50 p-1.5 rounded border border-red-100 uppercase tracking-tighter leading-tight">
+                      <p className="text-[10px] text-red-600 font-bold mt-1 bg-red-50 p-1.5 rounded border border-red-100 uppercase tracking-tighter leading-tight animate-pulse">
                         📢 {haji.actionRequired}
                       </p>
                     )}
