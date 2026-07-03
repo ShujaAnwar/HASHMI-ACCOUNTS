@@ -956,6 +956,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const fromDateStr = v.details?.fromDate ? formatDate(v.details.fromDate) : '-';
     const toDateStr = v.details?.toDate ? formatDate(v.details.toDate) : '-';
     const branding = getBranding(v);
+    const customerAccount = accounts.find(a => a.id === v.customerId);
     
     return (
       <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
@@ -969,20 +970,22 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1 transition-all">
-            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Hotel Booking Voucher</h1>
-            <p className={`text-[14px] font-bold uppercase tracking-wider ${branding.isCustom ? 'text-blue-600' : 'text-[#e11d48]'}`}>
-              {branding.isCustom ? branding.name : (config?.appSubtitle || 'Travel Solutions by Shuja Anwar')}
-            </p>
+          <div className="text-center flex-1 transition-all flex items-center justify-center overflow-visible">
+            <h1 className="text-[32px] font-black text-[#0f172a] uppercase tracking-tighter leading-none whitespace-nowrap">Hotel Booking Voucher</h1>
           </div>
-          <div className="w-40 text-right pr-4">
+          <div className="w-56 text-right pr-4">
              <div className="space-y-0.5">
-                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
+                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
                   {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
                 </p>
                 {!branding.isCustom && config?.companyPhone && (
-                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
                     PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                  </p>
+                )}
+                {customerAccount && (
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-1.5 mt-1 text-right">
+                    CLIENT: <span className="text-blue-600 font-extrabold">{customerAccount.companyName || customerAccount.name}</span>
                   </p>
                 )}
              </div>
