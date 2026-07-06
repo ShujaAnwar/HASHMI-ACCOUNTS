@@ -343,8 +343,11 @@ import DateInput from './DateInput';
 
       let running = 0;
       const fullLedger = sortedLedger.map(entry => {
-        running += (entry.debit - entry.credit);
-        return { ...entry, balanceAfter: running };
+        const isCancelled = entry.voucherStatus === 'CANCELLED' || (entry.voucherId ? (vouchers.find(v => v.id === entry.voucherId)?.status === 'CANCELLED') : false);
+        if (!isCancelled) {
+          running += (entry.debit - entry.credit);
+        }
+        return { ...entry, balanceAfter: running, isCancelled };
       });
 
       if (!fromDate && !toDate) return fullLedger;
@@ -532,8 +535,8 @@ import DateInput from './DateInput';
 
     if (!config) return null;
 
-    const totalVisibleDebit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening).reduce((sum, entry) => sum + entry.debit, 0);
-    const totalVisibleCredit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening).reduce((sum, entry) => sum + entry.credit, 0);
+    const totalVisibleDebit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening && !(e as any).isCancelled).reduce((sum, entry) => sum + entry.debit, 0);
+    const totalVisibleCredit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening && !(e as any).isCancelled).reduce((sum, entry) => sum + entry.credit, 0);
     const totalTransactions = ledgerWithRunningBalance.filter(e => e.voucherId).length;
 
     const renderMobileAccounts = () => (
@@ -616,21 +619,27 @@ import DateInput from './DateInput';
             ? highlightClass.split(' ').filter(c => c.startsWith('bg-') || c.includes('dark:bg-') || c.startsWith('border-') || c.includes('dark:border-')).join(' ') 
             : '';
 
+          const isCancelled = (entry as any).isCancelled;
           return (
             <div 
               key={idx}
               className={`p-5 rounded-[2rem] border transition-all ${
-                (entry as any).isOpening 
-                  ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' 
-                  : bgAndBorder 
-                    ? bgAndBorder 
-                    : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                isCancelled
+                  ? 'border-red-300 bg-rose-50/20 dark:border-red-900/40 dark:bg-rose-950/10'
+                  : (entry as any).isOpening 
+                    ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' 
+                    : bgAndBorder 
+                      ? bgAndBorder 
+                      : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
               }`}
             >
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center space-x-2">
                   <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">S.No: {idx + 1}</span>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{formatDate(entry.date)}</span>
+                  {isCancelled && (
+                    <span className="px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest bg-red-100 text-red-600 rounded-md">CANCELLED</span>
+                  )}
                 </div>
                 {entry.voucherId && (
                   <button 
@@ -642,7 +651,7 @@ import DateInput from './DateInput';
                 )}
               </div>
               
-              <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-relaxed mb-4">
+              <p className={`text-[11px] font-bold uppercase leading-relaxed mb-4 ${isCancelled ? 'line-through text-red-500/80' : 'text-slate-700 dark:text-slate-300'}`}>
                 {getNarrativeForLedger(entry, vouchers.find(v => v.id === entry.voucherId))}
               </p>
               
@@ -1029,79 +1038,84 @@ import DateInput from './DateInput';
                             displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
                           }
 
-                          return (
-                            <tr 
-                              key={i} 
-                              className={`border-b border-slate-50 transition-colors ${
-                                (entry as any).isOpening 
-                                  ? 'bg-slate-50/50' 
-                                  : bgClass 
-                                    ? bgClass 
-                                    : ''
-                              }`} 
-                              style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}
-                            >
-                              <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {i + 1}
-                              </td>
-                              <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {(entry as any).isOpening ? '-' : (entry.date === '-' ? '-' : formatDate(entry.date))}
-                              </td>
-                              <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                {voucher ? (
-                                  <button 
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      onEditVoucher?.(voucher);
-                                    }}
-                                    className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-center uppercase"
-                                    style={{ 
-                                      background: 'none', 
-                                      border: 'none', 
-                                      padding: 0, 
-                                      whiteSpace: 'normal', 
-                                      fontSize: 'inherit',
-                                      wordBreak: 'break-word',
-                                      overflowWrap: 'break-word',
-                                      maxWidth: '100%'
-                                    }}
-                                  >
-                                    {displayVNum}
-                                  </button>
-                                ) : (
-                                  <span className="font-bold text-slate-400 uppercase">{displayVNum}</span>
-                                )}
-                              </td>
-                              <td className="px-1 py-2 text-center uppercase font-bold text-slate-400 text-[9px]">
-                                {displayType}
-                              </td>
-                              <td className="px-3 py-3 uppercase leading-normal font-bold text-slate-800 text-[10px]" style={{ whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                                {displayDescription}
-                              </td>
-                              <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {displayRateSar}
-                              </td>
-                              <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {displayRooms}
-                              </td>
-                              <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {displayNights}
-                              </td>
-                              <td className="px-1 py-2 text-center font-bold text-slate-400">
-                                {isSar ? itemRoe : '-'}
-                              </td>
-                              <td className="px-1 py-2 text-right font-black text-slate-900">
-                                {entry.debit > 0 ? getConvertedVal(entry.debit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
-                              </td>
-                              <td className="px-1 py-2 text-right font-black text-slate-900">
-                                {entry.credit > 0 ? getConvertedVal(entry.credit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
-                              </td>
-                              <td className="px-2 py-2 text-right font-black text-slate-900">
-                                {formatCurrency(getConvertedVal(entry.balanceAfter))}
-                                <span className="ml-0.5 text-[8px] opacity-40 uppercase">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
-                              </td>
-                            </tr>
-                          );
+                           const isCancelled = (entry as any).isCancelled;
+                           const textCol = (base: string) => isCancelled ? 'text-red-500/80 line-through decoration-red-500' : base;
+
+                           return (
+                             <tr 
+                               key={i} 
+                               className={`border-b border-slate-50 transition-colors ${
+                                 isCancelled
+                                   ? 'bg-rose-50/25 dark:bg-rose-950/10'
+                                   : (entry as any).isOpening 
+                                     ? 'bg-slate-50/50' 
+                                     : bgClass 
+                                       ? bgClass 
+                                       : ''
+                               }`} 
+                               style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}
+                             >
+                               <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
+                                 {i + 1}
+                               </td>
+                               <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
+                                 {(entry as any).isOpening ? '-' : (entry.date === '-' ? '-' : formatDate(entry.date))}
+                               </td>
+                               <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                 {voucher ? (
+                                   <button 
+                                     onClick={(e) => {
+                                       e.preventDefault();
+                                       onEditVoucher?.(voucher);
+                                     }}
+                                     className={`font-black hover:underline cursor-pointer text-center uppercase ${textCol('text-blue-600 hover:text-blue-800')}`}
+                                     style={{ 
+                                       background: 'none', 
+                                       border: 'none', 
+                                       padding: 0, 
+                                       whiteSpace: 'normal', 
+                                       fontSize: 'inherit',
+                                       wordBreak: 'break-word',
+                                       overflowWrap: 'break-word',
+                                       maxWidth: '100%'
+                                     }}
+                                   >
+                                     {displayVNum}
+                                   </button>
+                                 ) : (
+                                   <span className={`font-bold uppercase ${textCol('text-slate-400')}`}>{displayVNum}</span>
+                                 )}
+                               </td>
+                               <td className={`px-1 py-2 text-center uppercase font-bold text-[9px] ${textCol('text-slate-400')}`}>
+                                 {displayType}
+                               </td>
+                               <td className={`px-3 py-3 uppercase leading-normal font-bold text-[10px] ${textCol('text-slate-800')}`} style={{ whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                                 {displayDescription}
+                               </td>
+                               <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
+                                 {displayRateSar}
+                               </td>
+                               <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
+                                 {displayRooms}
+                               </td>
+                               <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
+                                 {displayNights}
+                               </td>
+                               <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
+                                 {isSar ? itemRoe : '-'}
+                               </td>
+                               <td className={`px-1 py-2 text-right font-black ${textCol('text-slate-900')}`}>
+                                 {entry.debit > 0 ? getConvertedVal(entry.debit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
+                               </td>
+                               <td className={`px-1 py-2 text-right font-black ${textCol('text-slate-900')}`}>
+                                 {entry.credit > 0 ? getConvertedVal(entry.credit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
+                               </td>
+                               <td className={`px-2 py-2 text-right font-black ${textCol('text-slate-900')}`}>
+                                 {formatCurrency(getConvertedVal(entry.balanceAfter))}
+                                 <span className="ml-0.5 text-[8px] opacity-40 uppercase">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
+                               </td>
+                             </tr>
+                           );
                         })}
                       </tbody>
                       <tfoot className="text-[#0f172a] font-black text-[11px] uppercase" style={{ display: 'table-header-group' }}>

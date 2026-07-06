@@ -142,6 +142,22 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     } 
   };
 
+  const handleToggleCancel = async (v: Voucher) => {
+    const isCurrentlyCancelled = v.status === VoucherStatus.CANCELLED;
+    const actionText = isCurrentlyCancelled ? 'Undo Cancel' : 'Cancel';
+    if (window.confirm(`${actionText} voucher ${v.voucherNum}?`)) {
+      try {
+        await AccountingService.toggleCancelVoucher(v.id, isCurrentlyCancelled);
+        setLocalRefreshKey(prev => prev + 1);
+        if (viewingVoucher?.id === v.id) {
+          setViewingVoucher(prev => prev ? { ...prev, status: isCurrentlyCancelled ? VoucherStatus.POSTED : VoucherStatus.CANCELLED } : null);
+        }
+      } catch (err: any) {
+        alert(`Error: ${err.message}`);
+      }
+    }
+  };
+
   const handleSave = async (data: any) => {
     setIsSaving(true);
     try {
@@ -436,6 +452,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const customer = accounts.find(a => a.id === v.customerId);
     const invoiceNum = v.voucherNum.split('-').pop();
     const branding = getBranding(v);
+    const isFinancial = true;
     return (
       <div ref={voucherRef} className="bg-white p-8 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
         <div className="flex justify-between items-start mb-4">
@@ -459,9 +476,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <div className="text-right">
             <div className="border-2 border-slate-900 px-6 py-2 text-center min-w-[180px] rounded-sm shadow-sm">
               <p className="font-bold text-[11px] uppercase tracking-wide">
-                {v.type === VoucherType.RECEIPT ? 'RECEIPT' : v.type === VoucherType.PAYMENT ? 'PAYMENT' : 'INVOICE'} : {invoiceNum}
+                {v.type === VoucherType.RECEIPT ? 'RECEIPT' : v.type === VoucherType.PAYMENT ? 'PAYMENT' : 'VOUCHER'} : {invoiceNum}
               </p>
-              <p className="font-bold text-[11px] mt-0.5">(PKR) = {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              {isFinancial && (
+                <p className="font-bold text-[11px] mt-0.5">(PKR) = {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              )}
             </div>
           </div>
         </div>
@@ -469,7 +488,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         <div className="mb-4 text-[9px] font-medium text-slate-800 leading-relaxed">
           <p>{config?.companyAddress}</p>
           <p className="mt-0.5">CELL : {config?.companyCell} - PHONE : {config?.companyPhone} - EMAIL : {config?.companyEmail}</p>
-          <p className="mt-0.5"><span className="font-bold">Status:</span> Definite Invoice</p>
+          <p className="mt-0.5"><span className="font-bold">Status:</span> {isFinancial ? 'Definite Invoice' : 'Definite Booking'}</p>
         </div>
 
         <div className="mb-4 border border-slate-300">
@@ -532,16 +551,25 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Pax Name</th>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Passport Number</th>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Qty</th>
-                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
-                  <th className="py-1.5 font-bold uppercase">Amount(PKR)</th>
+                  {isFinancial && (
+                    <>
+                      <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
+                      <th className="py-1.5 font-bold uppercase">Amount(PKR)</th>
+                    </>
+                  )}
                 </tr>
               ) : v.type === VoucherType.TRANSPORT ? (
                 <tr>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Pax Name</th>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Sector / Route</th>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Vehicle</th>
-                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
-                  <th className="py-1.5 font-bold uppercase">Amount(PKR)</th>
+                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Vehicles</th>
+                  {isFinancial && (
+                    <>
+                      <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
+                      <th className="py-1.5 font-bold uppercase">Amount(PKR)</th>
+                    </>
+                  )}
                 </tr>
               ) : (
                 <tr>
@@ -551,7 +579,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Meal</th>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Destination</th>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Checkin Checkout</th>
-                  <th className="py-1.5 font-bold uppercase">Amount(PKR)</th>
+                  {isFinancial && <th className="py-1.5 font-bold uppercase">Amount(PKR)</th>}
                 </tr>
               )}
             </thead>
@@ -606,12 +634,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     <td className="py-2 px-2 border-r border-slate-300">
                       {item.quantity}
                     </td>
-                    <td className="py-2 px-2 border-r border-slate-300 font-bold">
-                      {Number(item.rate).toLocaleString()}
-                    </td>
-                    <td className="py-2 px-2 font-black">
-                      {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
+                    {isFinancial && (
+                      <>
+                        <td className="py-2 px-2 border-r border-slate-300 font-bold">
+                          {Number(item.rate).toLocaleString()}
+                        </td>
+                        <td className="py-2 px-2 font-black">
+                          {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))
               ) : v.type === VoucherType.TRANSPORT && v.details?.items?.length > 0 ? (
@@ -643,11 +675,18 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                       {item.vehicle}
                     </td>
                     <td className="py-2 px-2 border-r border-slate-300 font-bold">
-                      {Number(item.rate).toLocaleString()}
+                      {item.numVehicles || 1}
                     </td>
-                    <td className="py-2 px-2 font-black">
-                      {(Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
+                    {isFinancial && (
+                      <>
+                        <td className="py-2 px-2 border-r border-slate-300 font-bold">
+                          {Number(item.rate).toLocaleString()}
+                        </td>
+                        <td className="py-2 px-2 font-black">
+                          {(Number(item.rate) * (Number(item.numVehicles) || 1) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))
               ) : (v.type === VoucherType.HOTEL && v.details?.items?.length > 0) ? (
@@ -669,9 +708,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                       {item.fromDate ? formatDate(item.fromDate) : '-'}<br/>
                       {item.toDate ? formatDate(item.toDate) : '-'}
                     </td>
-                    <td className="py-2 px-2 font-black">
-                      {(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
+                    {isFinancial && (
+                      <td className="py-2 px-2 font-black">
+                        {(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                    )}
                   </tr>
                 ))
               ) : (
@@ -692,20 +733,28 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     {v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}<br/>
                     {v.details?.toDate ? formatDate(v.details.toDate) : '-'}
                   </td>
-                  <td className="py-3 px-2 font-black">{v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  {isFinancial && (
+                    <td className="py-3 px-2 font-black">
+                      {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                  )}
                 </tr>
               )}
-              <tr className="bg-slate-50 border-t border-slate-300 font-bold">
-                <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT || v.type === VoucherType.VISA ? 3 : 6} className="py-2 text-right px-8 uppercase text-[9px]">Total:</td>
-                <td className="py-2 px-2">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
+              {isFinancial && (
+                <tr className="bg-slate-50 border-t border-slate-300 font-bold">
+                  <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT || v.type === VoucherType.VISA ? 3 : (v.type === VoucherType.TRANSPORT ? 4 : 6)} className="py-2 text-right px-8 uppercase text-[9px]">Total:</td>
+                  <td className="py-2 px-2">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        <div className="mb-6 text-[10px] font-bold text-slate-900 italic">
-          <p>IN WORDS: <span className="uppercase">{amountToWords(v.totalAmountPKR)}</span></p>
-        </div>
+        {isFinancial && (
+          <div className="mb-6 text-[10px] font-bold text-slate-900 italic">
+            <p>IN WORDS: <span className="uppercase">{amountToWords(v.totalAmountPKR)}</span></p>
+          </div>
+        )}
 
         <div className="mt-auto pt-4">
           <div className="text-center border-t border-b border-dashed border-slate-300 py-3 mb-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -1245,12 +1294,6 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">REFERENCE / PNR</p>
               <p className="text-[12px] font-black text-[#0f172a]">{v.reference || 'N/A'}</p>
             </div>
-            <div className="space-y-0.5">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CURRENCY / ROE</p>
-              <p className="text-[12px] font-black text-slate-700">
-                {v.currency} @ {v.roe || 1}
-              </p>
-            </div>
           </div>
         </div>
 
@@ -1259,11 +1302,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <table className="w-full border-collapse">
             <thead>
               <tr className="text-[8px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
-                <th className="py-1.5 px-3 text-left border-r border-slate-700">#</th>
+                <th className="py-1.5 px-3 text-left border-r border-slate-700 w-12">#</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">SECTOR / ROUTE</th>
-                <th className="py-1.5 px-3 text-left border-r border-slate-700">VEHICLE TYPE</th>
-                <th className="py-1.5 px-3 text-right border-r border-slate-700">RATE ({v.currency})</th>
-                <th className="py-1.5 px-3 text-right">AMOUNT (PKR)</th>
+                <th className="py-1.5 px-3 text-left">VEHICLE TYPE</th>
               </tr>
             </thead>
             <tbody className="text-[10px] font-bold text-slate-800">
@@ -1291,22 +1332,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                       </div>
                     )}
                   </td>
-                  <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.vehicle}</td>
-                  <td className="py-1.5 px-3 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
-                  <td className="py-1.5 px-3 text-right">
-                    {(Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </td>
+                  <td className="py-1.5 px-3 uppercase">{item.vehicle}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="bg-slate-50 font-black text-[11px]">
-                <td colSpan={4} className="py-2 px-3 text-right uppercase tracking-widest">Grand Total:</td>
-                <td className="py-2 px-3 text-right text-blue-600">
-                  PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
 
@@ -2095,65 +2124,94 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
   const renderMobileVouchers = () => (
     <div className="md:hidden space-y-4">
-      {filteredVouchers.map((v) => (
-        <div 
-          key={v.id} 
-          onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }}
-          className={`bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-all relative ${selectedVoucherIds.includes(v.id) ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
-        >
-          <div className="absolute top-4 left-4 z-10">
-            <input 
-              type="checkbox" 
-              className="w-5 h-5 rounded-full border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm"
-              checked={selectedVoucherIds.includes(v.id)}
-              onChange={(e) => { e.stopPropagation(); toggleSelection(v.id); }}
-            />
-          </div>
-          <div className="flex justify-between items-start mb-3 ml-8">
-            <div className="flex-1">
-              <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-lg uppercase tracking-widest">{v.voucherNum}</span>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{formatDate(v.date)}</p>
+      {filteredVouchers.map((v) => {
+        const isCancelled = v.status === VoucherStatus.CANCELLED;
+        return (
+          <div 
+            key={v.id} 
+            onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }}
+            className={`bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all relative ${
+              isCancelled ? 'border-red-200 bg-rose-50/5 opacity-80' : 'border-slate-100 dark:border-slate-800'
+            } ${selectedVoucherIds.includes(v.id) ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+          >
+            <div className="absolute top-4 left-4 z-10">
+              <input 
+                type="checkbox" 
+                className="w-5 h-5 rounded-full border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm"
+                checked={selectedVoucherIds.includes(v.id)}
+                onChange={(e) => { e.stopPropagation(); toggleSelection(v.id); }}
+              />
             </div>
-            <div className="text-right">
-              <p className="text-lg font-orbitron font-black text-slate-900 dark:text-white tracking-tighter">
-                Rs {(v.totalAmountPKR || 0).toLocaleString()}
-              </p>
-              {v.currency === Currency.SAR && (
-                <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest mt-0.5">
-                  SAR {((v.totalAmountPKR || 0) / (v.roe || 1)).toLocaleString(undefined, { maximumFractionDigits: 2 })} @ {v.roe}
+            <div className="flex justify-between items-start mb-3 ml-8">
+              <div className="flex-1">
+                <span className={`text-[8px] font-black px-2 py-0.5 rounded-lg uppercase tracking-widest ${
+                  isCancelled 
+                    ? 'bg-red-100 text-red-600' 
+                    : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30'
+                }`}>
+                  {v.voucherNum} {isCancelled && " - CANCELLED"}
+                </span>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{formatDate(v.date)}</p>
+              </div>
+              <div className="text-right">
+                <p className={`text-lg font-orbitron font-black tracking-tighter ${
+                  isCancelled ? 'text-red-500/80 line-through' : 'text-slate-900 dark:text-white'
+                }`}>
+                  Rs {(v.totalAmountPKR || 0).toLocaleString()}
                 </p>
-              )}
+                {v.currency === Currency.SAR && (
+                  <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest mt-0.5">
+                    SAR {((v.totalAmountPKR || 0) / (v.roe || 1)).toLocaleString(undefined, { maximumFractionDigits: 2 })} @ {v.roe}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl mb-4">
+              <p className={`text-[11px] font-bold uppercase leading-relaxed line-clamp-2 ${
+                isCancelled ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-300'
+              }`}>
+                {getDetailedNarrative(v)}
+              </p>
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-slate-50 dark:border-slate-800">
+               <div className="flex -space-x-2">
+                 <div className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px]">👤</div>
+                 {v.type === VoucherType.HOTEL && <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px]">🏨</div>}
+               </div>
+               <div className="flex space-x-2">
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); handleEdit(v); }}
+                   className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-blue-600 active:text-white transition-colors"
+                   title="Edit"
+                 >✏️</button>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); handleClone(v); }}
+                   className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-blue-600 active:text-white transition-colors"
+                   title="Clone"
+                 >👯</button>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); handleToggleCancel(v); }}
+                   className={`p-3 rounded-xl text-xs active:text-white transition-colors ${
+                     isCancelled 
+                       ? 'bg-amber-100 text-amber-700 active:bg-amber-600' 
+                       : 'bg-rose-50 text-rose-600 active:bg-rose-600'
+                   }`}
+                   title={isCancelled ? "Undo Cancel" : "Cancel Voucher"}
+                 >
+                   {isCancelled ? "🔄" : "🚫"}
+                 </button>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); handleDelete(v.id); }}
+                   className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-rose-600 active:text-white transition-colors"
+                   title="Delete"
+                 >🗑️</button>
+               </div>
             </div>
           </div>
-          
-          <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl mb-4">
-            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-relaxed line-clamp-2">
-              {getDetailedNarrative(v)}
-            </p>
-          </div>
-
-          <div className="flex justify-between items-center pt-3 border-t border-slate-50 dark:border-slate-800">
-             <div className="flex -space-x-2">
-               <div className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px]">👤</div>
-               {v.type === VoucherType.HOTEL && <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px]">🏨</div>}
-             </div>
-             <div className="flex space-x-2">
-               <button 
-                 onClick={(e) => { e.stopPropagation(); handleEdit(v); }}
-                 className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-blue-600 active:text-white transition-colors"
-               >✏️</button>
-               <button 
-                 onClick={(e) => { e.stopPropagation(); handleClone(v); }}
-                 className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-blue-600 active:text-white transition-colors"
-               >👯</button>
-               <button 
-                 onClick={(e) => { e.stopPropagation(); handleDelete(v.id); }}
-                 className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs active:bg-rose-600 active:text-white transition-colors"
-               >🗑️</button>
-             </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
       {filteredVouchers.length === 0 && (
         <div className="py-20 text-center">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No vouchers found</p>
@@ -2253,74 +2311,100 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-slate-800">
-              {filteredVouchers.map((v, idx) => (
-                <tr key={v.id} className={`group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all ${selectedVoucherIds.includes(v.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                  <td className="px-5 py-6 border-b dark:border-slate-800">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      checked={selectedVoucherIds.includes(v.id)}
-                      onChange={() => toggleSelection(v.id)}
-                    />
-                  </td>
-                  <td className="px-5 py-6 text-[10px] font-black text-slate-400">
-                    {idx + 1}
-                  </td>
-                  <td className="px-5 py-6">
-                    <div>
-                      <p className="font-black text-slate-900 dark:text-white leading-none text-sm">{v.voucherNum}</p>
-                      <p className="text-[10px] text-slate-400 mt-1 font-bold">{formatDate(v.date)}</p>
-                    </div>
-                  </td>
-                  <td className="px-5 py-6">
-                    <div className="space-y-1">
-                      {v.type === VoucherType.RECEIPT ? (
-                        <>
-                          <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
-                            <span className="text-[8px] text-slate-400 mr-1">FROM:</span>
+              {filteredVouchers.map((v, idx) => {
+                const isCancelled = v.status === VoucherStatus.CANCELLED;
+                return (
+                  <tr 
+                    key={v.id} 
+                    className={`group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all ${
+                      isCancelled ? 'bg-rose-50/10 dark:bg-rose-950/5 opacity-80' : ''
+                    } ${selectedVoucherIds.includes(v.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                  >
+                    <td className="px-5 py-6 border-b dark:border-slate-800">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        checked={selectedVoucherIds.includes(v.id)}
+                        onChange={() => toggleSelection(v.id)}
+                      />
+                    </td>
+                    <td className="px-5 py-6 text-[10px] font-black text-slate-400">
+                      {idx + 1}
+                    </td>
+                    <td className="px-5 py-6">
+                      <div>
+                        <p className={`font-black leading-none text-sm flex items-center gap-2 ${
+                          isCancelled ? 'text-red-600 dark:text-red-400 line-through' : 'text-slate-900 dark:text-white'
+                        }`}>
+                          {v.voucherNum}
+                          {isCancelled && (
+                            <span className="px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest bg-red-100 text-red-600 rounded-md">CANCELLED</span>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1 font-bold">{formatDate(v.date)}</p>
+                      </div>
+                    </td>
+                    <td className="px-5 py-6">
+                      <div className={`space-y-1 ${isCancelled ? 'line-through text-slate-400' : ''}`}>
+                        {v.type === VoucherType.RECEIPT ? (
+                          <>
+                            <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
+                              <span className="text-[8px] text-slate-400 mr-1">FROM:</span>
+                              {accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}
+                            </p>
+                            <p className="font-bold text-[10px] uppercase text-blue-600 dark:text-blue-400">
+                              <span className="text-[8px] text-slate-400 mr-1">IN:</span>
+                              {accounts.find(a => a.id === v.details?.bankId)?.name || 'N/A'}
+                            </p>
+                          </>
+                        ) : v.type === VoucherType.PAYMENT ? (
+                          <>
+                            <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
+                              <span className="text-[8px] text-slate-400 mr-1">FROM:</span>
+                              {accounts.find(a => a.id === v.details?.bankId)?.name || 'N/A'}
+                            </p>
+                            <p className="font-bold text-[10px] uppercase text-rose-600 dark:text-rose-400">
+                              <span className="text-[8px] text-slate-400 mr-1">TO:</span>
+                              {v.details?.items?.length > 1 
+                                ? `${v.details.items.length} ACCOUNTS` 
+                                : (accounts.find(a => a.id === v.details?.items?.[0]?.accountId)?.name || 'N/A')}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300 text-wrap max-w-[200px]">
                             {accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}
                           </p>
-                          <p className="font-bold text-[10px] uppercase text-blue-600 dark:text-blue-400">
-                            <span className="text-[8px] text-slate-400 mr-1">IN:</span>
-                            {accounts.find(a => a.id === v.details?.bankId)?.name || 'N/A'}
-                          </p>
-                        </>
-                      ) : v.type === VoucherType.PAYMENT ? (
-                        <>
-                          <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300">
-                            <span className="text-[8px] text-slate-400 mr-1">FROM:</span>
-                            {accounts.find(a => a.id === v.details?.bankId)?.name || 'N/A'}
-                          </p>
-                          <p className="font-bold text-[10px] uppercase text-rose-600 dark:text-rose-400">
-                            <span className="text-[8px] text-slate-400 mr-1">TO:</span>
-                            {v.details?.items?.length > 1 
-                              ? `${v.details.items.length} ACCOUNTS` 
-                              : (accounts.find(a => a.id === v.details?.items?.[0]?.accountId)?.name || 'N/A')}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="font-black text-xs uppercase text-slate-700 dark:text-slate-300 text-wrap max-w-[200px]">
-                          {accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}
-                        </p>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-5 py-6 max-w-xs truncate">
-                    <p className="text-[11px] font-medium text-slate-500 italic" title={getDetailedNarrative(v)}>{getDetailedNarrative(v)}</p>
-                  </td>
-                  <td className="px-5 py-6 text-right">
-                    <p className="font-black text-slate-900 dark:text-white text-base leading-none">{v.totalAmountPKR.toLocaleString()}</p>
-                  </td>
-                  <td className="px-5 py-6">
-                    <div className="flex justify-center space-x-2">
-                       <button onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all text-xs">👁️</button>
-                       <button onClick={() => handleEdit(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs">✏️</button>
-                       <button onClick={() => handleClone(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-xs">👯</button>
-                       <button onClick={() => handleDelete(v.id)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-rose-600 hover:text-white transition-all text-xs">🗑️</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-6 max-w-xs truncate">
+                      <p className={`text-[11px] font-medium italic ${isCancelled ? 'line-through text-slate-400' : 'text-slate-500'}`} title={getDetailedNarrative(v)}>{getDetailedNarrative(v)}</p>
+                    </td>
+                    <td className="px-5 py-6 text-right">
+                      <p className={`font-black text-base leading-none ${isCancelled ? 'text-red-500/80 line-through' : 'text-slate-900 dark:text-white'}`}>{v.totalAmountPKR.toLocaleString()}</p>
+                    </td>
+                    <td className="px-5 py-6">
+                      <div className="flex justify-center space-x-2">
+                         <button onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all text-xs" title="View">👁️</button>
+                         <button onClick={() => handleEdit(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs" title="Edit">✏️</button>
+                         <button onClick={() => handleClone(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-xs" title="Clone">👯</button>
+                         <button 
+                           onClick={() => handleToggleCancel(v)} 
+                           className={`p-2.5 rounded-xl transition-all text-xs ${
+                             isCancelled 
+                               ? 'bg-amber-100 text-amber-700 hover:bg-amber-600 hover:text-white' 
+                               : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
+                           }`}
+                           title={isCancelled ? "Undo Cancel" : "Cancel Voucher"}
+                         >
+                           {isCancelled ? "🔄" : "🚫"}
+                         </button>
+                         <button onClick={() => handleDelete(v.id)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-rose-600 hover:text-white transition-all text-xs" title="Delete">🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

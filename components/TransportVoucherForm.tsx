@@ -75,7 +75,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
     paxName: initialData?.details?.paxName || '',
     passportNumber: initialData?.details?.passportNumber || '',
     serviceFee: initialData?.details?.serviceFee || 0,
-    items: initialData?.details?.items || [{ sector: '', vehicle: 'Car', rate: 0, customLabel: '', date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0], isMultiSector: false, subSectors: [] }]
+    items: initialData?.details?.items || [{ sector: '', vehicle: 'Car', rate: 0, numVehicles: 1, customLabel: '', date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0], isMultiSector: false, subSectors: [] }]
   });
 
   const incomeAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.REVENUE), [accounts]);
@@ -90,7 +90,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
     }
   }, [config, initialData, incomeAccounts]);
 
-  const vendorSubtotal = useMemo(() => formData.items.reduce((sum: number, item: any) => sum + (Number(item.rate) || 0), 0), [formData.items]);
+  const vendorSubtotal = useMemo(() => formData.items.reduce((sum: number, item: any) => sum + ((Number(item.rate) || 0) * (Number(item.numVehicles) || 1)), 0), [formData.items]);
   const totalSelectedCurrency = useMemo(() => vendorSubtotal + (Number(formData.serviceFee) || 0), [vendorSubtotal, formData.serviceFee]);
 
   const totalPKR = useMemo(() => {
@@ -117,6 +117,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
           sector: isMulti ? 'MULTI_SECTOR' : '', 
           vehicle: 'Car', 
           rate: 0, 
+          numVehicles: 1,
           customLabel: '', 
           date: formData.date, 
           isMultiSector: isMulti, 
@@ -134,6 +135,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
           sector: '', 
           vehicle: 'Car', 
           rate: 0, 
+          numVehicles: 1,
           customLabel: '', 
           date: formData.date, 
           isMultiSector: false, 
@@ -365,11 +367,13 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
             </div>
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-white dark:bg-slate-900 border-b dark:border-slate-800">
+                <tr className="bg-white dark:bg-white/5 border-b dark:border-slate-800">
                   <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-12">#</th>
                   <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase">Sector / Trip Type</th>
-                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-32">Vehicle</th>
-                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-36 text-right">Amount ({formData.currency})</th>
+                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-28">Vehicle</th>
+                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-20 text-center">Vehicles</th>
+                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-28 text-right">Rate ({formData.currency})</th>
+                  <th className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase w-28 text-right">Total ({formData.currency})</th>
                   <th className="px-6 py-3 w-12"></th>
                 </tr>
               </thead>
@@ -409,8 +413,20 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
                           {['Car', 'H1', 'Staria', 'GMC', 'Coaster', 'Bus', 'SUV', 'Pickup', 'Other'].map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        <input 
+                          type="number" 
+                          min="1" 
+                          className="w-16 bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-1 text-center font-bold text-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-indigo-500 outline-none" 
+                          value={item.numVehicles || 1} 
+                          onChange={e => updateItem(idx, 'numVehicles', Math.max(1, Number(e.target.value)))} 
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <input type="number" step="0.01" className="w-full bg-transparent border-none focus:ring-0 text-right font-orbitron font-bold text-indigo-600" value={item.rate} onChange={e => updateItem(idx, 'rate', Number(e.target.value))} />
+                      </td>
+                      <td className="px-6 py-4 text-right font-orbitron font-bold text-slate-700 dark:text-slate-300">
+                        {((Number(item.rate) || 0) * (Number(item.numVehicles) || 1)).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-rose-500 p-2">✕</button>
@@ -420,7 +436,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
                     {/* Multi-Sector Details Row */}
                     {item.isMultiSector && (
                       <tr className="bg-blue-50/30 dark:bg-blue-900/5">
-                        <td className="px-6 py-0 pb-4" colSpan={5}>
+                        <td className="px-6 py-0 pb-4" colSpan={7}>
                           <div className="ml-12 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-blue-100 dark:border-blue-900/30 shadow-sm space-y-4">
                             <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl mb-4">
                               <select 
@@ -474,7 +490,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
                     {/* Single Sector Date Selection */}
                     {!item.isMultiSector && item.sector && (
                       <tr className="bg-slate-50/50 dark:bg-slate-800/10">
-                        <td className="px-6 py-0 pb-2" colSpan={5}>
+                        <td className="px-6 py-0 pb-2" colSpan={7}>
                           <div className="ml-12 flex items-center space-x-4 p-2">
                              <div className="flex items-center space-x-2">
                                <span className="text-[9px] font-black text-slate-400 uppercase">Movement Date:</span>

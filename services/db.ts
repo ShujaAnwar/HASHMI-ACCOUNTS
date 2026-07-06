@@ -61,16 +61,48 @@
 
   export const getAccounts = async (): Promise<Account[]> => {
     try {
-      const { data, error } = await retryFetch(() => supabase
-        .from('accounts')
-        .select('*, ledger:ledger_entries(*)')
-        .order('code', { ascending: true }));
-      
+      const [accountsRes, vouchersRes] = await Promise.all([
+        retryFetch(() => supabase
+          .from('accounts')
+          .select('*, ledger:ledger_entries(*)')
+          .order('code', { ascending: true })),
+        retryFetch(() => supabase
+          .from('vouchers')
+          .select('id, status'))
+      ]);
+
+      const { data, error } = accountsRes;
       if (error) {
         console.error("Error fetching accounts:", error);
         return [];
       }
-      return ((data as any) || []).map(mapAccount);
+
+      const vouchersMap = new Map<string, string>();
+      if (vouchersRes.data) {
+        vouchersRes.data.forEach((v: any) => {
+          vouchersMap.set(v.id, v.status);
+        });
+      }
+
+      return ((data as any) || []).map((acc: any) => {
+        const mappedAcc = mapAccount(acc);
+        // Map voucher statuses locally
+        mappedAcc.ledger = mappedAcc.ledger.map((l: any) => {
+          const status = l.voucherId ? vouchersMap.get(l.voucherId) : undefined;
+          return { ...l, voucherStatus: status as any };
+        });
+        
+        // Recalculate balance excluding cancelled vouchers
+        mappedAcc.balance = mappedAcc.ledger.reduce((sum, item) => {
+          if (item.voucherStatus === 'CANCELLED') {
+            return sum;
+          }
+          return sum + (item.debit - item.credit);
+        }, 
+        0);
+        
+        return mappedAcc;
+      });
     } catch (err) {
       console.error("System error fetching accounts:", err);
       return [];

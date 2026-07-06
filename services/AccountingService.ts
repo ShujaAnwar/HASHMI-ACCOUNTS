@@ -258,6 +258,15 @@ export class AccountingService {
     if (error) throw error;
   }
 
+  static async toggleCancelVoucher(id: string, currentlyCancelled: boolean) {
+    const newStatus = currentlyCancelled ? 'POSTED' : 'CANCELLED';
+    const { error } = await supabase
+      .from('vouchers')
+      .update({ status: newStatus })
+      .eq('id', id);
+    if (error) throw error;
+  }
+
   static async postVoucher(vData: Partial<Voucher>) {
     const vNum = vData.voucherNum || await this.generateVoucherNumber(vData.type || 'VO' as any, vData.date);
     

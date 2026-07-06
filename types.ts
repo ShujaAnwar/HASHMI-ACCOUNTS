@@ -24,6 +24,7 @@ export interface LedgerEntry {
   currency?: Currency;
   roe?: number;
   createdAt?: string;
+  voucherStatus?: VoucherStatus;
 }
 
 export interface Account {
@@ -55,7 +56,8 @@ export enum VoucherType {
 
 export enum VoucherStatus {
   POSTED = 'POSTED',
-  VOID = 'VOID'
+  VOID = 'VOID',
+  CANCELLED = 'CANCELLED'
 }
 
 export interface Voucher {
