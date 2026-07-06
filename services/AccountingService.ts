@@ -259,7 +259,7 @@ export class AccountingService {
   }
 
   static async toggleCancelVoucher(id: string, currentlyCancelled: boolean) {
-    const newStatus = currentlyCancelled ? 'POSTED' : 'CANCELLED';
+    const newStatus = currentlyCancelled ? 'POSTED' : 'VOID';
     const { error } = await supabase
       .from('vouchers')
       .update({ status: newStatus })

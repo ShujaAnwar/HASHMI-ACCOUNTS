@@ -143,14 +143,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   };
 
   const handleToggleCancel = async (v: Voucher) => {
-    const isCurrentlyCancelled = v.status === VoucherStatus.CANCELLED;
+    const isCurrentlyCancelled = v.status === VoucherStatus.VOID;
     const actionText = isCurrentlyCancelled ? 'Undo Cancel' : 'Cancel';
     if (window.confirm(`${actionText} voucher ${v.voucherNum}?`)) {
       try {
         await AccountingService.toggleCancelVoucher(v.id, isCurrentlyCancelled);
         setLocalRefreshKey(prev => prev + 1);
         if (viewingVoucher?.id === v.id) {
-          setViewingVoucher(prev => prev ? { ...prev, status: isCurrentlyCancelled ? VoucherStatus.POSTED : VoucherStatus.CANCELLED } : null);
+          setViewingVoucher(prev => prev ? { ...prev, status: isCurrentlyCancelled ? VoucherStatus.POSTED : VoucherStatus.VOID } : null);
         }
       } catch (err: any) {
         alert(`Error: ${err.message}`);
@@ -2125,7 +2125,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const renderMobileVouchers = () => (
     <div className="md:hidden space-y-4">
       {filteredVouchers.map((v) => {
-        const isCancelled = v.status === VoucherStatus.CANCELLED;
+        const isCancelled = v.status === VoucherStatus.VOID;
         return (
           <div 
             key={v.id} 
@@ -2312,7 +2312,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             </thead>
             <tbody className="divide-y dark:divide-slate-800">
               {filteredVouchers.map((v, idx) => {
-                const isCancelled = v.status === VoucherStatus.CANCELLED;
+                const isCancelled = v.status === VoucherStatus.VOID;
                 return (
                   <tr 
                     key={v.id} 

@@ -92,9 +92,9 @@
           return { ...l, voucherStatus: status as any };
         });
         
-        // Recalculate balance excluding cancelled vouchers
+        // Recalculate balance excluding cancelled/voided vouchers
         mappedAcc.balance = mappedAcc.ledger.reduce((sum, item) => {
-          if (item.voucherStatus === 'CANCELLED') {
+          if (item.voucherStatus === 'VOID') {
             return sum;
           }
           return sum + (item.debit - item.credit);

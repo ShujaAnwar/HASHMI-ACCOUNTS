@@ -56,8 +56,7 @@ export enum VoucherType {
 
 export enum VoucherStatus {
   POSTED = 'POSTED',
-  VOID = 'VOID',
-  CANCELLED = 'CANCELLED'
+  VOID = 'VOID'
 }
 
 export interface Voucher {

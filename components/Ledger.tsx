@@ -343,7 +343,7 @@ import DateInput from './DateInput';
 
       let running = 0;
       const fullLedger = sortedLedger.map(entry => {
-        const isCancelled = entry.voucherStatus === 'CANCELLED' || (entry.voucherId ? (vouchers.find(v => v.id === entry.voucherId)?.status === 'CANCELLED') : false);
+        const isCancelled = entry.voucherStatus === 'VOID' || (entry.voucherId ? (vouchers.find(v => v.id === entry.voucherId)?.status === 'VOID') : false);
         if (!isCancelled) {
           running += (entry.debit - entry.credit);
         }
