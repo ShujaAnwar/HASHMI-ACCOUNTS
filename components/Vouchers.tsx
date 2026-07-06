@@ -979,9 +979,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             <h1 className="text-[32px] font-black text-[#0f172a] uppercase tracking-tighter leading-none whitespace-nowrap">Hotel Booking Voucher</h1>
           </div>
           <div className="w-56 text-right pr-4">
-             <div className="space-y-0.5">
+              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+                  Emergency Num: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
                 </p>
                 {!branding.isCustom && config?.companyPhone && (
                   <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
@@ -990,7 +990,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 )}
                 {customerAccount && (
                   <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-1.5 mt-1 text-right">
-                    CLIENT: <span className="text-blue-600 font-extrabold">{customerAccount.companyName || customerAccount.name}</span>
+                    <span className="text-blue-600 font-extrabold">{customerAccount.companyName || customerAccount.name}</span>
                   </p>
                 )}
              </div>
