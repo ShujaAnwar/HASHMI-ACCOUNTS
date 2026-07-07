@@ -60,6 +60,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const [formMode, setFormMode] = useState<'CREATE' | 'EDIT' | 'CLONE'>('CREATE');
   const [viewingVoucher, setViewingVoucher] = useState<Voucher | null>(null);
   const [inspectorView, setInspectorView] = useState<'OFFICIAL' | 'PKR' | 'SAR' | 'SERVICE'>('OFFICIAL');
+  const [showBookingAmounts, setShowBookingAmounts] = useState<boolean>(false);
   const [voucherToEdit, setVoucherToEdit] = useState<Voucher | null>(null);
   const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -1294,6 +1295,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">REFERENCE / PNR</p>
               <p className="text-[12px] font-black text-[#0f172a]">{v.reference || 'N/A'}</p>
             </div>
+            {showBookingAmounts && (
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CURRENCY / ROE</p>
+                <p className="text-[12px] font-black text-slate-700">
+                  {v.currency} @ {v.roe || 1}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1304,7 +1313,13 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <tr className="text-[8px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
                 <th className="py-1.5 px-3 text-left border-r border-slate-700 w-12">#</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">SECTOR / ROUTE</th>
-                <th className="py-1.5 px-3 text-left">VEHICLE TYPE</th>
+                <th className={`py-1.5 px-3 text-left ${showBookingAmounts ? 'border-r border-slate-700' : ''}`}>VEHICLE TYPE</th>
+                {showBookingAmounts && (
+                  <>
+                    <th className="py-1.5 px-3 text-right border-r border-slate-700">RATE ({v.currency})</th>
+                    <th className="py-1.5 px-3 text-right">AMOUNT (PKR)</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="text-[10px] font-bold text-slate-800">
@@ -1332,10 +1347,28 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                       </div>
                     )}
                   </td>
-                  <td className="py-1.5 px-3 uppercase">{item.vehicle}</td>
+                  <td className={`py-1.5 px-3 uppercase ${showBookingAmounts ? 'border-r border-slate-200' : ''}`}>{item.vehicle}</td>
+                  {showBookingAmounts && (
+                    <>
+                      <td className="py-1.5 px-3 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
+                      <td className="py-1.5 px-3 text-right">
+                        {(Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
+            {showBookingAmounts && (
+              <tfoot>
+                <tr className="bg-slate-50 font-black text-[11px]">
+                  <td colSpan={4} className="py-2 px-3 text-right uppercase tracking-widest">Grand Total:</td>
+                  <td className="py-2 px-3 text-right text-blue-600">
+                    PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
@@ -1439,12 +1472,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">REFERENCE / PNR</p>
               <p className="text-[12px] font-black text-[#0f172a]">{v.reference || 'N/A'}</p>
             </div>
-            <div className="space-y-0.5">
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CURRENCY / ROE</p>
-              <p className="text-[12px] font-black text-slate-700">
-                {v.currency} @ {v.roe || 1}
-              </p>
-            </div>
+            {showBookingAmounts && (
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CURRENCY / ROE</p>
+                <p className="text-[12px] font-black text-slate-700">
+                  {v.currency} @ {v.roe || 1}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1456,9 +1491,13 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">#</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">PAX NAME</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">PASSPORT NO</th>
-                <th className="py-1.5 px-3 text-center border-r border-slate-700">QTY</th>
-                <th className="py-1.5 px-3 text-right border-r border-slate-700">RATE ({v.currency})</th>
-                <th className="py-1.5 px-3 text-right">AMOUNT (PKR)</th>
+                <th className={`py-1.5 px-3 text-center ${showBookingAmounts ? 'border-r border-slate-700' : ''}`}>QTY</th>
+                {showBookingAmounts && (
+                  <>
+                    <th className="py-1.5 px-3 text-right border-r border-slate-700">RATE ({v.currency})</th>
+                    <th className="py-1.5 px-3 text-right">AMOUNT (PKR)</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="text-[10px] font-bold text-slate-800">
@@ -1467,22 +1506,28 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <td className="py-1.5 px-3 border-r border-slate-200">{i + 1}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.paxName || 'N/A'}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.passportNumber || 'N/A'}</td>
-                  <td className="py-1.5 px-3 border-r border-slate-200 text-center">{item.quantity}</td>
-                  <td className="py-1.5 px-3 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
-                  <td className="py-1.5 px-3 text-right">
-                    {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </td>
+                  <td className={`py-1.5 px-3 text-center ${showBookingAmounts ? 'border-r border-slate-200' : ''}`}>{item.quantity}</td>
+                  {showBookingAmounts && (
+                    <>
+                      <td className="py-1.5 px-3 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
+                      <td className="py-1.5 px-3 text-right">
+                        {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="bg-slate-50 font-black text-[11px]">
-                <td colSpan={5} className="py-2 px-3 text-right uppercase tracking-widest">Grand Total:</td>
-                <td className="py-2 px-3 text-right text-blue-600">
-                  PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </td>
-              </tr>
-            </tfoot>
+            {showBookingAmounts && (
+              <tfoot>
+                <tr className="bg-slate-50 font-black text-[11px]">
+                  <td colSpan={5} className="py-2 px-3 text-right uppercase tracking-widest">Grand Total:</td>
+                  <td className="py-2 px-3 text-right text-blue-600">
+                    PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
@@ -2432,6 +2477,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   )}
                </div>
                <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                  {inspectorView === 'SERVICE' && (viewingVoucher.type === VoucherType.VISA || viewingVoucher.type === VoucherType.TRANSPORT) && (
+                    <label className="flex items-center space-x-2 cursor-pointer bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 shadow-sm mr-2 select-none">
+                      <input 
+                        type="checkbox" 
+                        checked={showBookingAmounts} 
+                        onChange={(e) => setShowBookingAmounts(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span>Show Amounts</span>
+                    </label>
+                  )}
                   <button 
                     onClick={handleDownloadPDF} 
                     disabled={isDownloading}
