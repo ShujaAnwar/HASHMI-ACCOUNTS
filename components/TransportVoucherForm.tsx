@@ -75,7 +75,14 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
     paxName: initialData?.details?.paxName || '',
     passportNumber: initialData?.details?.passportNumber || '',
     serviceFee: initialData?.details?.serviceFee || 0,
-    items: initialData?.details?.items || [{ sector: '', vehicle: 'Car', rate: 0, numVehicles: 1, customLabel: '', date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0], isMultiSector: false, subSectors: [] }]
+    items: initialData?.details?.items || [{ sector: '', vehicle: 'Car', rate: 0, numVehicles: 1, customLabel: '', date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0], isMultiSector: false, subSectors: [] }],
+    flightNum: initialData?.details?.flightNum || '',
+    departureFrom: initialData?.details?.departureFrom || '',
+    arrivalTo: initialData?.details?.arrivalTo || '',
+    departureDate: initialData?.details?.departureDate || '',
+    arrivalDate: initialData?.details?.arrivalDate || '',
+    departureTime: initialData?.details?.departureTime || '',
+    arrivalTime: initialData?.details?.arrivalTime || ''
   });
 
   const incomeAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.REVENUE), [accounts]);
@@ -262,7 +269,14 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
         incomeAccountId: formData.incomeAccountId,
         serviceFee: formData.serviceFee,
         totalSelectedCurrency: totalSelectedCurrency,
-        inputCurrency: formData.currency
+        inputCurrency: formData.currency,
+        flightNum: formData.flightNum,
+        departureFrom: formData.departureFrom,
+        arrivalTo: formData.arrivalTo,
+        departureDate: formData.departureDate,
+        arrivalDate: formData.arrivalDate,
+        departureTime: formData.departureTime,
+        arrivalTime: formData.arrivalTime
       }
     });
   };
@@ -353,6 +367,83 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
               <select required className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all" value={formData.incomeAccountId} onChange={e => setFormData({...formData, incomeAccountId: e.target.value})}>
                 {incomeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
+            </div>
+          </div>
+
+          {/* Flight & Transit Tracking Details */}
+          <div className="bg-indigo-50/20 dark:bg-slate-800/20 p-6 rounded-2xl border border-indigo-100/30 dark:border-slate-800/80 space-y-4">
+            <h4 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+              <span>✈️</span> Flight & Transit Tracking Details (Haji tracking)
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div>
+                <InputLabel>Flight Num</InputLabel>
+                <input 
+                  type="text" 
+                  className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold uppercase outline-none focus:ring-2 focus:ring-indigo-500" 
+                  placeholder="e.g. SV-738" 
+                  value={formData.flightNum} 
+                  onChange={e => setFormData({...formData, flightNum: e.target.value.toUpperCase()})} 
+                />
+              </div>
+              <div>
+                <InputLabel>Departure From (Place Name)</InputLabel>
+                <input 
+                  type="text" 
+                  className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500" 
+                  placeholder="e.g. Lahore Airport" 
+                  value={formData.departureFrom} 
+                  onChange={e => setFormData({...formData, departureFrom: e.target.value})} 
+                />
+              </div>
+              <div>
+                <InputLabel>Arrival To (Place Name)</InputLabel>
+                <input 
+                  type="text" 
+                  className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500" 
+                  placeholder="e.g. Jeddah / Makkah Hotel" 
+                  value={formData.arrivalTo} 
+                  onChange={e => setFormData({...formData, arrivalTo: e.target.value})} 
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <InputLabel>Departure Date</InputLabel>
+                <DateInput 
+                  className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                  value={formData.departureDate} 
+                  onChange={val => setFormData({...formData, departureDate: val})} 
+                />
+              </div>
+              <div>
+                <InputLabel>Arrival Date</InputLabel>
+                <DateInput 
+                  className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                  value={formData.arrivalDate} 
+                  onChange={val => setFormData({...formData, arrivalDate: val})} 
+                />
+              </div>
+              <div>
+                <InputLabel>Departure Time</InputLabel>
+                <input 
+                  type="text" 
+                  className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500" 
+                  placeholder="e.g. 14:30" 
+                  value={formData.departureTime} 
+                  onChange={e => setFormData({...formData, departureTime: e.target.value})} 
+                />
+              </div>
+              <div>
+                <InputLabel>Arrival Time</InputLabel>
+                <input 
+                  type="text" 
+                  className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500" 
+                  placeholder="e.g. 18:45" 
+                  value={formData.arrivalTime} 
+                  onChange={e => setFormData({...formData, arrivalTime: e.target.value})} 
+                />
+              </div>
             </div>
           </div>
 

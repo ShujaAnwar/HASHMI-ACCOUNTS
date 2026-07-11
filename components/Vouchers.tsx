@@ -1306,6 +1306,51 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           </div>
         </div>
 
+        {/* Flight & Travel Tracking Details */}
+        {(v.details?.flightNum || v.details?.departureFrom || v.details?.arrivalTo || v.details?.departureDate || v.details?.arrivalDate || v.details?.departureTime || v.details?.arrivalTime) && (
+          <div className="mb-4 relative border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 py-3.5 px-4 overflow-hidden flex items-stretch">
+            {/* Ticket Left Notch */}
+            <div className="absolute -left-3.5 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-r-2 border-dashed border-slate-200 rounded-full z-10" />
+            {/* Ticket Right Notch */}
+            <div className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-l-2 border-dashed border-slate-200 rounded-full z-10" />
+            
+            <div className="w-full grid grid-cols-4 gap-2 px-3 items-center divide-x divide-dashed divide-slate-200">
+              {/* Flight Info */}
+              <div className="flex flex-col justify-center space-y-0.5 pl-1">
+                <span className="text-[7.5px] font-black text-slate-400 tracking-widest uppercase">FLIGHT NUM</span>
+                <span className="text-[12px] font-black text-indigo-700 tracking-wide uppercase flex items-center gap-1">
+                  <span className="text-[10px]">✈️</span> {v.details.flightNum || 'N/A'}
+                </span>
+              </div>
+              
+              {/* Route */}
+              <div className="flex flex-col justify-center space-y-0.5 pl-4">
+                <span className="text-[7.5px] font-black text-slate-400 tracking-widest uppercase">ROUTE / SECTOR (DEP → ARR)</span>
+                <span className="text-[12px] font-black text-[#0f172a] uppercase tracking-wide">
+                  {v.details.departureFrom || 'N/A'} <span className="text-indigo-500 font-medium">→</span> {v.details.arrivalTo || 'N/A'}
+                </span>
+              </div>
+              
+              {/* Dates */}
+              <div className="flex flex-col justify-center space-y-0.5 pl-4">
+                <span className="text-[7.5px] font-black text-slate-400 tracking-widest uppercase">TRAVEL DATES (DEP - ARR)</span>
+                <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+                  {v.details.departureDate ? formatDateLong(v.details.departureDate) : 'N/A'}
+                  {v.details.arrivalDate ? ` - ${formatDateLong(v.details.arrivalDate)}` : ''}
+                </span>
+              </div>
+              
+              {/* Times */}
+              <div className="flex flex-col justify-center space-y-0.5 pl-4">
+                <span className="text-[7.5px] font-black text-slate-400 tracking-widest uppercase">DEP / ARR TIME</span>
+                <span className="text-[11px] font-black text-slate-700 tracking-tight">
+                  {v.details.departureTime || 'N/A'} {v.details.arrivalTime ? ` - ${v.details.arrivalTime}` : ''}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         <div className="mb-3 flex-1">
           <table className="w-full border-collapse">
