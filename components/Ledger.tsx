@@ -212,6 +212,11 @@ import DateInput from './DateInput';
       const rateMul = voucher.currency === Currency.SAR ? (voucher.roe || 1) : 1;
 
       const getExpectedPKR = (it: any) => {
+        if (voucher.type === VoucherType.TRANSPORT) {
+          const ur = Number(it.rate || 0);
+          const vehicles = Number(it.numVehicles) || 1;
+          return ur * vehicles * rateMul;
+        }
         if (it.cost !== undefined && Number(it.cost) > 0 && (voucher.type === VoucherType.PACKAGE || !it.unitRate)) {
           return Number(it.cost) * rateMul;
         }
@@ -222,8 +227,17 @@ import DateInput from './DateInput';
       };
 
       const descLower = desc.toLowerCase();
-      const byHotel = items.filter((it: any) => it.hotelName && descLower.includes(String(it.hotelName).toLowerCase()));
-      const pool = byHotel.length > 0 ? byHotel : items;
+      let pool = items;
+      if (voucher.type === VoucherType.TRANSPORT) {
+        const bySector = items.filter((it: any) => {
+          const sec = (it.sector === 'CUSTOM' ? it.customLabel : it.sector) || '';
+          return sec && descLower.includes(sec.toLowerCase());
+        });
+        pool = bySector.length > 0 ? bySector : items;
+      } else {
+        const byHotel = items.filter((it: any) => it.hotelName && descLower.includes(String(it.hotelName).toLowerCase()));
+        pool = byHotel.length > 0 ? byHotel : items;
+      }
 
       if (amt > 0) {
         const matchedByAmt = pool.filter((it: any) => Math.abs(getExpectedPKR(it) - amt) <= 2);
@@ -251,7 +265,7 @@ import DateInput from './DateInput';
       // For Transport, Hotel, and Package vouchers, we re-generate the narrative to ensure 
       // specific details (like multi-sectors or price and pax breakdowns) are always up-to-date and displayed.
       // For others, if we have a stored description, we can use it.
-      if (voucher.type !== VoucherType.TRANSPORT && voucher.type !== VoucherType.HOTEL && voucher.type !== VoucherType.PACKAGE) {
+      if (voucher.type !== VoucherType.HOTEL && voucher.type !== VoucherType.PACKAGE) {
         if (entry.description && entry.description !== '-' && entry.description.trim() !== '') {
           return entry.description;
         }
@@ -1034,6 +1048,19 @@ import DateInput from './DateInput';
                                 displayRateSar = (costVal / (roomsVal * nightsVal)).toLocaleString(undefined, { minimumFractionDigits: 0 });
                               }
                             }
+                          } else if (voucher?.type === VoucherType.TRANSPORT) {
+                            const item = findMatchingBookingItem(entry, voucher) || voucher.details.items?.[0];
+                            const rateVal = item?.rate !== undefined ? Number(item.rate) : undefined;
+                            if (rateVal !== undefined && !isNaN(rateVal) && rateVal > 0) {
+                              displayRateSar = rateVal.toLocaleString(undefined, { minimumFractionDigits: 0 });
+                            } else {
+                              const amtVal = entry.debit + entry.credit;
+                              const roeVal = voucher?.roe || 1;
+                              const numV = Number(item?.numVehicles || 1);
+                              displayRateSar = (amtVal / roeVal / numV).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                            }
+                            displayRooms = item?.numVehicles || 1;
+                            displayNights = '-';
                           } else if (isSar) {
                             displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
                           }
