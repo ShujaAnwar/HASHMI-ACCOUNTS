@@ -217,6 +217,11 @@ import DateInput from './DateInput';
           const vehicles = Number(it.numVehicles) || 1;
           return ur * vehicles * rateMul;
         }
+        if (voucher.type === VoucherType.VISA) {
+          const ur = Number(it.rate || 0);
+          const qty = Number(it.quantity) || 1;
+          return ur * qty * rateMul;
+        }
         if (it.cost !== undefined && Number(it.cost) > 0 && (voucher.type === VoucherType.PACKAGE || !it.unitRate)) {
           return Number(it.cost) * rateMul;
         }
@@ -234,6 +239,13 @@ import DateInput from './DateInput';
           return sec && descLower.includes(sec.toLowerCase());
         });
         pool = bySector.length > 0 ? bySector : items;
+      } else if (voucher.type === VoucherType.VISA) {
+        const byPax = items.filter((it: any) => {
+          const pax = it.paxName || '';
+          const pp = it.passportNumber || '';
+          return (pax && descLower.includes(pax.toLowerCase())) || (pp && descLower.includes(pp.toLowerCase()));
+        });
+        pool = byPax.length > 0 ? byPax : items;
       } else {
         const byHotel = items.filter((it: any) => it.hotelName && descLower.includes(String(it.hotelName).toLowerCase()));
         pool = byHotel.length > 0 ? byHotel : items;
@@ -267,7 +279,10 @@ import DateInput from './DateInput';
       // For others, if we have a stored description, we can use it.
       if (voucher.type !== VoucherType.HOTEL && voucher.type !== VoucherType.PACKAGE) {
         if (entry.description && entry.description !== '-' && entry.description.trim() !== '') {
-          return entry.description;
+          const suffix = (voucher.type === VoucherType.VISA && voucher.details?.sendToEmbassy)
+            ? ' | 🏛️ SENT TO EMBASSY'
+            : '';
+          return entry.description + suffix;
         }
       }
       
@@ -415,7 +430,12 @@ import DateInput from './DateInput';
 
       const map: Record<string, string> = {};
       uniqueVouchers.forEach((vNum, index) => {
-        map[vNum] = colorList[index % colorList.length];
+        const matchingVoucher = vouchers.find(v => v.voucherNum === vNum);
+        if (matchingVoucher?.details?.sendToEmbassy) {
+          map[vNum] = 'bg-fuchsia-100/70 dark:bg-fuchsia-950/40 border-fuchsia-300 dark:border-fuchsia-900/50 text-fuchsia-950 dark:text-fuchsia-100 border-l-4 border-l-fuchsia-600 font-bold';
+        } else {
+          map[vNum] = colorList[index % colorList.length];
+        }
       });
       return map;
     }, [ledgerWithRunningBalance, vouchers]);
@@ -630,7 +650,7 @@ import DateInput from './DateInput';
             ? visaColorsMap[entry.voucherNum] || '' 
             : '';
           const bgAndBorder = highlightClass 
-            ? highlightClass.split(' ').filter(c => c.startsWith('bg-') || c.includes('dark:bg-') || c.startsWith('border-') || c.includes('dark:border-')).join(' ') 
+            ? highlightClass.split(' ').filter(c => c.startsWith('bg-') || c.includes('dark:bg-') || c.startsWith('border-') || c.includes('dark:border-') || c.startsWith('border-l-')).join(' ') 
             : '';
 
           const isCancelled = (entry as any).isCancelled;
@@ -1010,7 +1030,7 @@ import DateInput from './DateInput';
                             ? visaColorsMap[entry.voucherNum] || '' 
                             : '';
                           const bgClass = highlightClass 
-                            ? highlightClass.split(' ').filter(c => c.startsWith('bg-') || c.includes('dark:bg-')).join(' ') 
+                            ? highlightClass.split(' ').filter(c => c.startsWith('bg-') || c.includes('dark:bg-') || c.startsWith('border-l-')).join(' ') 
                             : '';
 
                           let displayRateSar = '-';
@@ -1060,6 +1080,19 @@ import DateInput from './DateInput';
                               displayRateSar = (amtVal / roeVal / numV).toLocaleString(undefined, { minimumFractionDigits: 0 });
                             }
                             displayRooms = item?.numVehicles || 1;
+                            displayNights = '-';
+                          } else if (voucher?.type === VoucherType.VISA) {
+                            const item = findMatchingBookingItem(entry, voucher) || voucher.details.items?.[0];
+                            const rateVal = item?.rate !== undefined ? Number(item.rate) : undefined;
+                            if (rateVal !== undefined && !isNaN(rateVal) && rateVal > 0) {
+                              displayRateSar = (isSar ? rateVal : rateVal / (voucher.roe || currentROE || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                            } else {
+                              const amtVal = entry.debit + entry.credit;
+                              const roeVal = voucher?.roe || 1;
+                              const qtyVal = Number(item?.quantity || 1);
+                              displayRateSar = (amtVal / roeVal / qtyVal).toLocaleString(undefined, { minimumFractionDigits: 0 });
+                            }
+                            displayRooms = item?.quantity || '-';
                             displayNights = '-';
                           } else if (isSar) {
                             displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });

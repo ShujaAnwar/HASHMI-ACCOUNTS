@@ -45,7 +45,8 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
     vendorId: initialData?.vendorId || '',
     description: initialData?.description || '',
     reference: isClone ? '' : (initialData?.reference || ''),
-    items: initialData?.details?.items || [{ paxName: '', passportNumber: '', quantity: 1, rate: 0 }]
+    items: initialData?.details?.items || [{ paxName: '', passportNumber: '', quantity: 1, rate: 0 }],
+    sendToEmbassy: initialData?.details?.sendToEmbassy || false
   });
 
   useEffect(() => {
@@ -117,7 +118,8 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
       details: {
         items: updatedItems,
         totalSelectedCurrency,
-        inputCurrency: formData.currency
+        inputCurrency: formData.currency,
+        sendToEmbassy: formData.sendToEmbassy
       }
     });
   };
@@ -189,6 +191,18 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Description / Notes</label>
                 <textarea className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-[2rem] p-6 font-medium text-sm shadow-inner h-[120px] resize-none" placeholder="Visa type, Embassy info..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+              </div>
+              <div className="flex items-center space-x-3 bg-slate-100 dark:bg-slate-800/50 p-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                <input
+                  id="sendToEmbassy"
+                  type="checkbox"
+                  className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+                  checked={formData.sendToEmbassy}
+                  onChange={e => setFormData({...formData, sendToEmbassy: e.target.checked})}
+                />
+                <label htmlFor="sendToEmbassy" className="text-xs font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider cursor-pointer flex items-center gap-2 select-none">
+                  <span>🏛️</span> Send to Embassy
+                </label>
               </div>
             </div>
           </div>

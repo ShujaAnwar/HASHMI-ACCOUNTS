@@ -1496,6 +1496,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         {/* Reference Line */}
         <div className="mb-3 flex justify-between items-end">
           <p className="text-[13px] font-black text-[#0f172a]">Voucher No: {v.voucherNum}</p>
+          {v.details?.sendToEmbassy && (
+            <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-black uppercase rounded-lg tracking-wider animate-pulse flex items-center gap-1">
+              <span>🏛️</span> Send to Embassy
+            </span>
+          )}
           <p className="text-[11px] font-black text-slate-500 uppercase tracking-tight">
             Date: {formatDate(v.date)}
           </p>
