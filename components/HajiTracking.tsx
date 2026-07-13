@@ -36,6 +36,7 @@ interface HajiStatus {
   actionRequired: string;
   isResolved?: boolean;
   todayActions: HajiMovement[];
+  tomorrowActions: HajiMovement[];
   timeline: HajiMovement[];
   alertLevel: 'RED' | 'YELLOW' | 'GREEN';
   isImportant: boolean;
@@ -77,46 +78,55 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHaji, setSelectedHaji] = useState<HajiStatus | null>(null);
   const [filterType, setFilterType] = useState<'ALL' | 'MAKKAH' | 'MADINA' | 'JEDDAH_AIRPORT' | 'URGENT' | 'UPCOMING' | 'TRANSPORT_REQ'>('ALL');
+  const [trackingCategory, setTrackingCategory] = useState<'ALL' | 'HOTEL' | 'TRANSPORT' | 'VISA'>('ALL');
+  const [pdfExportCategory, setPdfExportCategory] = useState<'ALL' | 'HOTEL' | 'TRANSPORT' | 'VISA'>('ALL');
   const [isExporting, setIsExporting] = useState(false);
   const pdfRef = React.useRef<HTMLDivElement>(null);
 
-  const handleExportPDF = async () => {
-    if (!pdfRef.current) return;
+  const handleExportPDFWithCategory = async (category: 'ALL' | 'HOTEL' | 'TRANSPORT' | 'VISA') => {
+    setPdfExportCategory(category);
     setIsExporting(true);
 
-    const companyName = config?.companyName || 'Hashmi Travel Solutions';
-    const fileName = `Haji_Tracking_Status_Report_${companyName.replace(/\s+/g, '_')}_${formatDate(new Date())}.pdf`;
-    
-    const element = pdfRef.current;
-    
-    const opt = {
-      margin: [10, 10, 10, 10],
-      filename: fileName,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 1122,
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-      pagebreak: { mode: ['css', 'legacy'] }
-    };
+    // Allow React a tick to update the hidden PDF component's DOM state
+    setTimeout(async () => {
+      try {
+        if (!pdfRef.current) return;
+        const companyName = config?.companyName || 'Hashmi Travel Solutions';
+        const catSuffix = category === 'ALL' ? 'Combined_Report' : `${category}_Sector_Report`;
+        const fileName = `Haji_Tracking_${catSuffix}_${companyName.replace(/\s+/g, '_')}_${formatDate(new Date())}.pdf`;
+        
+        const element = pdfRef.current;
+        
+        const opt = {
+          margin: [10, 10, 10, 10],
+          filename: fileName,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { 
+            scale: 2, 
+            useCORS: true, 
+            logging: false,
+            backgroundColor: '#ffffff',
+            width: 1122,
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          pagebreak: { mode: ['css', 'legacy'] }
+        };
 
-    try {
-      const html2pdf = (window as any).html2pdf;
-      if (!html2pdf) {
-        throw new Error("html2pdf library is not loaded. Please try again or refresh the page.");
+        const html2pdf = (window as any).html2pdf;
+        if (!html2pdf) {
+          throw new Error("html2pdf library is not loaded. Please try again or refresh the page.");
+        }
+        await html2pdf().set(opt).from(element).save();
+      } catch (err: any) {
+        console.error("PDF Export Error:", err);
+        alert(`Failed to generate PDF: ${err.message}`);
+      } finally {
+        setIsExporting(false);
       }
-      await html2pdf().set(opt).from(element).save();
-    } catch (err: any) {
-      console.error("PDF Export Error:", err);
-      alert(`Failed to generate PDF: ${err.message}`);
-    } finally {
-      setIsExporting(false);
-    }
+    }, 350);
   };
+
+  const handleExportPDF = () => handleExportPDFWithCategory('ALL');
 
   // Haji Master State
   const [activeView, setActiveView] = useState<'TRACKING' | 'MASTER'>('TRACKING');
@@ -817,14 +827,26 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       }
     }
 
-      // Collect Today's Actions for the badge
+      // Collect Today's and Tomorrow's (Next Day) Actions
       todayActions = [];
+      const tomorrowActions: HajiMovement[] = [];
       timeline.forEach(m => {
-        const mDate = new Date(m.date).setHours(0,0,0,0);
-        const mEndDate = m.toDate ? new Date(m.toDate).setHours(0,0,0,0) : mDate;
+        const mDate = new Date(m.date);
+        mDate.setHours(0,0,0,0);
         
-        if (mDate === today.getTime() || mEndDate === today.getTime()) {
+        const mEndDate = m.toDate ? new Date(m.toDate) : null;
+        if (mEndDate) {
+          mEndDate.setHours(0,0,0,0);
+        }
+        
+        const isToday = mDate.getTime() === today.getTime() || (mEndDate && mEndDate.getTime() === today.getTime());
+        const isTomorrow = mDate.getTime() === tomorrow.getTime() || (mEndDate && mEndDate.getTime() === tomorrow.getTime());
+
+        if (isToday) {
           todayActions.push(m);
+        }
+        if (isTomorrow) {
+          tomorrowActions.push(m);
         }
       });
 
@@ -898,6 +920,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       isResolved: !!resolution,
       resolution, // Pass full resolution info
       todayActions,
+      tomorrowActions,
       timeline,
       alertLevel,
       isImportant: alertLevel === 'RED' || !!visaAlertText,
@@ -914,7 +937,8 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       jeddahAirport: 0,
       urgentActions: 0,
       upcomingMovements: 0,
-      transportReq: 0
+      transportReq: 0,
+      todayOrTomorrow: 0
     };
 
     const now = new Date();
@@ -936,6 +960,11 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
 
         // Actionable counts
         if (h.alertLevel === 'RED') s.urgentActions++;
+      }
+      
+      // Today or Tomorrow movements count
+      if (!h.isCompleted && (h.todayActions.length > 0 || h.tomorrowActions.length > 0)) {
+        s.todayOrTomorrow++;
       }
       
       // Upcoming movements count (any movement in the future)
@@ -960,6 +989,15 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       h.nextMovementText.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Filter based on Sector Category Selection
+    if (trackingCategory === 'HOTEL') {
+      data = data.filter(h => h.timeline.some(m => m.category === 'HOTEL'));
+    } else if (trackingCategory === 'TRANSPORT') {
+      data = data.filter(h => h.timeline.some(m => m.category === 'TRANSPORT' || m.category === 'FLIGHT'));
+    } else if (trackingCategory === 'VISA') {
+      data = data.filter(h => h.timeline.some(m => m.category === 'VISA'));
+    }
+
     // Filter based on Tab selection
     if (trackingTab === 'PENDING') {
       data = data.filter(h => !h.isResolved || h.isCompleted);
@@ -979,6 +1017,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
             return h.nextMovement && new Date(h.nextMovement.date) > now && !h.isCompleted;
           }
           case 'TRANSPORT_REQ': return h.todayActions.some((a: any) => a.category === 'TRANSPORT') && !h.isCompleted;
+          case 'TODAY_TOMORROW': return (h.todayActions.length > 0 || h.tomorrowActions.length > 0) && !h.isCompleted;
           default: return true;
         }
       });
@@ -988,7 +1027,19 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       const priority = { 'RED': 0, 'YELLOW': 1, 'GREEN': 2 };
       return priority[a.alertLevel] - priority[b.alertLevel];
     });
-  }, [hajiTrackingData, searchQuery, filterType]);
+  }, [hajiTrackingData, searchQuery, filterType, trackingCategory, trackingTab]);
+
+  const pdfHajisList = useMemo(() => {
+    let data = hajiTrackingData;
+    if (pdfExportCategory === 'HOTEL') {
+      data = data.filter(h => h.timeline.some(m => m.category === 'HOTEL'));
+    } else if (pdfExportCategory === 'TRANSPORT') {
+      data = data.filter(h => h.timeline.some(m => m.category === 'TRANSPORT' || m.category === 'FLIGHT'));
+    } else if (pdfExportCategory === 'VISA') {
+      data = data.filter(h => h.timeline.some(m => m.category === 'VISA'));
+    }
+    return data;
+  }, [hajiTrackingData, pdfExportCategory]);
 
   if (loading) {
     return (
@@ -1055,7 +1106,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
         <>
 
       {/* Summary Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 no-scrollbar overflow-x-auto pb-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 no-scrollbar overflow-x-auto pb-2">
         <SummaryCard 
           label="Total Hajjis" 
           value={stats.total} 
@@ -1097,6 +1148,14 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
           color="rose"
         />
         <SummaryCard 
+          label="Today / Next Day" 
+          value={stats.todayOrTomorrow} 
+          icon="📅" 
+          active={filterType === 'TODAY_TOMORROW'}
+          onClick={() => setFilterType('TODAY_TOMORROW')}
+          color="blue"
+        />
+        <SummaryCard 
           label="Upcoming" 
           value={stats.upcomingMovements} 
           icon="🟡" 
@@ -1114,8 +1173,95 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
         />
       </div>
 
+      {/* Sector Category Navigation Tabs */}
+      <div className="bg-slate-50 dark:bg-slate-900/40 p-3.5 rounded-[2rem] border border-slate-100 dark:border-slate-800/80 shadow-inner mb-5 mt-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-1">Sectors:</span>
+            <button
+              onClick={() => setTrackingCategory('ALL')}
+              className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center space-x-2 border ${
+                trackingCategory === 'ALL'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/25 scale-[1.02]'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/80'
+              }`}
+            >
+              <span>🌐</span>
+              <span>Combined Tracking</span>
+            </button>
+            <button
+              onClick={() => setTrackingCategory('HOTEL')}
+              className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center space-x-2 border ${
+                trackingCategory === 'HOTEL'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/25 scale-[1.02]'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/80'
+              }`}
+            >
+              <span>🏨</span>
+              <span>Hotel Sector</span>
+            </button>
+            <button
+              onClick={() => setTrackingCategory('TRANSPORT')}
+              className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center space-x-2 border ${
+                trackingCategory === 'TRANSPORT'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-500/25 scale-[1.02]'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/80'
+              }`}
+            >
+              <span>🚐</span>
+              <span>Transport Sector</span>
+            </button>
+            <button
+              onClick={() => setTrackingCategory('VISA')}
+              className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center space-x-2 border ${
+                trackingCategory === 'VISA'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-500/25 scale-[1.02]'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/80'
+              }`}
+            >
+              <span>🛂</span>
+              <span>Visa Sector</span>
+            </button>
+          </div>
+          
+          {/* Quick Reports Generator Button Dropdown or Buttons */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700/60">
+            <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2">Export PDF:</span>
+            <button
+              onClick={() => handleExportPDFWithCategory('ALL')}
+              className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-700 text-white hover:bg-slate-800 dark:hover:bg-slate-600 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 shadow-sm"
+              title="Download Combined All-Sectors Report"
+            >
+              🌐 Combined
+            </button>
+            <button
+              onClick={() => handleExportPDFWithCategory('HOTEL')}
+              className="px-2.5 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 shadow-sm"
+              title="Download Hotel Only Report"
+            >
+              🏨 Hotel
+            </button>
+            <button
+              onClick={() => handleExportPDFWithCategory('TRANSPORT')}
+              className="px-2.5 py-1.5 bg-amber-600 text-white hover:bg-amber-700 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 shadow-sm"
+              title="Download Transport Only Report"
+            >
+              🚐 Transport
+            </button>
+            <button
+              onClick={() => handleExportPDFWithCategory('VISA')}
+              className="px-2.5 py-1.5 bg-rose-600 text-white hover:bg-rose-700 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1 shadow-sm"
+              title="Download Visa Only Report"
+            >
+              🛂 Visa
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-2">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          Active Sector: <span className="text-blue-600 uppercase font-extrabold mr-3">{trackingCategory}</span>
           Showing: <span className="text-blue-600">{filterType === 'ALL' ? 'All Hajjis' : filterType.replace('_', ' ')}</span> ({filteredHajis.length})
         </p>
         {filterType !== 'ALL' && (
@@ -1315,6 +1461,71 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                         >
                           Resolve
                         </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Scheduled Vouchers (Today & Tomorrow) */}
+                  {(haji.todayActions.length > 0 || haji.tomorrowActions.length > 0) && (
+                    <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/60 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Today's Schedule */}
+                      {haji.todayActions.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                            <span>Scheduled Today ({haji.todayActions.length})</span>
+                          </p>
+                          <div className="space-y-1.5">
+                            {haji.todayActions.map((act, i) => (
+                              <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between border border-slate-100 dark:border-slate-800/40">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-sm shrink-0">
+                                    {act.category === 'HOTEL' ? '🏨' : act.category === 'TRANSPORT' ? '🚐' : act.category === 'FLIGHT' ? '✈️' : '🛂'}
+                                  </span>
+                                  <span className="truncate uppercase text-[9px] tracking-tight">{act.location}</span>
+                                </div>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded-md border border-slate-100 dark:border-slate-800 shrink-0">
+                                  {act.category}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="hidden md:block">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Today's Schedule</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">No active vouchers today</p>
+                        </div>
+                      )}
+
+                      {/* Tomorrow's Schedule */}
+                      {haji.tomorrowActions.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                            <span>Scheduled Next Day ({haji.tomorrowActions.length})</span>
+                          </p>
+                          <div className="space-y-1.5">
+                            {haji.tomorrowActions.map((act, i) => (
+                              <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between border border-slate-100 dark:border-slate-800/40">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-sm shrink-0">
+                                    {act.category === 'HOTEL' ? '🏨' : act.category === 'TRANSPORT' ? '🚐' : act.category === 'FLIGHT' ? '✈️' : '🛂'}
+                                  </span>
+                                  <span className="truncate uppercase text-[9px] tracking-tight">{act.location}</span>
+                                </div>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded-md border border-slate-100 dark:border-slate-800 shrink-0">
+                                  {act.category}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="hidden md:block">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Next Day's Schedule</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">No active vouchers tomorrow</p>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1757,7 +1968,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
             
             <div className="text-right">
               <div className="bg-blue-600 text-white font-orbitron font-black text-xs uppercase px-4 py-2 rounded-xl tracking-wider inline-block">
-                HAJI STATUS REPORT
+                {pdfExportCategory === 'ALL' ? 'COMBINED HAJI STATUS REPORT' : `${pdfExportCategory} SECTOR STATUS REPORT`}
               </div>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-3">Date Generated</p>
               <p className="text-xs font-black text-slate-800 font-orbitron mt-0.5">{formatDate(new Date())} - {new Date().toLocaleTimeString()}</p>
@@ -1768,32 +1979,32 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
           <div className="grid grid-cols-6 gap-4 mb-8">
             <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Pilgrims</p>
-              <p className="text-xl font-orbitron font-black text-slate-800">{stats.total}</p>
+              <p className="text-xl font-orbitron font-black text-slate-800">{pdfHajisList.length}</p>
             </div>
             <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Currently Makkah</p>
-              <p className="text-xl font-orbitron font-black text-blue-600">{stats.makkah}</p>
+              <p className="text-xl font-orbitron font-black text-blue-600">{pdfHajisList.filter(h => h.currentCity === 'MAKKAH' && !h.isCompleted).length}</p>
             </div>
             <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Currently Madina</p>
-              <p className="text-xl font-orbitron font-black text-emerald-600">{stats.madina}</p>
+              <p className="text-xl font-orbitron font-black text-emerald-600">{pdfHajisList.filter(h => h.currentCity === 'MADINA' && !h.isCompleted).length}</p>
             </div>
             <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Airport/Jeddah</p>
-              <p className="text-xl font-orbitron font-black text-indigo-600">{stats.jeddahAirport}</p>
+              <p className="text-xl font-orbitron font-black text-indigo-600">{pdfHajisList.filter(h => h.currentStatusText.toLowerCase().includes('airport') || h.currentStatusText.toLowerCase().includes('jeddah')).length}</p>
             </div>
             <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center text-rose-600">
               <p className="text-[9px] font-black text-rose-400 uppercase tracking-wider mb-1">Urgent Actions</p>
-              <p className="text-xl font-orbitron font-black">{stats.urgentActions}</p>
+              <p className="text-xl font-orbitron font-black">{pdfHajisList.filter(h => h.alertLevel === 'RED' && !h.isCompleted).length}</p>
             </div>
             <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 text-center text-amber-600">
               <p className="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1">Upcoming Sectors</p>
-              <p className="text-xl font-orbitron font-black">{stats.upcomingMovements}</p>
+              <p className="text-xl font-orbitron font-black">{pdfHajisList.filter(h => h.nextMovement && !h.isCompleted).length}</p>
             </div>
           </div>
 
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-4 pb-2 border-b border-slate-200">
-            CURRENT PILGRIM MOVEMENT & POSITION TRACKING SHEET
+            {pdfExportCategory === 'ALL' ? 'CURRENT PILGRIM MOVEMENT & POSITION TRACKING SHEET' : `CURRENT PILGRIM ${pdfExportCategory} SECTOR MOVEMENT SHEET`}
           </h3>
 
           <table className="w-full text-left border-collapse table-auto text-xs">
@@ -1808,7 +2019,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {hajiTrackingData.map((haji, idx) => (
+              {pdfHajisList.map((haji, idx) => (
                 <tr key={haji.id} className="hover:bg-slate-50 text-slate-800">
                   <td className="p-3 text-center font-bold text-slate-400 ring-1 ring-slate-50">
                     {idx + 1}
@@ -1858,9 +2069,9 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                   </td>
                 </tr>
               ))}
-              {hajiTrackingData.length === 0 && (
+              {pdfHajisList.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-400 italic">No Haji tracking records currently loaded.</td>
+                  <td colSpan={6} className="p-12 text-center text-slate-400 italic">No Haji tracking records currently loaded for the {pdfExportCategory.toLowerCase()} sector.</td>
                 </tr>
               )}
             </tbody>
