@@ -45,7 +45,19 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
     vendorId: initialData?.vendorId || '',
     description: initialData?.description || '',
     reference: isClone ? '' : (initialData?.reference || ''),
-    items: initialData?.details?.items || [{ paxName: '', passportNumber: '', quantity: 1, rate: 0 }],
+    defaultCheckInDate: initialData?.details?.defaultCheckInDate || '',
+    defaultKsaArrivalTime: initialData?.details?.defaultKsaArrivalTime || '',
+    defaultCheckOutDate: initialData?.details?.defaultCheckOutDate || '',
+    items: (initialData?.details?.items || [{ paxName: '', passportNumber: '', quantity: 1, rate: 0 }]).map((it: any) => ({
+      paxName: it.paxName || '',
+      passportNumber: it.passportNumber || '',
+      quantity: it.quantity !== undefined ? it.quantity : 1,
+      rate: it.rate !== undefined ? it.rate : 0,
+      checkInDate: it.checkInDate || '',
+      ksaArrivalTime: it.ksaArrivalTime || '',
+      checkOutDate: it.checkOutDate || '',
+      durationOfStay: it.durationOfStay || 0
+    })),
     sendToEmbassy: initialData?.details?.sendToEmbassy || false
   });
 
@@ -54,6 +66,37 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
       setFormData(prev => ({ ...prev, roe: config.defaultROE }));
     }
   }, [config, initialData]);
+
+  const calculatedDefaultDays = useMemo(() => {
+    if (formData.defaultCheckInDate && formData.defaultCheckOutDate) {
+      const d1 = new Date(formData.defaultCheckInDate);
+      const d2 = new Date(formData.defaultCheckOutDate);
+      const diff = d2.getTime() - d1.getTime();
+      if (diff > 0) {
+        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+      }
+    }
+    return 0;
+  }, [formData.defaultCheckInDate, formData.defaultCheckOutDate]);
+
+  const applyDefaultsToAll = () => {
+    const updatedItems = formData.items.map(item => {
+      const checkIn = formData.defaultCheckInDate;
+      const checkOut = formData.defaultCheckOutDate;
+      let duration = 0;
+      if (checkIn && checkOut) {
+        duration = Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24));
+      }
+      return {
+        ...item,
+        checkInDate: checkIn || item.checkInDate,
+        ksaArrivalTime: formData.defaultKsaArrivalTime || item.ksaArrivalTime,
+        checkOutDate: checkOut || item.checkOutDate,
+        durationOfStay: duration > 0 ? duration : item.durationOfStay
+      };
+    });
+    setFormData({ ...formData, items: updatedItems });
+  };
 
   const totalSelectedCurrency = useMemo(() => {
     return formData.items.reduce((sum: number, item: any) => sum + (Number(item.quantity) * Number(item.rate)), 0);
@@ -67,7 +110,19 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
   const handleAddItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { paxName: '', passportNumber: '', quantity: 1, rate: 0 }]
+      items: [
+        ...formData.items,
+        {
+          paxName: '',
+          passportNumber: '',
+          quantity: 1,
+          rate: 0,
+          checkInDate: formData.defaultCheckInDate,
+          ksaArrivalTime: formData.defaultKsaArrivalTime,
+          checkOutDate: formData.defaultCheckOutDate,
+          durationOfStay: calculatedDefaultDays
+        }
+      ]
     });
   };
 
@@ -99,9 +154,22 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
           fullName: item.paxName,
           passportNumber: item.passportNumber
         });
+        
+        // Calculate stay days for safety before saving
+        let finalDuration = item.durationOfStay;
+        if (item.checkInDate && item.checkOutDate) {
+          const d1 = new Date(item.checkInDate);
+          const d2 = new Date(item.checkOutDate);
+          const diff = d2.getTime() - d1.getTime();
+          if (diff > 0) {
+            finalDuration = Math.ceil(diff / (1000 * 60 * 60 * 24));
+          }
+        }
+
         return {
           ...item,
-          hajiId: haji?.hajiId || ''
+          hajiId: haji?.hajiId || '',
+          durationOfStay: finalDuration
         };
       } catch (err) {
         console.error("Error ensuring Haji:", err);
@@ -119,7 +187,11 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
         items: updatedItems,
         totalSelectedCurrency,
         inputCurrency: formData.currency,
-        sendToEmbassy: formData.sendToEmbassy
+        sendToEmbassy: formData.sendToEmbassy,
+        defaultCheckInDate: formData.defaultCheckInDate,
+        defaultKsaArrivalTime: formData.defaultKsaArrivalTime,
+        defaultCheckOutDate: formData.defaultCheckOutDate,
+        defaultDurationOfStay: calculatedDefaultDays
       }
     });
   };
@@ -207,6 +279,60 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
             </div>
           </div>
 
+          {/* Default Travel Details Section */}
+          <div className="bg-slate-50 dark:bg-slate-800/30 p-6 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <span>✈️</span> Default Travel & Stay Details (Optional)
+                </h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Set travel schedule for all applicants in one click</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={applyDefaultsToAll}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <span>⚡</span> Apply Travel Details to All Heads
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Default Check-in Date</label>
+                <DateInput 
+                  className="w-full bg-white dark:bg-slate-900 border-none rounded-xl p-3 font-bold text-xs shadow-inner ring-1 ring-slate-100 dark:ring-slate-800" 
+                  value={formData.defaultCheckInDate} 
+                  onChange={val => setFormData({ ...formData, defaultCheckInDate: val })} 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Default KSA Arrival Timing</label>
+                <input 
+                  type="text"
+                  placeholder="e.g. 14:30"
+                  className="w-full bg-white dark:bg-slate-900 border-none rounded-xl p-3 font-bold text-xs shadow-inner ring-1 ring-slate-100 dark:ring-slate-800 text-slate-800 dark:text-slate-100"
+                  value={formData.defaultKsaArrivalTime}
+                  onChange={e => setFormData({ ...formData, defaultKsaArrivalTime: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Default Check-out Date</label>
+                <DateInput 
+                  className="w-full bg-white dark:bg-slate-900 border-none rounded-xl p-3 font-bold text-xs shadow-inner ring-1 ring-slate-100 dark:ring-slate-800" 
+                  value={formData.defaultCheckOutDate} 
+                  onChange={val => setFormData({ ...formData, defaultCheckOutDate: val })} 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Default Stay Duration</label>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 font-bold text-xs text-slate-500 dark:text-slate-400">
+                  {calculatedDefaultDays > 0 ? `${calculatedDefaultDays} Days` : '-'}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Items Table */}
           <div className="rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b dark:border-slate-800">
@@ -225,55 +351,115 @@ const VisaVoucherForm: React.FC<VisaVoucherFormProps> = ({ initialData, onSave, 
                 </tr>
               </thead>
               <tbody className="divide-y dark:divide-slate-800">
-                {formData.items.map((item: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all">
-                    <td className="px-6 py-4">
-                      <HajiSelector 
-                        value={item.paxName}
-                        onSelect={(haji) => {
-                          const newItems = [...formData.items];
-                          newItems[idx] = { 
-                            ...newItems[idx], 
-                            paxName: haji.fullName || '',
-                            passportNumber: haji.passportNumber || newItems[idx].passportNumber
-                          };
-                          setFormData({ ...formData, items: newItems });
-                        }}
-                        placeholder="Search or enter name..."
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <input 
-                        className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-slate-100 uppercase"
-                        placeholder="Passport #"
-                        value={item.passportNumber}
-                        onChange={e => updateItem(idx, 'passportNumber', e.target.value.toUpperCase())}
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <input 
-                        type="number"
-                        className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-slate-100"
-                        value={item.quantity}
-                        onChange={e => updateItem(idx, 'quantity', Number(e.target.value))}
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <input 
-                        type="number"
-                        className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-right text-amber-600 font-orbitron"
-                        value={item.rate}
-                        onChange={e => updateItem(idx, 'rate', Number(e.target.value))}
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-right font-orbitron font-bold text-slate-900 dark:text-white">
-                      {(item.quantity * item.rate).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-rose-500 p-2">✕</button>
-                    </td>
-                  </tr>
-                ))}
+                {formData.items.map((item: any, idx: number) => {
+                  const itemStayDays = (() => {
+                    if (item.checkInDate && item.checkOutDate) {
+                      const d1 = new Date(item.checkInDate);
+                      const d2 = new Date(item.checkOutDate);
+                      const diff = d2.getTime() - d1.getTime();
+                      if (diff > 0) {
+                        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+                      }
+                    }
+                    return item.durationOfStay || 0;
+                  })();
+
+                  return (
+                    <React.Fragment key={idx}>
+                      <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all">
+                        <td className="px-6 py-4">
+                          <HajiSelector 
+                            value={item.paxName}
+                            onSelect={(haji) => {
+                              const newItems = [...formData.items];
+                              newItems[idx] = { 
+                                ...newItems[idx], 
+                                paxName: haji.fullName || '',
+                                passportNumber: haji.passportNumber || newItems[idx].passportNumber
+                              };
+                              setFormData({ ...formData, items: newItems });
+                            }}
+                            placeholder="Search or enter name..."
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <input 
+                            className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-slate-100 uppercase"
+                            placeholder="Passport #"
+                            value={item.passportNumber}
+                            onChange={e => updateItem(idx, 'passportNumber', e.target.value.toUpperCase())}
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <input 
+                            type="number"
+                            className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-slate-100"
+                            value={item.quantity}
+                            onChange={e => updateItem(idx, 'quantity', Number(e.target.value))}
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <input 
+                            type="number"
+                            className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-right text-amber-600 font-orbitron"
+                            value={item.rate}
+                            onChange={e => updateItem(idx, 'rate', Number(e.target.value))}
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-right font-orbitron font-bold text-slate-900 dark:text-white">
+                          {(item.quantity * item.rate).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-rose-500 p-2">✕</button>
+                        </td>
+                      </tr>
+                      <tr className="bg-slate-50/50 dark:bg-slate-800/10 border-b dark:border-slate-800">
+                        <td colSpan={6} className="px-6 py-3">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Check-in Date</label>
+                              <DateInput 
+                                className="bg-white dark:bg-slate-900 border-none rounded-xl p-2.5 font-bold text-xs shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 focus:ring-2 focus:ring-amber-500" 
+                                value={item.checkInDate || ''} 
+                                onChange={val => updateItem(idx, 'checkInDate', val)} 
+                              />
+                            </div>
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-wider">KSA Arrival Timing</label>
+                              <input 
+                                type="text"
+                                placeholder="e.g. 14:30 or 02:30 PM"
+                                className="bg-white dark:bg-slate-900 border-none rounded-xl p-2.5 font-bold text-xs shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 focus:ring-2 focus:ring-amber-500 text-slate-800 dark:text-slate-100"
+                                value={item.ksaArrivalTime || ''}
+                                onChange={e => updateItem(idx, 'ksaArrivalTime', e.target.value)}
+                              />
+                            </div>
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Check-out Date (Only)</label>
+                              <DateInput 
+                                className="bg-white dark:bg-slate-900 border-none rounded-xl p-2.5 font-bold text-xs shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 focus:ring-2 focus:ring-amber-500" 
+                                value={item.checkOutDate || ''} 
+                                onChange={val => updateItem(idx, 'checkOutDate', val)} 
+                              />
+                            </div>
+                            <div className="flex flex-col space-y-1">
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Days Stayed in KSA</label>
+                              <div className="flex items-center space-x-2">
+                                <input 
+                                  type="number"
+                                  className="bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-2.5 font-bold text-xs shadow-sm text-slate-500 dark:text-slate-400 w-20 text-center"
+                                  value={itemStayDays}
+                                  readOnly
+                                />
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">Days</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

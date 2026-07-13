@@ -1552,20 +1552,53 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             </thead>
             <tbody className="text-[10px] font-bold text-slate-800">
               {v.details?.items?.map((item: any, i: number) => (
-                <tr key={i} className="bg-white border-b border-slate-200">
-                  <td className="py-1.5 px-3 border-r border-slate-200">{i + 1}</td>
-                  <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.paxName || 'N/A'}</td>
-                  <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.passportNumber || 'N/A'}</td>
-                  <td className={`py-1.5 px-3 text-center ${showBookingAmounts ? 'border-r border-slate-200' : ''}`}>{item.quantity}</td>
-                  {showBookingAmounts && (
-                    <>
-                      <td className="py-1.5 px-3 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
-                      <td className="py-1.5 px-3 text-right">
-                        {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                <React.Fragment key={i}>
+                  <tr className="bg-white border-b border-slate-200">
+                    <td className="py-1.5 px-3 border-r border-slate-200">{i + 1}</td>
+                    <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.paxName || 'N/A'}</td>
+                    <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.passportNumber || 'N/A'}</td>
+                    <td className={`py-1.5 px-3 text-center ${showBookingAmounts ? 'border-r border-slate-200' : ''}`}>{item.quantity}</td>
+                    {showBookingAmounts && (
+                      <>
+                        <td className="py-1.5 px-3 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
+                        <td className="py-1.5 px-3 text-right">
+                          {(Number(item.quantity) * Number(item.rate) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                  {(item.checkInDate || item.checkOutDate) && (
+                    <tr className="bg-slate-50/50 text-[9px] text-slate-500 border-b border-slate-200">
+                      <td colSpan={showBookingAmounts ? 6 : 4} className="py-1 px-3">
+                        <div className="flex flex-wrap gap-x-6 gap-y-1">
+                          {item.checkInDate && (
+                            <div>
+                              <span className="font-bold text-slate-400 uppercase tracking-wide">Check-in:</span>{' '}
+                              <span className="font-black text-slate-700">{formatDate(item.checkInDate)}</span>
+                              {item.ksaArrivalTime && (
+                                <span className="ml-1 text-slate-600 font-bold">({item.ksaArrivalTime})</span>
+                              )}
+                            </div>
+                          )}
+                          {item.checkOutDate && (
+                            <div>
+                              <span className="font-bold text-slate-400 uppercase tracking-wide">Check-out:</span>{' '}
+                              <span className="font-black text-slate-700">{formatDate(item.checkOutDate)}</span>
+                            </div>
+                          )}
+                          {(item.checkInDate && item.checkOutDate) && (
+                            <div>
+                              <span className="font-bold text-slate-400 uppercase tracking-wide">Stay Days:</span>{' '}
+                              <span className="font-black text-indigo-700">
+                                {Math.ceil((new Date(item.checkOutDate).getTime() - new Date(item.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} Days
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
-                    </>
+                    </tr>
                   )}
-                </tr>
+                </React.Fragment>
               ))}
             </tbody>
             {showBookingAmounts && (

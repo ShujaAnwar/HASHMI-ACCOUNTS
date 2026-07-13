@@ -39,6 +39,7 @@ interface HajiStatus {
   timeline: HajiMovement[];
   alertLevel: 'RED' | 'YELLOW' | 'GREEN';
   isImportant: boolean;
+  visaAlertText?: string;
 }
 
 const SummaryCard = ({ label, value, icon, active, onClick, color }: any) => {
@@ -528,6 +529,23 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
               movement.details = `Flight ${item?.flightNum || v.details?.flightNum || ''}: ${movement.location}`;
               movement.actionRequired = "Flight Monitoring";
               allMovements.push(movement as HajiMovement);
+            } else if (v.type === VoucherType.VISA) {
+              const checkInStr = item?.checkInDate || v.details?.checkInDate || '';
+              const checkOutStr = item?.checkOutDate || v.details?.checkOutDate || '';
+              if (checkInStr) {
+                const checkInMovement = { ...movement };
+                checkInMovement.id = `${v.id}-${idx}-visa-in-${paxName.replace(/\s+/g, '_')}`;
+                checkInMovement.date = new Date(checkInStr);
+                if (checkOutStr) {
+                  checkInMovement.toDate = new Date(checkOutStr);
+                }
+                checkInMovement.type = VoucherType.VISA;
+                checkInMovement.category = 'VISA';
+                checkInMovement.location = 'KSA';
+                checkInMovement.details = `Visa Check-in | KSA Arrival: ${item?.ksaArrivalTime || v.details?.ksaArrivalTime || 'N/A'} | Stay: ${item?.durationOfStay || v.details?.durationOfStay || '-'} days`;
+                checkInMovement.actionRequired = "Visa Arrival Preparation";
+                allMovements.push(checkInMovement as HajiMovement);
+              }
             } else if (v.type === VoucherType.ALL_IN_ONE || (v.type as string) === 'AV') {
               // 1. Hotel Items
               (v.details?.hotelItems || []).forEach((hItem: any, hIdx: number) => {
@@ -822,6 +840,48 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       (!voucherIdForRes || r.voucherId === voucherIdForRes)
     );
 
+    // 3. Visa Stay Date Warnings (3 days before check-in or checkout)
+    let visaAlertText = '';
+    const visaM = timeline.find(m => m.category === 'VISA');
+    if (visaM) {
+      const vCheckIn = new Date(visaM.date);
+      vCheckIn.setHours(0,0,0,0);
+      
+      const vCheckOut = visaM.toDate ? new Date(visaM.toDate) : null;
+      if (vCheckOut) {
+        vCheckOut.setHours(0,0,0,0);
+      }
+      
+      const tDate = new Date(today);
+      tDate.setHours(0,0,0,0);
+      
+      // Check-in warning: if check-in is upcoming and within 3 days
+      const daysToCheckIn = Math.ceil((vCheckIn.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysToCheckIn >= 0 && daysToCheckIn <= 3) {
+        visaAlertText = `Visa Check-in in ${daysToCheckIn} Day${daysToCheckIn === 1 ? '' : 's'} (${vCheckIn.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })})`;
+        if (alertLevel !== 'RED') {
+          alertLevel = 'YELLOW';
+          if (!actionRequired || actionRequired === 'No immediate action' || actionRequired.toLowerCase().includes('no immediate')) {
+            actionRequired = `Upcoming Visa Check-in`;
+          }
+        }
+      }
+      
+      // Checkout warning: if check-in has passed and checkout is upcoming and within 3 days
+      if (!visaAlertText && vCheckOut) {
+        const daysToCheckout = Math.ceil((vCheckOut.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysToCheckout >= 0 && daysToCheckout <= 3) {
+          visaAlertText = `Visa Checkout in ${daysToCheckout} Day${daysToCheckout === 1 ? '' : 's'} (${vCheckOut.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })})`;
+          if (alertLevel !== 'RED') {
+            alertLevel = 'YELLOW';
+            if (!actionRequired || actionRequired === 'No immediate action' || actionRequired.toLowerCase().includes('no immediate')) {
+              actionRequired = `Upcoming Visa Checkout`;
+            }
+          }
+        }
+      }
+    }
+
     return {
       id: key,
       paxName,
@@ -840,7 +900,8 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       todayActions,
       timeline,
       alertLevel,
-      isImportant: alertLevel === 'RED'
+      isImportant: alertLevel === 'RED' || !!visaAlertText,
+      visaAlertText
     } as HajiStatus;
   }).filter(h => h !== null) as HajiStatus[];
 }, [vouchers, resolutions, hajiMasterList]);
@@ -1144,6 +1205,11 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                             <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase truncate">
                               {haji.currentLocation}
                             </p>
+                          </div>
+                        )}
+                        {haji.visaAlertText && (
+                          <div className="mt-2.5 inline-flex items-center gap-1 px-2 py-1 bg-amber-500 text-white text-[9px] font-black uppercase rounded-lg tracking-wider animate-pulse shadow-sm">
+                            <span>🛂</span> {haji.visaAlertText}
                           </div>
                         )}
                       </div>
