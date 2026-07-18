@@ -32,7 +32,7 @@ const ROOM_TYPES = [
   "Suite",
   "DBL C.V",
 ];
-const MEALS = ["Breakfast", "Lunch", "Dinner", "Room Only", "BB"];
+const MEALS = ["Breakfast", "Lunch", "Dinner", "Room Only", "BB", "HB", "FB"];
 const VEHICLES = [
   "Car",
   "H1",

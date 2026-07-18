@@ -16,7 +16,7 @@ interface AllInOneVoucherFormProps {
 }
 
 const ROOM_TYPES = ['Single', 'Double', 'Triple', 'Quad', 'Quint', 'Executive Suite', 'Suite', 'DBL C.V'];
-const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Room Only', 'BB'];
+const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Room Only', 'BB', 'HB', 'FB'];
 const CITIES = ['Karachi', 'Lahore', 'Islamabad', 'Makkah', 'Madinah', 'Jeddah', 'Riyadh', 'Dubai'];
 const COUNTRIES = ['Pakistan', 'Saudi Arabia', 'UAE', 'Turkey', 'USA', 'UK'];
 

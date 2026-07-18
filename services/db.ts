@@ -292,7 +292,13 @@
   };
 
   export const exportFullDatabase = async () => {
-    const [accounts, vouchers, config] = await Promise.all([getAccounts(), getVouchers(), getConfig()]);
+    const [accounts, vouchers, config, hajiMasterRes, resolutionsRes] = await Promise.all([
+      getAccounts(),
+      getVouchers(),
+      getConfig(),
+      supabase.from('haji_master').select('*'),
+      supabase.from('haji_action_resolutions').select('*')
+    ]);
     
     // Recalculate balances for export to ensure the backup is 100% accurate
     const verifiedAccounts = accounts.map(acc => {
@@ -300,11 +306,17 @@
       return { ...acc, balance: calculatedBalance };
     });
 
-    return { accounts: verifiedAccounts, vouchers, config };
+    return { 
+      accounts: verifiedAccounts, 
+      vouchers, 
+      config, 
+      hajiMaster: hajiMasterRes.data || [], 
+      hajiActionResolutions: resolutionsRes.data || [] 
+    };
   };
 
   export const importFullDatabase = async (data: any) => {
-    const { accounts, vouchers, config } = data;
+    const { accounts, vouchers, config, hajiMaster, hajiActionResolutions } = data;
 
     try {
       console.log("Starting database restoration...");
@@ -312,7 +324,53 @@
       // 1. Restore Config (Upsert is safe)
       if (config) {
         console.log("Restoring config...");
-        await saveConfig(config);
+        const mappedConfig: any = {
+          companyName: config.companyName || config.company_name || config.CompanyName,
+          appSubtitle: config.appSubtitle || config.app_subtitle || config.AppSubtitle,
+          companyAddress: config.companyAddress || config.company_address || config.CompanyAddress,
+          companyPhone: config.companyPhone || config.company_phone || config.CompanyPhone,
+          companyCell: config.companyCell || config.company_cell || config.CompanyCell,
+          companyEmail: config.companyEmail || config.company_email || config.CompanyEmail,
+          companyLogo: config.companyLogo || config.company_logo || config.CompanyLogo,
+          logoSize: config.logoSize || config.logo_size || config.LogoSize,
+          fontSize: config.fontSize || config.font_size || config.FontSize || 16,
+          defaultROE: config.defaultROE || config.default_roe || config.DefaultROE,
+          accountNameCase: config.accountNameCase || config.account_name_case || config.AccountNameCase,
+          banks: config.banks || config.Banks,
+          autoBackupEnabled: config.autoBackupEnabled !== undefined ? config.autoBackupEnabled : (config.auto_backup_enabled !== undefined ? config.auto_backup_enabled : config.AutoBackupEnabled),
+          autoBackupIntervalEnabled: config.autoBackupIntervalEnabled !== undefined ? config.autoBackupIntervalEnabled : (config.auto_backup_interval_enabled !== undefined ? config.auto_backup_interval_enabled : config.AutoBackupIntervalEnabled),
+          autoBackupIntervalHours: config.autoBackupIntervalHours !== undefined ? config.autoBackupIntervalHours : (config.auto_backup_interval_hours !== undefined ? config.auto_backup_interval_hours : config.AutoBackupIntervalHours),
+          showHotelsList: config.showHotelsList !== undefined ? config.showHotelsList : (config.show_hotels_list !== undefined ? config.show_hotels_list : config.ShowHotelsList),
+          autoRefreshEnabled: config.autoRefreshEnabled !== undefined ? config.autoRefreshEnabled : (config.auto_refresh_enabled !== undefined ? config.auto_refresh_enabled : config.AutoRefreshEnabled),
+          autoRefreshIntervalMinutes: config.autoRefreshIntervalMinutes !== undefined ? config.autoRefreshIntervalMinutes : (config.auto_refresh_interval_minutes !== undefined ? config.auto_refresh_interval_minutes : config.AutoRefreshIntervalMinutes),
+          hotelPoliciesShow: config.hotelPoliciesShow !== undefined ? config.hotelPoliciesShow : (config.hotel_policies_show !== undefined ? config.hotel_policies_show : config.HotelPoliciesShow),
+          hotelPoliciesText: config.hotelPoliciesText || config.hotel_policies_text || config.HotelPoliciesText
+        };
+        await saveConfig(mappedConfig);
+      }
+
+      // 1.1 Restore Haji Master
+      if (hajiMaster && hajiMaster.length > 0) {
+        console.log("Clearing haji_master...");
+        await supabase.from('haji_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        
+        console.log(`Restoring ${hajiMaster.length} haji_master entries...`);
+        const { error: hajiErr } = await supabase.from('haji_master').insert(hajiMaster);
+        if (hajiErr) {
+          console.error("Haji Master restoration failed:", hajiErr);
+        }
+      }
+
+      // 1.2 Restore Haji Action Resolutions
+      if (hajiActionResolutions && hajiActionResolutions.length > 0) {
+        console.log("Clearing haji_action_resolutions...");
+        await supabase.from('haji_action_resolutions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        
+        console.log(`Restoring ${hajiActionResolutions.length} haji_action_resolutions entries...`);
+        const { error: resErr } = await supabase.from('haji_action_resolutions').insert(hajiActionResolutions);
+        if (resErr) {
+          console.error("Haji Action Resolutions restoration failed:", resErr);
+        }
       }
 
       // 2. Clear existing data (Order matters for foreign keys)
@@ -330,17 +388,17 @@
       if (accounts && accounts.length > 0) {
         console.log(`Restoring ${accounts.length} accounts...`);
         const accountsToInsert = accounts.map((a: any) => ({
-          id: a.id,
-          code: a.code,
-          name: a.name,
-          type: a.type,
-          cell: a.cell,
-          location: a.location,
-          currency: a.currency || 'PKR',
+          id: a.id || a.ID,
+          code: a.code || a.Code,
+          name: a.name || a.Name,
+          type: a.type || a.Type,
+          cell: a.cell !== undefined ? a.cell : a.Cell,
+          location: a.location !== undefined ? a.location : a.Location,
+          currency: a.currency || a.Currency || 'PKR',
           balance: 0, // Reset to 0, will be recalculated from ledger
-          company_name: a.companyName || null,
-          contact_number: a.contactNumber || null,
-          logo_url: a.logoUrl || null
+          company_name: a.companyName || a.company_name || a.CompanyName || null,
+          contact_number: a.contactNumber || a.contact_number || a.ContactNumber || null,
+          logo_url: a.logoUrl || a.logo_url || a.LogoUrl || null
         }));
         
         const { error: accErr } = await supabase.from('accounts').insert(accountsToInsert);
@@ -359,19 +417,19 @@
       if (vouchers && vouchers.length > 0) {
         console.log(`Restoring ${vouchers.length} vouchers...`);
         const vouchersToInsert = vouchers.map((v: any) => ({
-          id: v.id,
-          type: v.type,
-          voucher_num: v.voucherNum,
-          date: v.date,
-          currency: v.currency,
-          roe: v.roe,
-          total_amount_pkr: v.totalAmountPKR,
-          description: v.description,
-          status: v.status,
-          reference: v.reference,
-          customer_id: v.customerId || null,
-          vendor_id: v.vendorId || null,
-          details: v.details
+          id: v.id || v.ID,
+          type: v.type || v.Type,
+          voucher_num: v.voucherNum !== undefined ? v.voucherNum : (v.voucher_num !== undefined ? v.voucher_num : v.VoucherNum),
+          date: v.date || v.Date,
+          currency: v.currency || v.Currency,
+          roe: v.roe !== undefined ? v.roe : v.ROE,
+          total_amount_pkr: v.totalAmountPKR !== undefined ? v.totalAmountPKR : (v.total_amount_pkr !== undefined ? v.total_amount_pkr : v.TotalAmountPKR),
+          description: v.description !== undefined ? v.description : v.Description,
+          status: v.status || v.Status,
+          reference: v.reference !== undefined ? v.reference : v.Reference,
+          customer_id: v.customerId || v.customer_id || v.CustomerID || null,
+          vendor_id: v.vendorId || v.vendor_id || v.VendorID || null,
+          details: v.details || v.Details
         }));
         
         const { error: vchErr } = await supabase.from('vouchers').insert(vouchersToInsert);
@@ -382,19 +440,23 @@
       const allLedgerEntries: any[] = [];
       if (accounts) {
         accounts.forEach((a: any) => {
-          if (a.ledger && a.ledger.length > 0) {
-            a.ledger.forEach((l: any) => {
-              allLedgerEntries.push({
-                id: l.id,
-                account_id: a.id,
-                date: l.date,
-                voucher_id: (l.voucherId && l.voucherId !== '') ? l.voucherId : null,
-                voucher_num: l.voucherNum || null,
-                description: l.description,
-                debit: l.debit || 0,
-                credit: l.credit || 0,
-                balance_after: l.balanceAfter || 0
-              });
+          const ledgerList = a.ledger || a.Ledger;
+          if (ledgerList && ledgerList.length > 0) {
+            ledgerList.forEach((l: any) => {
+              const entry: any = {
+                account_id: a.id || a.ID,
+                date: l.date || l.Date,
+                voucher_id: (l.voucherId || l.voucher_id || l.VoucherID) ? (l.voucherId || l.voucher_id || l.VoucherID) : null,
+                voucher_num: l.voucherNum !== undefined ? l.voucherNum : (l.voucher_num !== undefined ? l.voucher_num : l.VoucherNum),
+                description: l.description !== undefined ? l.description : l.Description,
+                debit: l.debit !== undefined ? l.debit : (l.Debit || 0),
+                credit: l.credit !== undefined ? l.credit : (l.Credit || 0),
+                balance_after: l.balanceAfter !== undefined ? l.balanceAfter : (l.balance_after !== undefined ? l.balance_after : (l.BalanceAfter || 0))
+              };
+              if (l.id || l.ID) {
+                entry.id = l.id || l.ID;
+              }
+              allLedgerEntries.push(entry);
             });
           }
         });
