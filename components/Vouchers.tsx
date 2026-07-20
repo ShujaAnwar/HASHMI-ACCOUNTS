@@ -70,6 +70,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [allVouchers, setAllVouchers] = useState<Voucher[]>([]);
   const [selectedVoucherIds, setSelectedVoucherIds] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const voucherRef = useRef<HTMLDivElement>(null);
   
@@ -178,14 +179,6 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     }
   };
 
-  const filteredVouchers = useMemo(() => {
-    return allVouchers.filter(v => v.type === activeType);
-  }, [allVouchers, activeType]);
-
-  const totalAmountFiltered = useMemo(() => {
-    return filteredVouchers.reduce((sum, v) => sum + (v.totalAmountPKR || 0), 0);
-  }, [filteredVouchers]);
-
   const getDetailedNarrative = (v: Voucher) => {
     if (!v.details) return v.description;
     
@@ -236,6 +229,48 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         return v.description;
     }
   };
+
+  const filteredVouchers = useMemo(() => {
+    let list = allVouchers.filter(v => v.type === activeType);
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase().trim();
+      list = list.filter(v => {
+        if (v.voucherNum?.toLowerCase().includes(term)) return true;
+        if (v.reference?.toLowerCase().includes(term)) return true;
+        if (v.description?.toLowerCase().includes(term)) return true;
+        
+        const narrative = getDetailedNarrative(v);
+        if (narrative?.toLowerCase().includes(term)) return true;
+
+        const customerName = accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || '';
+        if (customerName.toLowerCase().includes(term)) return true;
+
+        const bankName = accounts.find(a => a.id === v.details?.bankId)?.name || '';
+        if (bankName.toLowerCase().includes(term)) return true;
+
+        if (v.details) {
+          if (v.details.paxName?.toLowerCase().includes(term)) return true;
+          if (v.details.hotelName?.toLowerCase().includes(term)) return true;
+          if (v.details.city?.toLowerCase().includes(term)) return true;
+          if (Array.isArray(v.details.items)) {
+            for (const item of v.details.items) {
+              if (item.hotelName?.toLowerCase().includes(term)) return true;
+              if (item.paxName?.toLowerCase().includes(term)) return true;
+              if (item.passportNumber?.toLowerCase().includes(term)) return true;
+              if (item.sector?.toLowerCase().includes(term)) return true;
+              if (item.vehicle?.toLowerCase().includes(term)) return true;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    return list;
+  }, [allVouchers, activeType, searchTerm, accounts]);
+
+  const totalAmountFiltered = useMemo(() => {
+    return filteredVouchers.reduce((sum, v) => sum + (v.totalAmountPKR || 0), 0);
+  }, [filteredVouchers]);
 
   const getVoucherFileName = (v: Voucher): string => {
     let rawPaxName = '';
@@ -2390,6 +2425,30 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           >
             {isSaving ? 'Saving...' : '+ New Voucher'}
           </button>
+        </div>
+      </div>
+
+      {/* Search Input Bar */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] md:rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center gap-4 no-print">
+        <div className="relative w-full">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder="Search Vouchers by Number, Pax Name, Hotel, Sector, Account, or Reference..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl pl-11 pr-10 py-3.5 text-xs font-bold text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all uppercase"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
