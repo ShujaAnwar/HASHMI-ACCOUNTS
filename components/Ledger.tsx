@@ -45,6 +45,7 @@ import DateInput from './DateInput';
     };
     const [isExporting, setIsExporting] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
+    const [sendPaymentReminder, setSendPaymentReminder] = useState(true);
     
     const [viewCurrency, setViewCurrency] = useState<Currency>(Currency.PKR);
     const [fromDate, setFromDate] = useState<string>('');
@@ -501,9 +502,11 @@ import DateInput from './DateInput';
         const file = new File([blob], fileName, { type: 'application/pdf' });
 
         const finalBalance = ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance;
-        const displayBalance = `${formatCurrency(getConvertedVal(finalBalance))} ${finalBalance >= 0 ? 'DR' : 'CR'}`;
+        const displayBalance = `${formatCurrency(getConvertedVal(Math.abs(finalBalance)))} ${finalBalance >= 0 ? 'DR' : 'CR'}`;
         const currencyPrefix = viewCurrency === Currency.PKR ? 'Rs:' : 'SAR:';
-        const customMessage = `Assalam o alaikum - Balance amount is ${currencyPrefix} ${displayBalance} please make the payment as soon as possible. JAZAKALLAH KHAIR.`;
+        const customMessage = sendPaymentReminder
+          ? `Assalam o alaikum - Now Balance amount is ${currencyPrefix} *${displayBalance}* please make the payment as soon as possible. JAZAKALLAH KHAIR.`
+          : `Assalam o alaikum -Now Balance amount is ${currencyPrefix} *${displayBalance}*  JAZAKALLAH KHAIR.`;
 
         let sharedSuccessfully = false;
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -953,13 +956,15 @@ import DateInput from './DateInput';
                   <button onClick={() => setViewCurrency(Currency.PKR)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${viewCurrency === Currency.PKR ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500'}`}>PKR</button>
                   <button onClick={() => setViewCurrency(Currency.SAR)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${viewCurrency === Currency.SAR ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500'}`}>SAR</button>
                 </div>
-                <button 
-                  onClick={handleRecalculate}
-                  className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95"
-                  title="Sync & Recalculate Balances"
-                >
-                  Sync DB
-                </button>
+                <label className="flex items-center space-x-1.5 bg-slate-50 dark:bg-slate-800/60 p-1.5 px-2.5 rounded-lg border border-slate-100 dark:border-slate-800 text-[8px] font-black uppercase text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all select-none no-print">
+                  <input 
+                    type="checkbox" 
+                    checked={sendPaymentReminder}
+                    onChange={(e) => setSendPaymentReminder(e.target.checked)}
+                    className="w-3 h-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm cursor-pointer"
+                  />
+                  <span>Payment Request Msg</span>
+                </label>
                 <button 
                   onClick={handleDownloadPDF} 
                   disabled={isExporting}
