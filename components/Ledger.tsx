@@ -500,11 +500,16 @@ import DateInput from './DateInput';
         const blob = await html2pdf().set(opt).from(element).output('blob');
         const file = new File([blob], fileName, { type: 'application/pdf' });
 
+        const finalBalance = ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance;
+        const displayBalance = `${formatCurrency(getConvertedVal(finalBalance))} ${finalBalance >= 0 ? 'DR' : 'CR'}`;
+        const currencyPrefix = viewCurrency === Currency.PKR ? 'Rs:' : 'SAR:';
+        const customMessage = `Assalam o alaikum - Balance amount is ${currencyPrefix} ${displayBalance} please make the payment as soon as possible. JAZAKALLAH KHAIR.`;
+
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
             title: fileName,
-            text: `Please find the attached Ledger for ${selectedAccount.name}.`,
+            text: customMessage,
           });
         } else {
           // Fallback for desktop or unsupported browsers
@@ -513,7 +518,7 @@ import DateInput from './DateInput';
           await html2pdf().set(opt).from(element).save();
           
           // Then open WhatsApp
-          const message = encodeURIComponent(`I've sent you the Ledger for ${selectedAccount.name}. Please check your downloads and attach the file.`);
+          const message = encodeURIComponent(customMessage);
           const whatsappUrl = /Android|iPhone|iPad/i.test(navigator.userAgent) 
             ? `whatsapp://send?text=${message}`
             : `https://web.whatsapp.com/send?text=${message}`;
