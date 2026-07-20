@@ -422,14 +422,22 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       const blob = await html2pdf().set(opt).from(element).output('blob');
       const file = new File([blob], fileName, { type: 'application/pdf' });
 
+      let sharedSuccessfully = false;
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: fileName,
-          text: `Please find the attached document: ${fileName}`,
-        });
-      } else {
-        // Fallback for desktop or unsupported browsers
+        try {
+          await navigator.share({
+            files: [file],
+            title: fileName,
+            text: `Please find the attached document: ${fileName}`,
+          });
+          sharedSuccessfully = true;
+        } catch (shareErr) {
+          console.warn("Navigator share failed, falling back:", shareErr);
+        }
+      }
+
+      if (!sharedSuccessfully) {
+        // Fallback for desktop, unsupported browsers, or when direct sharing fails
         // Download the file
         // @ts-ignore
         await html2pdf().set(opt).from(element).save();

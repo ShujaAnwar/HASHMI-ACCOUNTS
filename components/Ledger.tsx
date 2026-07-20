@@ -505,14 +505,22 @@ import DateInput from './DateInput';
         const currencyPrefix = viewCurrency === Currency.PKR ? 'Rs:' : 'SAR:';
         const customMessage = `Assalam o alaikum - Balance amount is ${currencyPrefix} ${displayBalance} please make the payment as soon as possible. JAZAKALLAH KHAIR.`;
 
+        let sharedSuccessfully = false;
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: fileName,
-            text: customMessage,
-          });
-        } else {
-          // Fallback for desktop or unsupported browsers
+          try {
+            await navigator.share({
+              files: [file],
+              title: fileName,
+              text: customMessage,
+            });
+            sharedSuccessfully = true;
+          } catch (shareErr) {
+            console.warn("Navigator share failed, falling back:", shareErr);
+          }
+        }
+
+        if (!sharedSuccessfully) {
+          // Fallback for desktop, unsupported browsers, or when direct sharing fails
           // Download the file
           // @ts-ignore
           await html2pdf().set(opt).from(element).save();
