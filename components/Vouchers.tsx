@@ -604,15 +604,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 </tr>
               ) : v.type === VoucherType.TRANSPORT ? (
                 <tr>
-                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Pax Name</th>
-                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Sector / Route</th>
-                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Vehicle</th>
-                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Vehicles</th>
-                  <th className={`py-1.5 ${isFinancial ? 'border-r border-slate-400' : ''} font-bold uppercase`}>Status</th>
+                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase w-[15%]">Pax Name</th>
+                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase w-[30%]">Sector / Route</th>
+                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase w-[15%]">Vehicle</th>
+                  <th className="py-1.5 border-r border-slate-400 font-bold uppercase w-[8%]">Vehicles</th>
+                  <th className={`py-1.5 ${isFinancial ? 'border-r border-slate-400' : ''} font-bold uppercase w-[16%]`}>Status</th>
                   {isFinancial && (
                     <>
-                      <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
-                      <th className="py-1.5 font-bold uppercase">Amount(PKR)</th>
+                      <th className="py-1.5 border-r border-slate-400 font-bold uppercase w-[8%]">Rate ({v.currency})</th>
+                      <th className="py-1.5 font-bold uppercase w-[8%]">Amount(PKR)</th>
                     </>
                   )}
                 </tr>
@@ -798,7 +798,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               )}
               {isFinancial && (
                 <tr className="bg-slate-50 border-t border-slate-300 font-bold">
-                  <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT || v.type === VoucherType.VISA ? 3 : (v.type === VoucherType.TRANSPORT ? 5 : 6)} className="py-2 text-right px-8 uppercase text-[9px]">Total:</td>
+                  <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT ? 3 : (v.type === VoucherType.VISA ? 4 : 6)} className="py-2 text-right px-8 uppercase text-[9px]">Total:</td>
                   <td className="py-2 px-2">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                 </tr>
               )}
@@ -2339,13 +2339,34 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             </div>
             <div className="flex justify-between items-start mb-3 ml-8">
               <div className="flex-1">
-                <span className={`text-[8px] font-black px-2 py-0.5 rounded-lg uppercase tracking-widest ${
-                  isCancelled 
-                    ? 'bg-red-100 text-red-600' 
-                    : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30'
-                }`}>
-                  {v.voucherNum} {isCancelled && " - CANCELLED"}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className={`text-[8px] font-black px-2 py-0.5 rounded-lg uppercase tracking-widest ${
+                    isCancelled 
+                      ? 'bg-red-100 text-red-600' 
+                      : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30'
+                  }`}>
+                    {v.voucherNum} {isCancelled && " - CANCELLED"}
+                  </span>
+                  {v.type === VoucherType.TRANSPORT ? (
+                    v.details?.transportBooked ? (
+                      <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100/40">
+                        ✅ Confirmed ({accounts.find(a => a.id === v.details?.ksaVendorId)?.name || 'Vendor'})
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-100/40 animate-pulse">
+                        ⚠️ Not Confirmed
+                      </span>
+                    )
+                  ) : (
+                    <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider ${
+                      isCancelled 
+                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-100/40' 
+                        : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100/40'
+                    }`}>
+                      {isCancelled ? 'Void' : 'Active'}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{formatDate(v.date)}</p>
               </div>
               <div className="text-right">
@@ -2525,6 +2546,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <th className="px-5 py-5 border-b dark:border-slate-800">Date / Number</th>
                 <th className="px-5 py-5 border-b dark:border-slate-800">Particulars</th>
                 <th className="px-5 py-5 border-b dark:border-slate-800">Narrative</th>
+                <th className="px-5 py-5 border-b dark:border-slate-800">Status</th>
                 <th className="px-5 py-5 border-b dark:border-slate-800 text-right">Aggregate (PKR)</th>
                 <th className="px-5 py-5 border-b dark:border-slate-800 text-center">Command</th>
               </tr>
@@ -2598,6 +2620,27 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     </td>
                     <td className="px-5 py-6 max-w-xs truncate">
                       <p className={`text-[11px] font-medium italic ${isCancelled ? 'line-through text-slate-400' : 'text-slate-500'}`} title={getDetailedNarrative(v)}>{getDetailedNarrative(v)}</p>
+                    </td>
+                    <td className="px-5 py-6">
+                      {v.type === VoucherType.TRANSPORT ? (
+                        v.details?.transportBooked ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100/40">
+                            ✅ Confirmed by {accounts.find(a => a.id === v.details?.ksaVendorId)?.name || 'Confirmed Vendor'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-100/40 animate-pulse">
+                            ⚠️ Not Confirmed
+                          </span>
+                        )
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider ${
+                          isCancelled 
+                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-100/40' 
+                            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100/40'
+                        }`}>
+                          {isCancelled ? '🚫 Void' : '✅ Active'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-6 text-right">
                       <p className={`font-black text-base leading-none ${isCancelled ? 'text-red-500/80 line-through' : 'text-slate-900 dark:text-white'}`}>{v.totalAmountPKR.toLocaleString()}</p>
