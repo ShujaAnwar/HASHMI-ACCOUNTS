@@ -608,6 +608,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Sector / Route</th>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Vehicle</th>
                   <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Vehicles</th>
+                  <th className={`py-1.5 ${isFinancial ? 'border-r border-slate-400' : ''} font-bold uppercase`}>Status</th>
                   {isFinancial && (
                     <>
                       <th className="py-1.5 border-r border-slate-400 font-bold uppercase">Rate ({v.currency})</th>
@@ -721,6 +722,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     <td className="py-2 px-2 border-r border-slate-300 font-bold">
                       {item.numVehicles || 1}
                     </td>
+                    <td className={`py-2 px-2 uppercase ${isFinancial ? 'border-r border-slate-300' : ''}`}>
+                      {v.details?.transportBooked ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-extrabold uppercase text-[8px] tracking-wide">
+                          ✅ Confirmed by: {accounts.find(a => a.id === v.details?.ksaVendorId)?.name || 'Confirmed Vendor'}
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 font-extrabold uppercase text-[8px] tracking-wide animate-pulse">
+                          ⚠️ Not Confirmed
+                        </span>
+                      )}
+                    </td>
                     {isFinancial && (
                       <>
                         <td className="py-2 px-2 border-r border-slate-300 font-bold">
@@ -786,7 +798,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               )}
               {isFinancial && (
                 <tr className="bg-slate-50 border-t border-slate-300 font-bold">
-                  <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT || v.type === VoucherType.VISA ? 3 : (v.type === VoucherType.TRANSPORT ? 4 : 6)} className="py-2 text-right px-8 uppercase text-[9px]">Total:</td>
+                  <td colSpan={v.type === VoucherType.RECEIPT || v.type === VoucherType.PAYMENT || v.type === VoucherType.VISA ? 3 : (v.type === VoucherType.TRANSPORT ? 5 : 6)} className="py-2 text-right px-8 uppercase text-[9px]">Total:</td>
                   <td className="py-2 px-2">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                 </tr>
               )}
@@ -1401,7 +1413,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <tr className="text-[8px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
                 <th className="py-1.5 px-3 text-left border-r border-slate-700 w-12">#</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">SECTOR / ROUTE</th>
-                <th className={`py-1.5 px-3 text-left ${showBookingAmounts ? 'border-r border-slate-700' : ''}`}>VEHICLE TYPE</th>
+                <th className="py-1.5 px-3 text-left border-r border-slate-700">VEHICLE TYPE</th>
+                <th className={`py-1.5 px-3 text-left ${showBookingAmounts ? 'border-r border-slate-700' : ''}`}>STATUS</th>
                 {showBookingAmounts && (
                   <>
                     <th className="py-1.5 px-3 text-right border-r border-slate-700">RATE ({v.currency})</th>
@@ -1435,7 +1448,18 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                       </div>
                     )}
                   </td>
-                  <td className={`py-1.5 px-3 uppercase ${showBookingAmounts ? 'border-r border-slate-200' : ''}`}>{item.vehicle}</td>
+                  <td className="py-1.5 px-3 uppercase border-r border-slate-200">{item.vehicle}</td>
+                  <td className={`py-1.5 px-3 uppercase ${showBookingAmounts ? 'border-r border-slate-200' : ''}`}>
+                    {v.details?.transportBooked ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-extrabold uppercase text-[9px] tracking-wide">
+                        ✅ Confirmed by: {accounts.find(a => a.id === v.details?.ksaVendorId)?.name || 'Confirmed Vendor'}
+                      </span>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400 font-extrabold uppercase text-[9px] tracking-wide animate-pulse">
+                        ⚠️ Not Confirmed
+                      </span>
+                    )}
+                  </td>
                   {showBookingAmounts && (
                     <>
                       <td className="py-1.5 px-3 border-r border-slate-200 text-right">{Number(item.rate).toLocaleString()}</td>
@@ -1450,7 +1474,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             {showBookingAmounts && (
               <tfoot>
                 <tr className="bg-slate-50 font-black text-[11px]">
-                  <td colSpan={4} className="py-2 px-3 text-right uppercase tracking-widest">Grand Total:</td>
+                  <td colSpan={5} className="py-2 px-3 text-right uppercase tracking-widest">Grand Total:</td>
                   <td className="py-2 px-3 text-right text-blue-600">
                     PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </td>

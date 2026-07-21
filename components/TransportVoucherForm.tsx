@@ -82,7 +82,9 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
     departureDate: initialData?.details?.departureDate || '',
     arrivalDate: initialData?.details?.arrivalDate || '',
     departureTime: initialData?.details?.departureTime || '',
-    arrivalTime: initialData?.details?.arrivalTime || ''
+    arrivalTime: initialData?.details?.arrivalTime || '',
+    transportBooked: initialData?.details?.transportBooked || false,
+    ksaVendorId: initialData?.details?.ksaVendorId || ''
   });
 
   const incomeAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.REVENUE), [accounts]);
@@ -276,7 +278,9 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
         departureDate: formData.departureDate,
         arrivalDate: formData.arrivalDate,
         departureTime: formData.departureTime,
-        arrivalTime: formData.arrivalTime
+        arrivalTime: formData.arrivalTime,
+        transportBooked: formData.transportBooked,
+        ksaVendorId: formData.ksaVendorId
       }
     });
   };
@@ -444,6 +448,36 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
                   onChange={e => setFormData({...formData, arrivalTime: e.target.value})} 
                 />
               </div>
+            </div>
+
+            {/* Booking Confirmation Row */}
+            <div className="pt-4 border-t border-indigo-100/30 dark:border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              <label className="flex items-center space-x-3 bg-white dark:bg-slate-900/60 p-3.5 px-4 rounded-xl border border-indigo-100/50 dark:border-slate-800 text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all select-none">
+                <input 
+                  type="checkbox" 
+                  checked={formData.transportBooked}
+                  onChange={(e) => setFormData({...formData, transportBooked: e.target.checked, ksaVendorId: e.target.checked ? formData.ksaVendorId : ''})}
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 shadow-sm cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Booking Confirmed with Vendor</span>
+              </label>
+
+              {formData.transportBooked && (
+                <div className="animate-in fade-in duration-200">
+                  <InputLabel>Confirmed Vendor</InputLabel>
+                  <select 
+                    required={formData.transportBooked}
+                    className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all" 
+                    value={formData.ksaVendorId} 
+                    onChange={e => setFormData({...formData, ksaVendorId: e.target.value})}
+                  >
+                    <option value="">Select Confirmed Vendor...</option>
+                    {accounts.filter(a => a.type === AccountType.VENDOR).map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 

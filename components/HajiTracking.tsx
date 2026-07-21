@@ -797,7 +797,36 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
 
         primaryActionMovement = unresolvedFromPastOrPresent[0];
 
-        if (primaryActionMovement) {
+        // Check if there is an unconfirmed transport booking within 3 days of travel (or in past)
+        const unconfirmedTransportM = !isCompleted ? timeline.find(m => {
+          if (m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT) {
+            if (!m.rawVoucher.details?.transportBooked) {
+              const travelDate = new Date(m.date);
+              travelDate.setHours(0,0,0,0);
+              const tDate = new Date(today);
+              tDate.setHours(0,0,0,0);
+              const daysToTravel = Math.ceil((travelDate.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (daysToTravel <= 3) {
+                // Check if resolved
+                const actionKey = "transport_booking_is_not_yet_confirmed_with_the_ksa_vendor";
+                const fullActionKey = `${actionKey}_${m.id || 'today'}`;
+                const isRes = resolutions.some(r => 
+                  r.hajiId === (hajiId || paxName) && 
+                  r.actionKey === fullActionKey &&
+                  r.voucherId === m.rawVoucher.id
+                );
+                return !isRes;
+              }
+            }
+          }
+          return false;
+        }) : undefined;
+
+        if (unconfirmedTransportM) {
+          primaryActionMovement = unconfirmedTransportM;
+          actionRequired = "Transport booking is not yet confirmed with the KSA vendor.";
+          alertLevel = 'RED';
+        } else if (primaryActionMovement) {
           actionRequired = primaryActionMovement.actionRequired;
           const mDate = new Date(primaryActionMovement.date);
           if (mDate < today) {
@@ -1358,6 +1387,30 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                             <span>🛂</span> {haji.visaAlertText}
                           </div>
                         )}
+
+                        {/* Transport Booking Status Badge/Indicator */}
+                        {haji.timeline.some(m => m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT) && (
+                          <div className="mt-2.5 flex flex-col gap-1.5">
+                            {haji.timeline.filter(m => m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT).map(m => {
+                              const isBooked = m.rawVoucher?.details?.transportBooked;
+                              const vendorName = accounts.find(a => a.id === m.rawVoucher.details?.ksaVendorId)?.name || 'KSA Vendor';
+                              return (
+                                <div key={m.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm w-fit ${
+                                  isBooked 
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100/40' 
+                                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-100/40 animate-pulse'
+                                }`}>
+                                  <span>{isBooked ? '✅' : '⚠️'}</span>
+                                  <span>
+                                    {isBooked 
+                                      ? `Transport Booking Confirmed – Booked with ${vendorName}.` 
+                                      : 'Transport Recorded Only – Booking not yet confirmed with any KSA vendor.'}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1662,6 +1715,22 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                           </div>
                           <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase leading-tight mb-1">{m.location}</p>
                           <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase">{m.details}</p>
+
+                          {m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT && (
+                            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px] space-y-1">
+                              {m.rawVoucher?.details?.transportBooked ? (
+                                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-extrabold uppercase tracking-wider text-[9px]">
+                                  <span>✅</span>
+                                  <span>Transport Booking Confirmed – Booked with <span className="font-bold underline">{accounts.find(a => a.id === m.rawVoucher.details.ksaVendorId)?.name || 'Confirmed Vendor'}</span>.</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-extrabold uppercase tracking-wider text-[9px]">
+                                  <span>⚠️</span>
+                                  <span>Transport Recorded Only – Booking not yet confirmed with any KSA vendor.</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
