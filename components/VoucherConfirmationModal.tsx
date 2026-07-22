@@ -336,7 +336,7 @@ export const VoucherConfirmationModal: React.FC<VoucherConfirmationModalProps> =
             <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
               <h3 className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
                 <span>Visa Processing Details</span>
-                {voucherData.details?.sentToEmbassy ? (
+                {(voucherData.details?.sentToEmbassy || voucherData.details?.sendToEmbassy) ? (
                   <span className="px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border border-emerald-300">
                     ✅ Sent to Embassy
                   </span>
@@ -354,30 +354,50 @@ export const VoucherConfirmationModal: React.FC<VoucherConfirmationModalProps> =
                 </div>
                 <div>
                   <p className="text-[9px] font-bold text-slate-400 uppercase">Visa Quantity</p>
-                  <p className="font-bold text-slate-900 dark:text-white font-orbitron">{voucherData.details?.quantity || 1} Pax</p>
+                  <p className="font-bold text-slate-900 dark:text-white font-orbitron">
+                    {items.length > 0 ? items.reduce((sum: number, it: any) => sum + Number(it.quantity || 1), 0) : (voucherData.details?.quantity || 1)} Pax
+                  </p>
                 </div>
                 <div>
                   <p className="text-[9px] font-bold text-slate-400 uppercase">Visa Rate per Pax</p>
                   <p className="font-bold text-amber-600 dark:text-amber-400 font-orbitron">
-                    {currency} {Number(voucherData.details?.unitRate || voucherData.details?.rate || 0).toLocaleString()}
+                    {currency} {Number(
+                      items.length > 0
+                        ? Math.max(0, ...items.map((it: any) => Number(it.rate || it.unitRate || 0)))
+                        : (voucherData.details?.unitRate || voucherData.details?.rate || (originalTotal / (voucherData.details?.quantity || 1)))
+                    ).toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-[9px] font-bold text-slate-400 uppercase">Travel Date</p>
-                  <p className="font-bold text-slate-900 dark:text-white">{formatDate(voucherData.details?.travelDate)}</p>
+                  <p className="font-bold text-slate-900 dark:text-white">{formatDate(voucherData.details?.travelDate || items[0]?.checkInDate || voucherData.date)}</p>
                 </div>
               </div>
 
-              {(voucherData.details?.paxName || voucherData.details?.passports) && (
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-1 text-xs">
+              {(items.length > 0 || voucherData.details?.paxName || voucherData.details?.passports) && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Passenger & Passport Numbers</p>
-                  <p className="font-bold text-slate-800 dark:text-slate-200">
-                    {voucherData.details?.paxName ? `Pax Name: ${voucherData.details.paxName}` : ''}
-                  </p>
-                  {voucherData.details?.passports && (
-                    <p className="font-mono text-slate-600 dark:text-slate-400 text-[11px] whitespace-pre-wrap">
-                      {voucherData.details.passports}
-                    </p>
+                  {items.length > 0 ? (
+                    <div className="space-y-1">
+                      {items.map((it: any, i: number) => (
+                        <div key={i} className="flex justify-between font-mono text-[11px] border-b border-slate-200/50 dark:border-slate-700/50 pb-1">
+                          <span>{i + 1}. {it.paxName || 'Pax'}</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-300">Passport: {it.passportNumber || 'N/A'}</span>
+                          <span>{it.quantity} Pax @ {it.rate} {currency}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="font-bold text-slate-800 dark:text-slate-200">
+                        {voucherData.details?.paxName ? `Pax Name: ${voucherData.details.paxName}` : ''}
+                      </p>
+                      {voucherData.details?.passports && (
+                        <p className="font-mono text-slate-600 dark:text-slate-400 text-[11px] whitespace-pre-wrap">
+                          {voucherData.details.passports}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               )}

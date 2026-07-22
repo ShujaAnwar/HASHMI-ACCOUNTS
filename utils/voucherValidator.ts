@@ -188,8 +188,28 @@ export function validateVoucher(data: Partial<Voucher>, accounts: Account[]): Va
   // 4. VISA VOUCHER SPECIFIC CHECKS
   // -------------------------------------------------------------
   if (data.type === VoucherType.VISA) {
-    const visaQuantity = Number(data.details?.quantity || 1);
-    const visaRate = Number(data.details?.unitRate || data.details?.rate || 0);
+    const items = data.details?.items || [];
+    let visaQuantity = Number(data.details?.quantity || 0);
+    let visaRate = Number(data.details?.unitRate || data.details?.rate || 0);
+
+    if (items.length > 0) {
+      if (!visaQuantity || visaQuantity <= 0) {
+        visaQuantity = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 1), 0);
+      }
+      if (!visaRate || visaRate <= 0) {
+        const itemRates = items.map((it: any) => Number(it.rate || it.unitRate || 0)).filter((r: number) => r > 0);
+        if (itemRates.length > 0) {
+          visaRate = Math.max(...itemRates);
+        }
+      }
+    }
+
+    // Fallback if visaRate is still 0 but totalPKR > 0
+    if (visaRate <= 0 && totalPKR > 0) {
+      const effectiveQty = visaQuantity > 0 ? visaQuantity : 1;
+      const effectiveRoe = roe > 0 ? roe : 1;
+      visaRate = (totalPKR / effectiveRoe) / effectiveQty;
+    }
 
     if (visaQuantity <= 0) {
       errors.push('Visa Quantity must be at least 1.');
@@ -200,10 +220,10 @@ export function validateVoucher(data: Partial<Voucher>, accounts: Account[]): Va
     if (visaRate <= 0) {
       errors.push('Visa Rate per Pax must be greater than 0.');
     } else {
-      validations.push(`Visa Rate: ${visaRate} ${currency}`);
+      validations.push(`Visa Rate: ${visaRate.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`);
     }
 
-    const sentToEmbassy = Boolean(data.details?.sentToEmbassy);
+    const sentToEmbassy = Boolean(data.details?.sentToEmbassy || data.details?.sendToEmbassy);
     if (!sentToEmbassy) {
       warnings.push('Visa Status: ⚠️ Not Sent to Embassy yet.');
     } else {
@@ -211,7 +231,7 @@ export function validateVoucher(data: Partial<Voucher>, accounts: Account[]): Va
     }
 
     // Passport duplicate check
-    const passportsStr = data.details?.passports || data.details?.passportNumber || '';
+    const passportsStr = items.map((it: any) => it.passportNumber).filter(Boolean).join(',') || data.details?.passports || data.details?.passportNumber || '';
     if (passportsStr) {
       const pList = passportsStr.split(/[\n,;]+/).map((s: string) => s.trim().toUpperCase()).filter(Boolean);
       const uniquePs = new Set(pList);
