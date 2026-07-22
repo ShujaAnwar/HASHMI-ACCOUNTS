@@ -30,6 +30,7 @@ import HotelVoucherForm from './HotelVoucherForm';
 import TicketVoucherForm from './TicketVoucherForm';
 import AllInOneVoucherForm from './AllInOneVoucherForm';
 import { PackageVoucherForm } from './PackageVoucherForm';
+import { VoucherConfirmationModal } from './VoucherConfirmationModal';
 
 const amountToWords = (num: number): string => {
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
@@ -62,6 +63,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const [inspectorView, setInspectorView] = useState<'OFFICIAL' | 'PKR' | 'SAR' | 'SERVICE'>('OFFICIAL');
   const [showBookingAmounts, setShowBookingAmounts] = useState<boolean>(false);
   const [voucherToEdit, setVoucherToEdit] = useState<Voucher | null>(null);
+  const [pendingVoucherToConfirm, setPendingVoucherToConfirm] = useState<Partial<Voucher> | null>(null);
   const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -160,14 +162,21 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     }
   };
 
-  const handleSave = async (data: any) => {
+  const handleSave = (data: any) => {
+    // Intercept form submission to open Confirmation Summary Dialog with Smart Validation
+    setPendingVoucherToConfirm(data);
+  };
+
+  const handleConfirmAndSave = async () => {
+    if (!pendingVoucherToConfirm) return;
     setIsSaving(true);
     try {
       if (formMode === 'EDIT' && voucherToEdit) {
-        await AccountingService.updateVoucher(voucherToEdit.id, data);
+        await AccountingService.updateVoucher(voucherToEdit.id, pendingVoucherToConfirm);
       } else {
-        await AccountingService.postVoucher(data);
+        await AccountingService.postVoucher(pendingVoucherToConfirm);
       }
+      setPendingVoucherToConfirm(null);
       setShowForm(false);
       setVoucherToEdit(null);
       setLocalRefreshKey(prev => prev + 1);
@@ -177,6 +186,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleEditPendingVoucher = () => {
+    // Close confirmation dialog while keeping voucher form open with all entered data intact
+    setPendingVoucherToConfirm(null);
+  };
+
+  const handleCancelPendingVoucher = () => {
+    setPendingVoucherToConfirm(null);
   };
 
   const getDetailedNarrative = (v: Voucher) => {
@@ -2738,6 +2756,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       )}
 
       {showForm && renderVoucherForm()}
+
+      {pendingVoucherToConfirm && (
+        <VoucherConfirmationModal
+          voucherData={pendingVoucherToConfirm}
+          accounts={accounts}
+          onConfirm={handleConfirmAndSave}
+          onEdit={handleEditPendingVoucher}
+          onCancel={handleCancelPendingVoucher}
+          isSaving={isSaving}
+        />
+      )}
     </div>
   );
 };
