@@ -575,8 +575,8 @@ import DateInput from './DateInput';
         const displayBalance = `${formatCurrency(getConvertedVal(Math.abs(finalBalance)))} ${finalBalance >= 0 ? 'DR' : 'CR'}`;
         const currencyPrefix = viewCurrency === Currency.PKR ? 'Rs:' : 'SAR:';
         const customMessage = sendPaymentReminder
-          ? `Assalam o alaikum - Now Balance amount is ${currencyPrefix} *${displayBalance}* please make the payment as soon as possible. JAZAKALLAH KHAIR.`
-          : `Assalam o alaikum -Now Balance amount is ${currencyPrefix} *${displayBalance}*  JAZAKALLAH KHAIR.`;
+          ? `Assalam o alaikum - Your Balance amount is ${currencyPrefix} *${displayBalance}* please make the payment as soon as possible. JAZAKALLAH KHAIR.`
+          : `Assalam o alaikum - Your Balance amount is ${currencyPrefix} *${displayBalance}*  JAZAKALLAH KHAIR.`;
 
         let sharedSuccessfully = false;
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {

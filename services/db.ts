@@ -73,7 +73,7 @@
 
       const { data, error } = accountsRes;
       if (error) {
-        console.error("Error fetching accounts:", error);
+        console.warn("Unable to fetch accounts:", error.message || error);
         return [];
       }
 
@@ -134,7 +134,7 @@
         .order('created_at', { ascending: false }));
       
       if (error) {
-        console.error("Error fetching vouchers:", error);
+        console.warn("Unable to fetch vouchers:", error.message || error);
         return [];
       }
       return ((data as any) || []).map(mapVoucher);
