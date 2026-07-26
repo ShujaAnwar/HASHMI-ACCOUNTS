@@ -1050,50 +1050,25 @@ import DateInput from './DateInput';
                 </div>
               </div>
 
-              {/* Wildcard Search in Ledger */}
-              <div className="relative flex-1 max-w-md">
+              {/* Expanded Wildcard Search in Ledger */}
+              <div className="relative flex-1 min-w-[260px] max-w-2xl">
                 <input 
                   type="text" 
-                  placeholder="Wildcard Search (Voucher #, Pax, Hotel, Narration, Amount, Date)..." 
+                  placeholder="🔍 Wildcard Search (Search Voucher #, Pax, Hotel, Narration, Amount, Date)..." 
                   value={ledgerSearchTerm}
-                  onChange={(e) => setLedgerSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 pl-9 text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+                  onChange={(e) => setLedgerSearchTerm(e.g.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pl-10 pr-9 text-xs md:text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all shadow-inner"
                 />
-                <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                <span className="absolute left-3.5 top-3 text-sm opacity-60">🔍</span>
                 {ledgerSearchTerm && (
                   <button 
                     onClick={() => setLedgerSearchTerm('')}
-                    className="absolute right-3 top-2 text-xs text-slate-400 hover:text-rose-500 transition-colors font-bold"
+                    className="absolute right-3 top-2.5 w-5 h-5 flex items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-rose-500 hover:text-white transition-colors text-xs font-black"
+                    title="Clear search"
                   >
                     ✕
                   </button>
                 )}
-              </div>
-
-              {/* Quick Jump Buttons */}
-              <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border dark:border-slate-700 justify-center">
-                <span className="text-[8px] font-black uppercase text-slate-400 px-1.5 tracking-widest hidden sm:inline">Jump:</span>
-                <button 
-                  onClick={scrollToTop} 
-                  className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 rounded-lg text-[9px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 shadow-sm transition-all"
-                  title="Scroll to Top of Page"
-                >
-                  ⏫ Top
-                </button>
-                <button 
-                  onClick={scrollToMiddle} 
-                  className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 rounded-lg text-[9px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 shadow-sm transition-all"
-                  title="Scroll to Middle of Page"
-                >
-                  ↕️ Mid
-                </button>
-                <button 
-                  onClick={scrollToBottom} 
-                  className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 rounded-lg text-[9px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 shadow-sm transition-all"
-                  title="Scroll to Bottom of Page"
-                >
-                  ⏬ Bot
-                </button>
               </div>
 
               <div className="flex items-center space-x-2 overflow-x-auto pb-1 lg:pb-0">
@@ -1471,37 +1446,43 @@ import DateInput from './DateInput';
               </div>
             </div>
 
-            {/* FLOATING QUICK ACTION TOOLBAR (BOTTOM RIGHT) */}
-            <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 text-white backdrop-blur-md p-2 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center space-x-2 no-print">
+            {/* FLOATING OVERLAY QUICK ACTION TOOLBAR */}
+            <div className="fixed bottom-6 right-6 z-[99] bg-slate-900/95 text-white backdrop-blur-xl p-2 px-3 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center space-x-2.5 no-print animate-in slide-in-from-bottom-5 duration-300">
               <button 
                 onClick={() => { setSelectedAccount(null); setLedgerSearchTerm(''); }} 
-                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-md active:scale-95 transition-all"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-blue-500/30 active:scale-95 transition-all"
                 title="Back to Accounts List"
               >
-                ← Back
+                <span>←</span>
+                <span>Back to Accounts List</span>
               </button>
-              <div className="w-px h-6 bg-slate-700"></div>
-              <button 
-                onClick={scrollToTop} 
-                className="px-2.5 py-1.5 hover:bg-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95" 
-                title="Scroll to Top"
-              >
-                ⏫ Top
-              </button>
-              <button 
-                onClick={scrollToMiddle} 
-                className="px-2.5 py-1.5 hover:bg-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95" 
-                title="Scroll to Middle"
-              >
-                ↕️ Mid
-              </button>
-              <button 
-                onClick={scrollToBottom} 
-                className="px-2.5 py-1.5 hover:bg-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95" 
-                title="Scroll to Bottom"
-              >
-                ⏬ Bot
-              </button>
+              <div className="w-px h-6 bg-slate-700/80"></div>
+              <div className="flex items-center space-x-1">
+                <button 
+                  onClick={scrollToTop} 
+                  className="px-2.5 py-1.5 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1" 
+                  title="Scroll to Top of Page"
+                >
+                  <span>⏫</span>
+                  <span className="hidden sm:inline">Top</span>
+                </button>
+                <button 
+                  onClick={scrollToMiddle} 
+                  className="px-2.5 py-1.5 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1" 
+                  title="Scroll to Middle of Page"
+                >
+                  <span>↕️</span>
+                  <span className="hidden sm:inline">Mid</span>
+                </button>
+                <button 
+                  onClick={scrollToBottom} 
+                  className="px-2.5 py-1.5 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1" 
+                  title="Scroll to Bottom of Page"
+                >
+                  <span>⏬</span>
+                  <span className="hidden sm:inline">Bot</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
