@@ -18,6 +18,7 @@ import DateInput from './DateInput';
 
   const Ledger: React.FC<LedgerProps> = ({ config, refreshKey, type, onEditVoucher, onViewVoucher, initialAccountId, clearInitialAccount }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [ledgerSearchTerm, setLedgerSearchTerm] = useState('');
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [formMode, setFormMode] = useState<'CREATE' | 'EDIT'>('CREATE');
@@ -407,6 +408,75 @@ import DateInput from './DateInput';
       return [openingBalanceRow, ...periodEntries];
     }, [selectedAccount, fromDate, toDate]);
 
+    const scrollToPos = (position: 'top' | 'middle' | 'bottom') => {
+      const mainElem = document.querySelector('main');
+      const targets = [window, mainElem, document.documentElement, document.body].filter(Boolean);
+
+      targets.forEach((target) => {
+        if (!target) return;
+        let scrollHeight = 0;
+        if (target === window) {
+          scrollHeight = Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight,
+            mainElem?.scrollHeight || 0
+          );
+        } else {
+          scrollHeight = (target as HTMLElement).scrollHeight || 0;
+        }
+
+        let targetTop = 0;
+        if (position === 'middle') {
+          targetTop = scrollHeight / 2;
+        } else if (position === 'bottom') {
+          targetTop = scrollHeight;
+        }
+
+        if (typeof target.scrollTo === 'function') {
+          try {
+            target.scrollTo({ top: targetTop, behavior: 'smooth' });
+          } catch (e) {
+            if ('scrollTop' in target) {
+              (target as HTMLElement).scrollTop = targetTop;
+            }
+          }
+        } else if ('scrollTop' in target) {
+          (target as HTMLElement).scrollTop = targetTop;
+        }
+      });
+    };
+
+    const scrollToTop = () => scrollToPos('top');
+    const scrollToMiddle = () => scrollToPos('middle');
+    const scrollToBottom = () => scrollToPos('bottom');
+
+    const filteredLedgerEntries = useMemo(() => {
+      if (!ledgerSearchTerm.trim()) return ledgerWithRunningBalance;
+      const term = ledgerSearchTerm.toLowerCase().trim();
+      return ledgerWithRunningBalance.filter(entry => {
+        const voucher = vouchers.find(v => v.id === entry.voucherId);
+        const displayVNum = (voucher?.voucherNum || entry.voucherNum || '').toLowerCase();
+        const narration = getNarrativeForLedger(entry, voucher).toLowerCase();
+        const origDesc = (entry.description || '').toLowerCase();
+        const dateStr = (entry.date || '').toLowerCase();
+        const formattedD = formatDate(entry.date).toLowerCase();
+        const debitStr = entry.debit ? entry.debit.toString() : '';
+        const creditStr = entry.credit ? entry.credit.toString() : '';
+        const balStr = (entry as any).balanceAfter !== undefined ? (entry as any).balanceAfter.toString() : '';
+
+        return (
+          displayVNum.includes(term) ||
+          narration.includes(term) ||
+          origDesc.includes(term) ||
+          dateStr.includes(term) ||
+          formattedD.includes(term) ||
+          debitStr.includes(term) ||
+          creditStr.includes(term) ||
+          balStr.includes(term)
+        );
+      });
+    }, [ledgerWithRunningBalance, ledgerSearchTerm, vouchers]);
+
     const visaColorsMap = useMemo(() => {
       const visaVoucherNums = new Set<string>();
       ledgerWithRunningBalance.forEach(entry => {
@@ -658,7 +728,7 @@ import DateInput from './DateInput';
 
     const renderMobileLedger = () => (
       <div className="md:hidden space-y-4">
-        {ledgerWithRunningBalance.map((entry, idx) => {
+        {filteredLedgerEntries.map((entry, idx) => {
           const voucher = vouchers.find(v => v.id === entry.voucherId);
           const displayType = voucher?.type || ((entry.description?.includes('Opening') || (entry as any).isOpening) ? 'OP' : '-');
           const isVisa = voucher?.type === VoucherType.VISA || displayType === 'VV' || entry.voucherNum?.startsWith('VV');
@@ -731,9 +801,11 @@ import DateInput from './DateInput';
             </div>
           );
         })}
-        {ledgerWithRunningBalance.length === 0 && (
+        {filteredLedgerEntries.length === 0 && (
           <div className="py-20 text-center">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No transaction history</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+              {ledgerSearchTerm ? `No transactions match "${ledgerSearchTerm}"` : 'No transaction history'}
+            </p>
           </div>
         )}
       </div>
@@ -914,18 +986,120 @@ import DateInput from './DateInput';
           </>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
-            <div className="flex justify-between items-center mb-3 no-print bg-white dark:bg-slate-900 p-2 px-5 rounded-xl border shadow-sm">
+            {/* TOP BALANCE POSITION BANNER */}
+            {(() => {
+              const activeFinalBal = ledgerWithRunningBalance.length > 0 
+                ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter 
+                : (selectedAccount.balance || 0);
+              const activeConvBal = getConvertedVal(activeFinalBal);
+              return (
+                <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-4 md:p-5 rounded-2xl shadow-xl border border-slate-700/60 mb-4 no-print flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400 text-2xl font-bold flex-shrink-0">
+                      ⚖️
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Current Ledger Balance</span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          GL Code: {selectedAccount.code || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline space-x-3 mt-1">
+                        <p className="text-2xl md:text-3xl font-orbitron font-black text-emerald-400 tracking-tight">
+                          {viewCurrency === Currency.PKR ? 'Rs. ' : 'SAR '}
+                          {formatCurrency(activeConvBal)}
+                        </p>
+                        <span className={`text-xs font-black uppercase px-2.5 py-1 rounded-lg ${activeFinalBal >= 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+                          {activeFinalBal >= 0 ? 'Debit (DR)' : 'Credit (CR)'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-3 md:gap-4 pt-3 md:pt-0 border-t md:border-t-0 border-slate-700/50">
+                    <div className="bg-slate-800/80 p-2 md:p-2.5 px-3 md:px-4 rounded-xl border border-slate-700/50 text-center flex-1 md:flex-initial">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Total Debit</p>
+                      <p className="text-xs md:text-sm font-orbitron font-bold text-emerald-400 mt-0.5">
+                        {viewCurrency === Currency.PKR ? 'Rs ' : 'SAR '}{getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                    <div className="bg-slate-800/80 p-2 md:p-2.5 px-3 md:px-4 rounded-xl border border-slate-700/50 text-center flex-1 md:flex-initial">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Total Credit</p>
+                      <p className="text-xs md:text-sm font-orbitron font-bold text-rose-400 mt-0.5">
+                        {viewCurrency === Currency.PKR ? 'Rs ' : 'SAR '}{getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                    <div className="bg-slate-800/80 p-2 md:p-2.5 px-3 md:px-4 rounded-xl border border-slate-700/50 text-center flex-1 md:flex-initial">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Vouchers</p>
+                      <p className="text-xs md:text-sm font-orbitron font-bold text-blue-400 mt-0.5">
+                        {totalTransactions}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 mb-3 no-print bg-white dark:bg-slate-900 p-3 px-5 rounded-2xl border shadow-sm">
               <div className="flex items-center space-x-3">
-                <button onClick={() => setSelectedAccount(null)} className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-600 font-black hover:text-blue-600 transition-all text-xs">←</button>
+                <button onClick={() => { setSelectedAccount(null); setLedgerSearchTerm(''); }} className="w-9 h-9 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-600 dark:text-slate-200 font-black hover:text-blue-600 hover:bg-blue-50 transition-all text-sm" title="Back to Accounts List">←</button>
                 <div>
-                  <h2 className="text-xs font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">{selectedAccount.name}</h2>
-                  <p className="text-[7px] font-black text-blue-600 uppercase tracking-widest mt-1">GL Code: {selectedAccount.code || 'N/A'}</p>
+                  <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">{selectedAccount.name}</h2>
+                  <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest mt-1">GL Code: {selectedAccount.code || 'N/A'}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border dark:border-slate-700 shadow-inner">
+
+              {/* Wildcard Search in Ledger */}
+              <div className="relative flex-1 max-w-md">
+                <input 
+                  type="text" 
+                  placeholder="Wildcard Search (Voucher #, Pax, Hotel, Narration, Amount, Date)..." 
+                  value={ledgerSearchTerm}
+                  onChange={(e) => setLedgerSearchTerm(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 pl-9 text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+                />
+                <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                {ledgerSearchTerm && (
+                  <button 
+                    onClick={() => setLedgerSearchTerm('')}
+                    className="absolute right-3 top-2 text-xs text-slate-400 hover:text-rose-500 transition-colors font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Jump Buttons */}
+              <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border dark:border-slate-700 justify-center">
+                <span className="text-[8px] font-black uppercase text-slate-400 px-1.5 tracking-widest hidden sm:inline">Jump:</span>
+                <button 
+                  onClick={scrollToTop} 
+                  className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 rounded-lg text-[9px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 shadow-sm transition-all"
+                  title="Scroll to Top of Page"
+                >
+                  ⏫ Top
+                </button>
+                <button 
+                  onClick={scrollToMiddle} 
+                  className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 rounded-lg text-[9px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 shadow-sm transition-all"
+                  title="Scroll to Middle of Page"
+                >
+                  ↕️ Mid
+                </button>
+                <button 
+                  onClick={scrollToBottom} 
+                  className="px-2.5 py-1 bg-white dark:bg-slate-700 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 rounded-lg text-[9px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 shadow-sm transition-all"
+                  title="Scroll to Bottom of Page"
+                >
+                  ⏬ Bot
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-2 overflow-x-auto pb-1 lg:pb-0">
+                <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border dark:border-slate-700 shadow-inner flex-shrink-0">
                   <div className="flex flex-col px-1">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">From Date (DD-MM-YYYY)</span>
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">From Date</span>
                     <DateInput 
                       className="bg-transparent border-none text-[10px] font-bold outline-none text-slate-700 dark:text-slate-200 p-0 h-5 w-24"
                       value={fromDate}
@@ -934,7 +1108,7 @@ import DateInput from './DateInput';
                   </div>
                   <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
                   <div className="flex flex-col px-1">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">To Date (DD-MM-YYYY)</span>
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">To Date</span>
                     <DateInput 
                       className="bg-transparent border-none text-[10px] font-bold outline-none text-slate-700 dark:text-slate-200 p-0 h-5 w-24"
                       value={toDate}
@@ -952,11 +1126,11 @@ import DateInput from './DateInput';
                   )}
                 </div>
 
-                <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg shadow-inner">
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg shadow-inner flex-shrink-0">
                   <button onClick={() => setViewCurrency(Currency.PKR)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${viewCurrency === Currency.PKR ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500'}`}>PKR</button>
                   <button onClick={() => setViewCurrency(Currency.SAR)} className={`px-2 py-1 rounded-md text-[7px] font-black uppercase transition-all ${viewCurrency === Currency.SAR ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500'}`}>SAR</button>
                 </div>
-                <label className="flex items-center space-x-1.5 bg-slate-50 dark:bg-slate-800/60 p-1.5 px-2.5 rounded-lg border border-slate-100 dark:border-slate-800 text-[8px] font-black uppercase text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all select-none no-print">
+                <label className="flex items-center space-x-1.5 bg-slate-50 dark:bg-slate-800/60 p-1.5 px-2.5 rounded-lg border border-slate-100 dark:border-slate-800 text-[8px] font-black uppercase text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all select-none no-print flex-shrink-0">
                   <input 
                     type="checkbox" 
                     checked={sendPaymentReminder}
@@ -968,14 +1142,14 @@ import DateInput from './DateInput';
                 <button 
                   onClick={handleDownloadPDF} 
                   disabled={isExporting}
-                  className="px-4 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                  className="px-4 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
                 >
                   {isExporting ? 'Preparing...' : 'Export PDF'}
                 </button>
                 <button 
                   onClick={handleWhatsAppShare} 
                   disabled={isSharing}
-                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
                 >
                   {isSharing ? 'Sharing...' : 'Share WhatsApp'}
                 </button>
@@ -1034,7 +1208,7 @@ import DateInput from './DateInput';
                         </tr>
                       </thead>
                       <tbody className="text-[11px] font-medium text-slate-600">
-                        {ledgerWithRunningBalance.map((entry, i) => {
+                        {filteredLedgerEntries.map((entry, i) => {
                           const voucher = vouchers.find(v => v.id === entry.voucherId);
                           const displayVNum = voucher?.voucherNum || entry.voucherNum || '-';
                           const displayDescription = getNarrativeForLedger(entry, voucher);
@@ -1195,6 +1369,13 @@ import DateInput from './DateInput';
                              </tr>
                            );
                         })}
+                        {filteredLedgerEntries.length === 0 && (
+                          <tr>
+                            <td colSpan={12} className="px-4 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs italic">
+                              {ledgerSearchTerm ? `No transactions match "${ledgerSearchTerm}"` : 'No transactions recorded for this account.'}
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                       <tfoot className="text-[#0f172a] font-black text-[11px] uppercase" style={{ display: 'table-header-group' }}>
                         <tr>
@@ -1257,6 +1438,70 @@ import DateInput from './DateInput';
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* BOTTOM CONTROL BAR WITH BACK BUTTON & JUMP BUTTONS */}
+            <div className="mt-6 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
+              <button 
+                onClick={() => { setSelectedAccount(null); setLedgerSearchTerm(''); }}
+                className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                ← Back to Accounts List
+              </button>
+
+              <div className="flex items-center space-x-2 w-full sm:w-auto justify-center">
+                <button 
+                  onClick={scrollToTop} 
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-200 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-1"
+                >
+                  ⏫ Scroll to Top
+                </button>
+                <button 
+                  onClick={scrollToMiddle} 
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-200 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-1"
+                >
+                  ↕️ Middle
+                </button>
+                <button 
+                  onClick={scrollToBottom} 
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-200 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-1"
+                >
+                  ⏬ Bottom
+                </button>
+              </div>
+            </div>
+
+            {/* FLOATING QUICK ACTION TOOLBAR (BOTTOM RIGHT) */}
+            <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 text-white backdrop-blur-md p-2 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center space-x-2 no-print">
+              <button 
+                onClick={() => { setSelectedAccount(null); setLedgerSearchTerm(''); }} 
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-md active:scale-95 transition-all"
+                title="Back to Accounts List"
+              >
+                ← Back
+              </button>
+              <div className="w-px h-6 bg-slate-700"></div>
+              <button 
+                onClick={scrollToTop} 
+                className="px-2.5 py-1.5 hover:bg-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95" 
+                title="Scroll to Top"
+              >
+                ⏫ Top
+              </button>
+              <button 
+                onClick={scrollToMiddle} 
+                className="px-2.5 py-1.5 hover:bg-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95" 
+                title="Scroll to Middle"
+              >
+                ↕️ Mid
+              </button>
+              <button 
+                onClick={scrollToBottom} 
+                className="px-2.5 py-1.5 hover:bg-slate-800 rounded-xl text-xs font-bold transition-all active:scale-95" 
+                title="Scroll to Bottom"
+              >
+                ⏬ Bot
+              </button>
             </div>
           </div>
         )}
