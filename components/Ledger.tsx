@@ -1056,7 +1056,7 @@ import DateInput from './DateInput';
                   type="text" 
                   placeholder="🔍 Wildcard Search (Search Voucher #, Pax, Hotel, Narration, Amount, Date)..." 
                   value={ledgerSearchTerm}
-                  onChange={(e) => setLedgerSearchTerm(e.g.target.value)}
+                  onChange={(e) => setLedgerSearchTerm(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pl-10 pr-9 text-xs md:text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all shadow-inner"
                 />
                 <span className="absolute left-3.5 top-3 text-sm opacity-60">🔍</span>
