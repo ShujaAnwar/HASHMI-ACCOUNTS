@@ -228,7 +228,7 @@ const Dashboard: React.FC<{
         const vendor = accounts.find(a => a.id === v.vendorId);
         const customer = accounts.find(a => a.id === v.customerId);
         
-        const items = v.details?.items || [];
+        const items = (v.details?.items && v.details.items.length > 0) ? v.details.items : (v.details?.transportItems || []);
         
         // If no items, treat as a single entry
         if (items.length === 0) {
@@ -236,12 +236,18 @@ const Dashboard: React.FC<{
           let checkoutDate: Date | null = null;
           if (v.type === VoucherType.HOTEL && v.details?.fromDate) {
             bookingDate = new Date(v.details.fromDate);
+          } else if (v.type === VoucherType.TRANSPORT) {
+            const movementDateStr = v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
+            bookingDate = new Date(movementDateStr);
           }
+
           if (v.type === VoucherType.HOTEL && v.details?.toDate) {
             checkoutDate = new Date(v.details.toDate);
           } else if (v.type === VoucherType.HOTEL && v.details?.numNights) {
             checkoutDate = new Date(bookingDate);
             checkoutDate.setDate(checkoutDate.getDate() + Number(v.details.numNights));
+          } else if (v.type === VoucherType.TRANSPORT) {
+            checkoutDate = null;
           }
 
           let statusColor = 'text-slate-600 dark:text-slate-400';
@@ -265,6 +271,12 @@ const Dashboard: React.FC<{
             bgColor = 'bg-purple-50/50 dark:bg-purple-900/10';
           }
 
+          let transportSector = v.details?.transportRoute || v.details?.sector || [v.details?.departureFrom, v.details?.arrivalTo].filter(Boolean).join(' → ') || '-';
+          if (v.type === VoucherType.TRANSPORT && (v.details?.departureTime || v.details?.arrivalTime)) {
+            const times = [v.details?.departureTime ? 'Dep: ' + v.details.departureTime : '', v.details?.arrivalTime ? 'Arr: ' + v.details.arrivalTime : ''].filter(Boolean).join(', ');
+            if (times) transportSector += ` (${times})`;
+          }
+
           return [{
             ...v,
             vendorName: vendor?.name || 'N/A',
@@ -278,21 +290,85 @@ const Dashboard: React.FC<{
             isAfterTomorrow,
             checkoutDate,
             paxName: v.details?.paxName || v.details?.headName || 'N/A',
-            hotelName: v.details?.hotelName || v.details?.airline || 'N/A',
-            roomType: v.details?.roomType || v.details?.sector || '-',
+            hotelName: v.type === VoucherType.TRANSPORT 
+              ? (v.details?.transportVehicle || v.details?.vehicle || v.details?.transportBooked || 'TRANSPORT') 
+              : (v.details?.hotelName || v.details?.airline || 'N/A'),
+            roomType: v.type === VoucherType.TRANSPORT ? transportSector : (v.details?.roomType || v.details?.sector || '-'),
             numNights: v.details?.numNights || '-',
             totalAmountPKR: v.totalAmountPKR
           }];
         }
 
         // Process multiple items
-        return items.map((item: any, idx: number) => {
+        return items.flatMap((item: any, idx: number) => {
+          if (v.type === VoucherType.TRANSPORT && item.isMultiSector && item.subSectors?.length > 0) {
+            return item.subSectors.map((sub: any, sIdx: number) => {
+              const movementDateStr = sub.date || sub.movementDate || item.date || item.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
+              const bookingDate = new Date(movementDateStr);
+              const checkoutDate = null;
+
+              let statusColor = 'text-slate-600 dark:text-slate-400';
+              let bgColor = 'bg-white dark:bg-slate-900';
+              let isToday = isSameDay(bookingDate, today);
+              let isTomorrow = isSameDay(bookingDate, tomorrow);
+              let isPrevious = bookingDate < today;
+              let isAfterTomorrow = bookingDate >= afterTomorrow;
+
+              if (isToday) {
+                statusColor = 'text-emerald-600 dark:text-emerald-400';
+                bgColor = 'bg-emerald-50/50 dark:bg-emerald-900/10';
+              } else if (isTomorrow) {
+                statusColor = 'text-amber-600 dark:text-amber-400';
+                bgColor = 'bg-amber-50/50 dark:bg-amber-900/10';
+              } else if (isPrevious) {
+                statusColor = 'text-rose-600 dark:text-rose-400';
+                bgColor = 'bg-rose-50/50 dark:bg-rose-900/10';
+              } else if (isAfterTomorrow) {
+                statusColor = 'text-purple-600 dark:text-purple-400';
+                bgColor = 'bg-purple-50/50 dark:bg-purple-900/10';
+              }
+
+              const rate = v.currency === Currency.SAR ? v.roe : 1;
+              const lineAmount = (Number(item.rate || item.amount || 0) * rate) / (item.subSectors.length || 1);
+
+              const depT = sub.departureTime || item.departureTime || v.details?.departureTime;
+              const arrT = sub.arrivalTime || item.arrivalTime || v.details?.arrivalTime;
+              let sectorDesc = sub.route;
+              if (depT || arrT) {
+                sectorDesc += ` (${[depT ? 'Dep: ' + depT : '', arrT ? 'Arr: ' + arrT : ''].filter(Boolean).join(', ')})`;
+              }
+
+              return {
+                ...v,
+                id: `${v.id}-${idx}-${sIdx}`,
+                vendorName: vendor?.name || 'N/A',
+                customerName: customer?.name || 'N/A',
+                bookingDate,
+                statusColor,
+                bgColor,
+                isToday,
+                isTomorrow,
+                isPrevious,
+                isAfterTomorrow,
+                checkoutDate,
+                paxName: item.paxName || v.details?.paxName || 'N/A',
+                hotelName: item.vehicle || v.details?.transportVehicle || 'TRANSPORT',
+                roomType: sectorDesc,
+                numNights: '-',
+                totalAmountPKR: lineAmount
+              };
+            });
+          }
+
           let bookingDate = new Date(v.date);
           let checkoutDate: Date | null = null;
           if (v.type === VoucherType.HOTEL && item.fromDate) {
             bookingDate = new Date(item.fromDate);
           } else if (v.type === VoucherType.HOTEL && v.details?.fromDate) {
             bookingDate = new Date(v.details.fromDate);
+          } else if (v.type === VoucherType.TRANSPORT) {
+            const movementDateStr = item.date || item.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
+            bookingDate = new Date(movementDateStr);
           }
 
           if (v.type === VoucherType.HOTEL && item.toDate) {
@@ -302,6 +378,8 @@ const Dashboard: React.FC<{
           } else if (v.type === VoucherType.HOTEL && (item.numNights || v.details?.numNights)) {
             checkoutDate = new Date(bookingDate);
             checkoutDate.setDate(checkoutDate.getDate() + Number(item.numNights || v.details.numNights));
+          } else if (v.type === VoucherType.TRANSPORT) {
+            checkoutDate = null;
           }
 
           let statusColor = 'text-slate-600 dark:text-slate-400';
@@ -338,6 +416,19 @@ const Dashboard: React.FC<{
             lineAmount = v.totalAmountPKR / (items.length || 1);
           }
 
+          let roomTypeStr = item.isMultiSector && item.subSectors?.length > 0 
+            ? `${item.subSectors[0].route} ... ${item.subSectors[item.subSectors.length-1].route}` 
+            : (item.roomType || (item.sector === 'CUSTOM' ? item.customLabel : (item.sector === 'MULTI_SECTOR' ? 'Multi-Sector' : item.sector)) || item.route || item.description || v.details?.roomType || v.details?.sector || '-');
+
+          if (v.type === VoucherType.TRANSPORT) {
+            const depT = item.departureTime || v.details?.departureTime;
+            const arrT = item.arrivalTime || v.details?.arrivalTime;
+            if (depT || arrT) {
+              const times = [depT ? `Dep: ${depT}` : '', arrT ? `Arr: ${arrT}` : ''].filter(Boolean).join(', ');
+              roomTypeStr += ` (${times})`;
+            }
+          }
+
           return {
             ...v,
             id: `${v.id}-${idx}`, // Unique ID for each row segment
@@ -352,10 +443,10 @@ const Dashboard: React.FC<{
             isAfterTomorrow,
             checkoutDate,
             paxName: item.paxName || v.details?.paxName || 'N/A',
-            hotelName: item.hotelName || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : item.vehicle) || v.details?.hotelName || v.details?.airline || 'N/A',
-            roomType: item.isMultiSector && item.subSectors?.length > 0 
-              ? `${item.subSectors[0].route} ... ${item.subSectors[item.subSectors.length-1].route}` 
-              : (item.roomType || (item.sector === 'CUSTOM' ? item.customLabel : (item.sector === 'MULTI_SECTOR' ? 'Multi-Sector' : item.sector)) || item.description || v.details?.roomType || v.details?.sector || '-'),
+            hotelName: v.type === VoucherType.TRANSPORT 
+              ? (item.vehicle || v.details?.transportVehicle || 'TRANSPORT')
+              : (item.hotelName || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : item.vehicle) || v.details?.hotelName || v.details?.airline || 'N/A'),
+            roomType: roomTypeStr,
             numNights: item.numNights || v.details?.numNights || '-',
             totalAmountPKR: lineAmount
           };

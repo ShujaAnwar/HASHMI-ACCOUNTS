@@ -429,36 +429,21 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
 
                // 3. Transport
                if (v.details?.transportRoute) {
-                  const depDateStr = v.details.departureDate || v.details.transportDate;
+                  const movementDateStr = v.details.transportDate || v.details.date || v.details.fromDate || v.date;
+                  const parsedMovementDate = new Date(movementDateStr);
                   const depTimeStr = v.details.departureTime;
-                  const arrDateStr = v.details.arrivalDate;
-                  const arrTimeStr = v.details.arrivalTime;
-
-                  const parsedDepDate = depDateStr ? new Date(depDateStr) : new Date(v.date);
                   if (depTimeStr) {
                     const [h, m] = depTimeStr.split(':').map(Number);
-                    if (!isNaN(h) && !isNaN(m)) parsedDepDate.setHours(h, m, 0, 0);
-                  }
-
-                  let parsedArrDate: Date | undefined = undefined;
-                  if (arrDateStr) {
-                    parsedArrDate = new Date(arrDateStr);
-                    if (arrTimeStr) {
-                      const [h, m] = arrTimeStr.split(':').map(Number);
-                      if (!isNaN(h) && !isNaN(m)) parsedArrDate.setHours(h, m, 0, 0);
-                    }
+                    if (!isNaN(h) && !isNaN(m)) parsedMovementDate.setHours(h, m, 0, 0);
                   }
 
                   let detailStr = `${v.details.transportVehicle || 'Bus'}: ${v.details.transportRoute}`;
-                  if (depTimeStr) detailStr += ` | Dep Time: ${depTimeStr}`;
-                  if (arrDateStr) detailStr += ` | Arr Date: ${formatDate(parsedArrDate!)}`;
-                  if (arrTimeStr) detailStr += ` | Arr Time: ${arrTimeStr}`;
+                  if (depTimeStr) detailStr += ` | Time: ${depTimeStr}`;
 
                   const tMovement: Partial<HajiMovement> = {
                      id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-transport`,
                      paxName: paxName,
-                     date: parsedDepDate,
-                     toDate: parsedArrDate,
+                     date: parsedMovementDate,
                      type: VoucherType.TRANSPORT,
                      category: 'TRANSPORT',
                      location: v.details.transportRoute,
@@ -527,37 +512,22 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                   const subMovement = { ...movement };
                   subMovement.id = `${v.id}-${idx}-s-${sIdx}-${paxName.replace(/\s+/g, '_')}`;
 
-                  const subDepDateStr = sub.departureDate || (sub.date && sub.date !== v.date ? sub.date : null) || v.details?.departureDate || sub.date || v.date;
-                  const parsedSubDate = new Date(subDepDateStr);
+                  const movementDateStr = sub.date || sub.movementDate || item.date || item.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
+                  const parsedSubDate = new Date(movementDateStr);
 
-                  const depTimeStr = sub.departureTime || v.details?.departureTime;
+                  const depTimeStr = sub.departureTime || sub.time || v.details?.departureTime;
                   if (depTimeStr) {
                     const [h, m] = depTimeStr.split(':').map(Number);
                     if (!isNaN(h) && !isNaN(m)) parsedSubDate.setHours(h, m, 0, 0);
                   }
 
-                  const subArrDateStr = sub.arrivalDate || v.details?.arrivalDate;
-                  let parsedSubArrDate: Date | undefined = undefined;
-                  if (subArrDateStr) {
-                    parsedSubArrDate = new Date(subArrDateStr);
-                    const arrTimeStr = sub.arrivalTime || v.details?.arrivalTime;
-                    if (arrTimeStr) {
-                      const [h, m] = arrTimeStr.split(':').map(Number);
-                      if (!isNaN(h) && !isNaN(m)) parsedSubArrDate.setHours(h, m, 0, 0);
-                    }
-                  }
-
                   subMovement.date = parsedSubDate;
-                  if (parsedSubArrDate) subMovement.toDate = parsedSubArrDate;
-
                   subMovement.type = VoucherType.TRANSPORT;
                   subMovement.category = 'TRANSPORT';
                   subMovement.location = sub.route;
 
                   let detailParts = [`${item.vehicle || 'Vehicle'}: ${sub.route}`];
-                  if (depTimeStr) detailParts.push(`Dep Time: ${depTimeStr}`);
-                  if (subArrDateStr) detailParts.push(`Arr Date: ${formatDate(parsedSubArrDate!)}`);
-                  if (sub.arrivalTime || v.details?.arrivalTime) detailParts.push(`Arr Time: ${sub.arrivalTime || v.details?.arrivalTime}`);
+                  if (depTimeStr) detailParts.push(`Time: ${depTimeStr}`);
                   if (sub.note) detailParts.push(`(${sub.note})`);
 
                   subMovement.details = detailParts.join(' | ');
@@ -570,53 +540,24 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                   allMovements.push(subMovement as HajiMovement);
                 });
               } else {
-                const vDepDate = v.details?.departureDate;
-                const vArrDate = v.details?.arrivalDate;
-                const vDepTime = v.details?.departureTime;
-                const vArrTime = v.details?.arrivalTime;
-                const vDepFrom = v.details?.departureFrom;
-                const vArrTo = v.details?.arrivalTo;
+                const movementDateStr = item?.date || item?.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
+                const parsedMovementDate = new Date(movementDateStr);
 
-                const depDateStr = item?.departureDate || vDepDate || (item?.date && item.date !== v.date ? item.date : null) || item?.date || v.date;
-                const parsedDepDate = new Date(depDateStr);
-
-                const depTimeStr = item?.departureTime || vDepTime;
+                const depTimeStr = item?.departureTime || item?.time || v.details?.departureTime;
                 if (depTimeStr) {
                   const [h, m] = depTimeStr.split(':').map(Number);
-                  if (!isNaN(h) && !isNaN(m)) parsedDepDate.setHours(h, m, 0, 0);
+                  if (!isNaN(h) && !isNaN(m)) parsedMovementDate.setHours(h, m, 0, 0);
                 }
 
-                const arrDateStr = item?.arrivalDate || vArrDate;
-                let parsedArrDate: Date | undefined = undefined;
-                if (arrDateStr) {
-                  parsedArrDate = new Date(arrDateStr);
-                  const arrTimeStr = item?.arrivalTime || vArrTime;
-                  if (arrTimeStr) {
-                    const [h, m] = arrTimeStr.split(':').map(Number);
-                    if (!isNaN(h) && !isNaN(m)) parsedArrDate.setHours(h, m, 0, 0);
-                  }
-                }
-
-                movement.date = parsedDepDate;
-                if (parsedArrDate) movement.toDate = parsedArrDate;
-
+                movement.date = parsedMovementDate;
                 movement.type = VoucherType.TRANSPORT;
                 movement.category = 'TRANSPORT';
                 const sector = item?.sector === 'MULTI_SECTOR' ? item?.customLabel : (item?.sector || v.details?.sector || item?.route || v.details?.route || 'Transit');
 
-                let locationStr = sector;
-                if (vDepFrom || vArrTo) {
-                  const routePoints = [vDepFrom, vArrTo].filter(Boolean).join(' → ');
-                  if (routePoints && !sector.includes(routePoints)) {
-                    locationStr = `${sector} (${routePoints})`;
-                  }
-                }
-                movement.location = locationStr;
+                movement.location = sector;
 
                 let detailParts = [`${item?.vehicle || v.details?.vehicle || 'Vehicle'}: ${sector}`];
-                if (depTimeStr) detailParts.push(`Dep Time: ${depTimeStr}`);
-                if (arrDateStr) detailParts.push(`Arr Date: ${formatDate(parsedArrDate!)}`);
-                if (item?.arrivalTime || vArrTime) detailParts.push(`Arr Time: ${item?.arrivalTime || vArrTime}`);
+                if (depTimeStr) detailParts.push(`Time: ${depTimeStr}`);
                 if (item?.note) detailParts.push(`(${item.note})`);
 
                 movement.details = detailParts.join(' | ');
@@ -676,36 +617,22 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
 
               // 2. Transport Items
               (v.details?.transportItems || []).forEach((tItem: any, tIdx: number) => {
-                  const depDateStr = tItem.departureDate || (tItem.date && tItem.date !== v.date ? tItem.date : null) || v.details?.departureDate || tItem.date || v.date;
-                  const parsedDepDate = new Date(depDateStr);
+                  const movementDateStr = tItem.date || tItem.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
+                  const parsedMovementDate = new Date(movementDateStr);
 
-                  const depTimeStr = tItem.departureTime || v.details?.departureTime;
+                  const depTimeStr = tItem.departureTime || tItem.time || v.details?.departureTime;
                   if (depTimeStr) {
                     const [h, m] = depTimeStr.split(':').map(Number);
-                    if (!isNaN(h) && !isNaN(m)) parsedDepDate.setHours(h, m, 0, 0);
-                  }
-
-                  const arrDateStr = tItem.arrivalDate || v.details?.arrivalDate;
-                  let parsedArrDate: Date | undefined = undefined;
-                  if (arrDateStr) {
-                    parsedArrDate = new Date(arrDateStr);
-                    const arrTimeStr = tItem.arrivalTime || v.details?.arrivalTime;
-                    if (arrTimeStr) {
-                      const [h, m] = arrTimeStr.split(':').map(Number);
-                      if (!isNaN(h) && !isNaN(m)) parsedArrDate.setHours(h, m, 0, 0);
-                    }
+                    if (!isNaN(h) && !isNaN(m)) parsedMovementDate.setHours(h, m, 0, 0);
                   }
 
                   let detailParts = [`${tItem.vehicle || 'Vehicle'}: ${tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector}`];
-                  if (depTimeStr) detailParts.push(`Dep Time: ${depTimeStr}`);
-                  if (arrDateStr) detailParts.push(`Arr Date: ${formatDate(parsedArrDate!)}`);
-                  if (tItem.arrivalTime || v.details?.arrivalTime) detailParts.push(`Arr Time: ${tItem.arrivalTime || v.details?.arrivalTime}`);
+                  if (depTimeStr) detailParts.push(`Time: ${depTimeStr}`);
 
                   const tMovement: Partial<HajiMovement> = {
                      id: `${v.id}-${idx}-t-${tIdx}-${paxName.replace(/\s+/g, '_')}`,
                      paxName: paxName,
-                     date: parsedDepDate,
-                     toDate: parsedArrDate,
+                     date: parsedMovementDate,
                      type: VoucherType.TRANSPORT,
                      category: 'TRANSPORT',
                      location: tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector,
