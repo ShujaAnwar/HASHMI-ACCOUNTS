@@ -9,6 +9,34 @@ import { getVouchers, getAccounts } from '../services/db';
 import { supabase } from '../services/supabase';
 import { VoucherType, AccountType, Voucher, Account, AppConfig, Currency } from '../types';
 
+export const getVehicleIcon = (vehicleOrHotelName?: string, categoryOrType?: string): string => {
+  const cat = (categoryOrType || '').toUpperCase();
+  if (cat === 'VISA' || cat === 'VV' || cat.includes('VISA')) return '🛂';
+  if (cat === 'HOTEL' || cat === 'HV' || cat.includes('HOTEL')) return '🏨';
+  if (cat === 'FLIGHT' || cat === 'TICKET' || cat === 'TK' || cat.includes('TICKET') || cat.includes('FLIGHT')) return '✈️';
+  if (cat === 'PACKAGE' || cat === 'PKV') return '🕋';
+
+  const v = (vehicleOrHotelName || '').toLowerCase().trim();
+  if (v.includes('visa') || v.includes('passport') || v.includes('stamping') || v.includes('mofa')) {
+    return '🛂';
+  }
+  if (v.includes('staria') || v.includes('hiace') || v.includes('van') || v.includes('gmc') || v.includes('yukon') || v.includes('suburban') || v.includes('suv')) {
+    return '🚐';
+  }
+  if (v.includes('car') || v.includes('sedan') || v.includes('camry') || v.includes('sonata') || v.includes('taxi') || v.includes('private car')) {
+    return '🚗';
+  }
+  if (v.includes('bus') || v.includes('coaster') || v.includes('coach')) {
+    return '🚌';
+  }
+  if (v.includes('hotel')) return '🏨';
+  if (v.includes('flight') || v.includes('ticket') || v.includes('airline')) return '✈️';
+
+  if (cat === 'TRANSPORT' || cat === 'TV') return '🚐';
+
+  return '🚐';
+};
+
 /**
  * Custom hook for smooth animated numbers (Running numbers effect)
  */
@@ -1183,15 +1211,18 @@ const Dashboard: React.FC<{
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex flex-col">
-                        <span className={`w-fit px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest mb-1 border ${
+                        <span className={`w-fit px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest mb-1 border flex items-center gap-1 ${
                           booking.type === VoucherType.HOTEL ? 'border-blue-200 text-blue-600 bg-blue-50/50' :
                           booking.type === VoucherType.TRANSPORT ? 'border-purple-200 text-purple-600 bg-purple-50/50' :
                           booking.type === VoucherType.VISA ? 'border-emerald-200 text-emerald-600 bg-emerald-50/50' :
                           'border-slate-200 text-slate-600 bg-slate-50/50'
                         }`}>
-                          {booking.type}
+                          <span>{getVehicleIcon(booking.hotelName, booking.type)}</span>
+                          <span>{booking.type === VoucherType.HOTEL ? 'HOTEL' : booking.type === VoucherType.TRANSPORT ? 'TRANSPORT' : booking.type === VoucherType.VISA ? 'VISA' : booking.type === VoucherType.TICKET ? 'TICKET' : booking.type}</span>
                         </span>
-                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase line-clamp-1">{booking.hotelName}</p>
+                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase line-clamp-1">
+                          {booking.hotelName}
+                        </p>
                       </div>
                     </td>
                     <td className="px-4 py-4">

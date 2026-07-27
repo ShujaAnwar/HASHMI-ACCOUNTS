@@ -8,6 +8,34 @@ import { formatDate } from '../utils/format';
 import { motion, AnimatePresence } from 'motion/react';
 import { HajiMaster } from '../types';
 
+export const getVehicleIcon = (vehicleOrHotelName?: string, categoryOrType?: string): string => {
+  const cat = (categoryOrType || '').toUpperCase();
+  if (cat === 'VISA' || cat === 'VV' || cat.includes('VISA')) return '🛂';
+  if (cat === 'HOTEL' || cat === 'HV' || cat.includes('HOTEL')) return '🏨';
+  if (cat === 'FLIGHT' || cat === 'TICKET' || cat === 'TK' || cat.includes('TICKET') || cat.includes('FLIGHT')) return '✈️';
+  if (cat === 'PACKAGE' || cat === 'PKV') return '🕋';
+
+  const v = (vehicleOrHotelName || '').toLowerCase().trim();
+  if (v.includes('visa') || v.includes('passport') || v.includes('stamping') || v.includes('mofa')) {
+    return '🛂';
+  }
+  if (v.includes('staria') || v.includes('hiace') || v.includes('van') || v.includes('gmc') || v.includes('yukon') || v.includes('suburban') || v.includes('suv')) {
+    return '🚐';
+  }
+  if (v.includes('car') || v.includes('sedan') || v.includes('camry') || v.includes('sonata') || v.includes('taxi') || v.includes('private car')) {
+    return '🚗';
+  }
+  if (v.includes('bus') || v.includes('coaster') || v.includes('coach')) {
+    return '🚌';
+  }
+  if (v.includes('hotel')) return '🏨';
+  if (v.includes('flight') || v.includes('ticket') || v.includes('airline')) return '✈️';
+
+  if (cat === 'TRANSPORT' || cat === 'TV') return '🚐';
+
+  return '🚐';
+};
+
 interface HajiMovement {
   id: string;
   paxName: string;
@@ -853,7 +881,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
 
         primaryActionMovement = unresolvedFromPastOrPresent[0];
 
-        // Check if there is an unconfirmed transport booking within 3 days of travel (or in past)
+        // Check if there is an unconfirmed transport booking scheduled for today/past or tomorrow (1 day before movement date)
         const unconfirmedTransportM = !isCompleted ? timeline.find(m => {
           if (m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT) {
             if (!m.rawVoucher.details?.transportBooked) {
@@ -862,7 +890,8 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
               const tDate = new Date(today);
               tDate.setHours(0,0,0,0);
               const daysToTravel = Math.ceil((travelDate.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24));
-              if (daysToTravel <= 3) {
+              // Trigger alert 1 day before movement date (daysToTravel === 1) or on movement date / past (daysToTravel <= 0)
+              if (daysToTravel <= 1) {
                 // Check if resolved
                 const actionKey = "transport_booking_is_not_yet_confirmed_with_the_ksa_vendor";
                 const fullActionKey = `${actionKey}_${m.id || 'today'}`;
@@ -880,10 +909,12 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
 
         if (unconfirmedTransportM) {
           primaryActionMovement = unconfirmedTransportM;
-          actionRequired = "Transport booking is not yet confirmed with the KSA vendor.";
+          const vIcon = getVehicleIcon(unconfirmedTransportM.details, 'TRANSPORT');
+          actionRequired = `${vIcon} Transport booking not confirmed for ${unconfirmedTransportM.location} (${formatDate(unconfirmedTransportM.date)})`;
           alertLevel = 'RED';
         } else if (primaryActionMovement) {
-          actionRequired = primaryActionMovement.actionRequired;
+          const mIcon = getVehicleIcon(primaryActionMovement.details, primaryActionMovement.category);
+          actionRequired = `${mIcon} ${primaryActionMovement.actionRequired} for ${primaryActionMovement.location}`;
           const mDate = new Date(primaryActionMovement.date);
           if (mDate < today) {
             alertLevel = 'RED';
@@ -894,17 +925,19 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
              alertLevel = 'YELLOW';
           }
         } else if (nextSegment) {
-          // If no past/present unresolved, check if next segment is tomorrow for YELLOW alert
-          const nDate = new Date(nextSegment.date).setHours(0,0,0,0);
-          if (nDate === tomorrow.getTime()) {
+          // If no past/present unresolved, check if next segment is tomorrow (1 day before movement date) for YELLOW alert
+          const nDate = new Date(nextSegment.date);
+          nDate.setHours(0,0,0,0);
+          if (nDate.getTime() === tomorrow.getTime()) {
+            const vIcon = getVehicleIcon(nextSegment.details, nextSegment.category);
             if (nextSegment.category === 'TRANSPORT') {
-              actionRequired = "Remind transport provider";
+              actionRequired = `${vIcon} Remind transport provider for ${nextSegment.location} (${formatDate(nextSegment.date)})`;
               alertLevel = 'YELLOW';
             } else if (nextSegment.category === 'FLIGHT') {
-              actionRequired = "Confirm airport transfer";
+              actionRequired = `${vIcon} Confirm flight / transfer for ${nextSegment.location}`;
               alertLevel = 'YELLOW';
             } else if (nextSegment.category === 'HOTEL') {
-              actionRequired = "Confirm hotel booking";
+              actionRequired = `${vIcon} Confirm hotel check-in for ${nextSegment.location}`;
               alertLevel = 'YELLOW';
             }
           }
@@ -1450,6 +1483,8 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                             {haji.timeline.filter(m => m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT).map(m => {
                               const isBooked = m.rawVoucher?.details?.transportBooked;
                               const vendorName = accounts.find(a => a.id === m.rawVoucher.details?.ksaVendorId)?.name || 'KSA Vendor';
+                              const vIcon = getVehicleIcon(m.details, 'TRANSPORT');
+                              const mDateFormatted = formatDate(m.date);
                               return (
                                 <div key={m.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm w-fit ${
                                   isBooked 
@@ -1459,8 +1494,8 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                                   <span>{isBooked ? '✅' : '⚠️'}</span>
                                   <span>
                                     {isBooked 
-                                      ? `Transport Booking Confirmed – Booked with ${vendorName}.` 
-                                      : 'Transport Recorded Only – Booking not yet confirmed with any KSA vendor.'}
+                                      ? `${vIcon} ${m.location} (${mDateFormatted}): Confirmed with ${vendorName}` 
+                                      : `${vIcon} ${m.location} (${mDateFormatted}): Recorded (Not Confirmed)`}
                                   </span>
                                 </div>
                               );
@@ -1589,7 +1624,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                               <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between border border-slate-100 dark:border-slate-800/40">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="text-sm shrink-0">
-                                    {act.category === 'HOTEL' ? '🏨' : act.category === 'TRANSPORT' ? '🚐' : act.category === 'FLIGHT' ? '✈️' : '🛂'}
+                                    {getVehicleIcon(act.details, act.category)}
                                   </span>
                                   <span className="truncate uppercase text-[9px] tracking-tight">{act.location}</span>
                                 </div>
@@ -1619,7 +1654,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                               <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between border border-slate-100 dark:border-slate-800/40">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="text-sm shrink-0">
-                                    {act.category === 'HOTEL' ? '🏨' : act.category === 'TRANSPORT' ? '🚐' : act.category === 'FLIGHT' ? '✈️' : '🛂'}
+                                    {getVehicleIcon(act.details, act.category)}
                                   </span>
                                   <span className="truncate uppercase text-[9px] tracking-tight">{act.location}</span>
                                 </div>
@@ -1755,18 +1790,21 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                 <div className="space-y-6 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
                   {selectedHaji.timeline.map((m, i) => {
                     const isPassed = new Date(m.date) < new Date();
+                    const icon = getVehicleIcon(m.details, m.category);
                     return (
                       <div key={m.id} className="relative pl-10">
                         <div className={`absolute left-0 top-0 w-8 h-8 rounded-xl border-4 border-white dark:border-slate-900 flex items-center justify-center z-10 ${
                           isPassed ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
                         }`}>
-                          <span className="text-[10px]">{isPassed ? '✓' : i + 1}</span>
+                          <span className="text-[12px]">{icon}</span>
                         </div>
                         <div className={`p-4 rounded-2xl border ${
                           isPassed ? 'bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-900 border-blue-100 dark:border-blue-900/30 shadow-sm'
                         }`}>
                           <div className="flex justify-between items-start mb-1">
-                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">{m.category}</span>
+                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1">
+                              <span>{icon}</span> {m.category}
+                            </span>
                             <span className="text-[9px] font-black text-blue-600 dark:text-blue-400">
                               {formatDate(m.date)}{m.toDate ? ` - ${formatDate(m.toDate)}` : ''}
                             </span>
