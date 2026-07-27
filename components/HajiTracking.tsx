@@ -382,10 +382,14 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
     const allMovements: HajiMovement[] = [];
 
     vouchers
-      .filter(v => v.status === VoucherStatus.POSTED)
+      .filter(v => v.status !== VoucherStatus.VOID)
       .forEach(v => {
-      const items = v.details?.items || [v.details]; 
-      items.forEach((item: any, idx: number) => {
+      const rawItems = (Array.isArray(v.details?.items) && v.details.items.length > 0)
+        ? v.details.items
+        : ((Array.isArray(v.details?.transportItems) && v.details.transportItems.length > 0)
+            ? v.details.transportItems
+            : [v.details || {}]); 
+      rawItems.forEach((item: any, idx: number) => {
         if (v.type === VoucherType.PACKAGE || (v.type as string) === 'PKV') {
           // A package voucher applies to ALL Hajjis in the package
           const hajjisList = v.details?.hajjis || [];
@@ -473,10 +477,12 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
           });
         } else {
           // Non-package vouchers: Hotel, Transport, Ticket, All-In-One
-          const globalPaxName = item?.paxName || v.details?.paxName || v.details?.headName || null;
-          if (!globalPaxName) return;
+          const customer = accounts.find(a => a.id === v.customerId);
+          const globalPaxName = item?.paxName || v.details?.paxName || v.details?.headName || customer?.name || 'Passenger';
 
-          const paxNames = splitPaxNames(globalPaxName);
+          let paxNames = splitPaxNames(globalPaxName);
+          if (paxNames.length === 0) paxNames = [globalPaxName];
+
           paxNames.forEach((paxName) => {
             let movement: Partial<HajiMovement> = {
               id: `${v.id}-${idx}-${paxName.replace(/\s+/g, '_')}`,
