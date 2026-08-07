@@ -171,14 +171,6 @@ const Dashboard: React.FC<{
     };
   }, [fetchData]);
 
-  // Automatic 5-second sync (User Request)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchData(true);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
   const pieData = useMemo(() => [
     { name: 'Receivables', value: Math.max(stats.totalReceivables, 0.1), color: '#3B82F6' },
     { name: 'Payables', value: Math.max(stats.totalPayables, 0.1), color: '#EF4444' }
