@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { formatCurrency, formatDate } from '../utils/format';
 import DateInput from './DateInput';
-import { getVouchers, getAccounts } from '../services/db';
+import { getVouchers, getAccounts, invalidateDbCache } from '../services/db';
 import { supabase } from '../services/supabase';
 import { VoucherType, AccountType, Voucher, Account, AppConfig, Currency } from '../types';
 
@@ -129,14 +129,15 @@ const Dashboard: React.FC<{
   const [scheduleClickCount, setScheduleClickCount] = useState(0);
   const [lastScheduleClick, setLastScheduleClick] = useState(0);
 
-  const fetchData = useCallback(async (isBackground = false) => {
+  const fetchData = useCallback(async (isBackground = false, force = false) => {
+    if (force) invalidateDbCache();
     if (isBackground) setIsRefreshing(true);
     else setLoading(true);
     
     try {
       const [v, accs] = await Promise.all([
-        getVouchers(),
-        getAccounts()
+        getVouchers(force),
+        getAccounts(force)
       ]);
       setVouchers(v);
       setAccounts(accs);
@@ -161,9 +162,9 @@ const Dashboard: React.FC<{
   useEffect(() => {
     const channel = supabase
       .channel('dashboard-realtime-v4')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vouchers' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ledger_entries' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vouchers' }, () => fetchData(true, true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, () => fetchData(true, true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ledger_entries' }, () => fetchData(true, true))
       .subscribe();
 
     return () => {
@@ -617,7 +618,7 @@ const Dashboard: React.FC<{
             <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase leading-none">Database Offline</p>
             <p className="text-[8px] text-rose-500 dark:text-rose-500 font-bold uppercase mt-1">Failed to fetch data from cloud. Check connection.</p>
           </div>
-          <button onClick={() => fetchData()} className="bg-white/50 dark:bg-rose-900/20 px-3 py-1 rounded-lg text-[9px] font-black text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40">RETRY</button>
+          <button onClick={() => fetchData(false, true)} className="bg-white/50 dark:bg-rose-900/20 px-3 py-1 rounded-lg text-[9px] font-black text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40">RETRY</button>
         </div>
       )}
       {/* Mobile Balance Cards (Horizontal Scroll) */}
@@ -843,7 +844,7 @@ const Dashboard: React.FC<{
               </div>
             </div>
             <button 
-              onClick={() => fetchData()} 
+              onClick={() => fetchData(false, true)} 
               className="bg-rose-600 text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all shadow-lg shadow-rose-600/20"
             >
               Manual Force Sync

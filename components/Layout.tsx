@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppConfig } from '../types';
 import { supabase } from '../services/supabase';
-import { getVouchers } from '../services/db';
+import { getAccounts, getVouchers } from '../services/db';
+import { HajiService } from '../services/HajiService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -112,26 +113,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const [vCountRes, hCountRes, accsRes] = await Promise.all([
-          supabase.from('vouchers').select('*', { count: 'exact', head: true }),
-          supabase.from('haji_master').select('*', { count: 'exact', head: true }),
-          supabase.from('accounts').select('id, type')
+        const [vouchers, hajis, accs] = await Promise.all([
+          getVouchers(),
+          HajiService.getAll(),
+          getAccounts()
         ]);
 
-        setVoucherCount(vCountRes.count || 0);
-        setHajiCount(hCountRes.count || 0);
+        setVoucherCount(vouchers.length);
+        setHajiCount(hajis.length);
 
-        const accs = accsRes.data || [];
         setCoaCount(accs.length);
         setLedgerCount(accs.length);
-        setCustomerCount(accs.filter((a: any) => a.type === 'CUSTOMER').length);
-        setVendorCount(accs.filter((a: any) => a.type === 'VENDOR').length);
+        setCustomerCount(accs.filter(a => a.type === 'CUSTOMER').length);
+        setVendorCount(accs.filter(a => a.type === 'VENDOR').length);
       } catch (err) {
         console.error("Failed to fetch sidebar counts:", err);
       }
     };
     fetchCounts();
-  }, [refreshKey, activeTab]);
+  }, [refreshKey]);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },

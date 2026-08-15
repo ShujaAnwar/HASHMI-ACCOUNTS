@@ -1,8 +1,20 @@
 import { supabase } from './supabase';
 import { HajiMaster } from '../types';
 
+let hajiCache: { data: HajiMaster[]; timestamp: number } | null = null;
+const HAJI_CACHE_TTL_MS = 60 * 1000;
+
+export const invalidateHajiCache = () => {
+  hajiCache = null;
+};
+
 export class HajiService {
-  static async getAll() {
+  static async getAll(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && hajiCache && (now - hajiCache.timestamp < HAJI_CACHE_TTL_MS)) {
+      return hajiCache.data;
+    }
+
     const { data, error } = await supabase
       .from('haji_master')
       .select('*')
@@ -10,7 +22,7 @@ export class HajiService {
     
     if (error) throw error;
     
-    return (data || []).map(row => ({
+    const result = (data || []).map(row => ({
       id: row.id,
       hajiId: row.haji_id,
       fullName: row.full_name,
@@ -19,6 +31,9 @@ export class HajiService {
       nationality: row.nationality,
       createdAt: row.created_at
     })) as HajiMaster[];
+
+    hajiCache = { data: result, timestamp: Date.now() };
+    return result;
   }
 
   static async searchByPassport(passport: string) {
@@ -96,6 +111,7 @@ export class HajiService {
       .single();
     
     if (error) throw error;
+    invalidateHajiCache();
     return {
       id: data.id,
       hajiId: data.haji_id,
@@ -192,6 +208,7 @@ export class HajiService {
       .single();
 
     if (error) throw error;
+    invalidateHajiCache();
     return {
       id: data.id,
       hajiId: data.haji_id,
@@ -210,6 +227,7 @@ export class HajiService {
       .eq('id', id);
 
     if (error) throw error;
+    invalidateHajiCache();
     return true;
   }
 

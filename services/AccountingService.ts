@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { Account, AccountType, Voucher, VoucherType, Currency, VoucherStatus } from '../types';
+import { invalidateDbCache } from './db';
 
 export class AccountingService {
   
@@ -163,6 +164,7 @@ export class AccountingService {
         });
       }
     }
+    invalidateDbCache('accounts');
     return account;
   }
 
@@ -230,17 +232,20 @@ export class AccountingService {
         });
       }
     }
+    invalidateDbCache('accounts');
   }
 
   static async deleteAccount(id: string) {
     const { error } = await supabase.from('accounts').delete().eq('id', id);
     if (error) throw error;
+    invalidateDbCache('accounts');
   }
 
   static async deleteAccounts(ids: string[]) {
     if (!ids || ids.length === 0) return;
     const { error } = await supabase.from('accounts').delete().in('id', ids);
     if (error) throw error;
+    invalidateDbCache('accounts');
   }
 
   static async deleteVoucher(id: string) {
@@ -248,6 +253,7 @@ export class AccountingService {
     await supabase.from('ledger_entries').delete().eq('voucher_id', id);
     const { error } = await supabase.from('vouchers').delete().eq('id', id);
     if (error) throw error;
+    invalidateDbCache('all');
   }
 
   static async deleteVouchers(ids: string[]) {
@@ -256,6 +262,7 @@ export class AccountingService {
     await supabase.from('ledger_entries').delete().in('voucher_id', ids);
     const { error } = await supabase.from('vouchers').delete().in('id', ids);
     if (error) throw error;
+    invalidateDbCache('all');
   }
 
   static async toggleCancelVoucher(id: string, currentlyCancelled: boolean) {
@@ -265,6 +272,7 @@ export class AccountingService {
       .update({ status: newStatus })
       .eq('id', id);
     if (error) throw error;
+    invalidateDbCache('all');
   }
 
   static async postVoucher(vData: Partial<Voucher>) {
@@ -865,6 +873,7 @@ export class AccountingService {
       }
     }
 
+    invalidateDbCache('all');
     return voucher;
   }
 

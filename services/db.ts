@@ -59,8 +59,35 @@
     };
   };
 
-  export const getAccounts = async (): Promise<Account[]> => {
+// In-Memory Smart Cache to eliminate unnecessary DB Egress
+let accountsCache: { data: Account[]; timestamp: number } | null = null;
+let vouchersCache: { data: Voucher[]; timestamp: number } | null = null;
+let configCache: { data: AppConfig & { fontSize?: number }; timestamp: number } | null = null;
+
+const DATA_CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
+const CONFIG_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
+
+export const invalidateDbCache = (target?: 'accounts' | 'vouchers' | 'config' | 'all') => {
+  if (!target || target === 'all') {
+    accountsCache = null;
+    vouchersCache = null;
+    configCache = null;
+  } else if (target === 'accounts') {
+    accountsCache = null;
+  } else if (target === 'vouchers') {
+    vouchersCache = null;
+  } else if (target === 'config') {
+    configCache = null;
+  }
+};
+
+  export const getAccounts = async (forceRefresh = false): Promise<Account[]> => {
     try {
+      const now = Date.now();
+      if (!forceRefresh && accountsCache && (now - accountsCache.timestamp < DATA_CACHE_TTL_MS)) {
+        return accountsCache.data;
+      }
+
       const [accountsRes, vouchersRes] = await Promise.all([
         retryFetch(() => supabase
           .from('accounts')
@@ -74,7 +101,7 @@
       const { data, error } = accountsRes;
       if (error) {
         console.warn("Unable to fetch accounts:", error.message || error);
-        return [];
+        return accountsCache ? accountsCache.data : [];
       }
 
       const vouchersMap = new Map<string, string>();
@@ -84,7 +111,7 @@
         });
       }
 
-      return ((data as any) || []).map((acc: any) => {
+      const result = ((data as any) || []).map((acc: any) => {
         const mappedAcc = mapAccount(acc);
         // Map voucher statuses locally
         mappedAcc.ledger = mappedAcc.ledger.map((l: any) => {
@@ -103,9 +130,12 @@
         
         return mappedAcc;
       });
+
+      accountsCache = { data: result, timestamp: Date.now() };
+      return result;
     } catch (err) {
       console.error("System error fetching accounts:", err);
-      return [];
+      return accountsCache ? accountsCache.data : [];
     }
   };
 
@@ -125,8 +155,13 @@
     return { data: null, error: lastError };
   };
 
-  export const getVouchers = async (): Promise<Voucher[]> => {
+  export const getVouchers = async (forceRefresh = false): Promise<Voucher[]> => {
     try {
+      const now = Date.now();
+      if (!forceRefresh && vouchersCache && (now - vouchersCache.timestamp < DATA_CACHE_TTL_MS)) {
+        return vouchersCache.data;
+      }
+
       const { data, error } = await retryFetch(() => supabase
         .from('vouchers')
         .select('*')
@@ -135,17 +170,24 @@
       
       if (error) {
         console.warn("Unable to fetch vouchers:", error.message || error);
-        return [];
+        return vouchersCache ? vouchersCache.data : [];
       }
-      return ((data as any) || []).map(mapVoucher);
+      const result = ((data as any) || []).map(mapVoucher);
+      vouchersCache = { data: result, timestamp: Date.now() };
+      return result;
     } catch (err) {
       console.error("System error fetching vouchers:", err);
-      return [];
+      return vouchersCache ? vouchersCache.data : [];
     }
   };
 
-  export const getConfig = async (): Promise<AppConfig & { fontSize?: number }> => {
+  export const getConfig = async (forceRefresh = false): Promise<AppConfig & { fontSize?: number }> => {
     try {
+      const now = Date.now();
+      if (!forceRefresh && configCache && (now - configCache.timestamp < CONFIG_CACHE_TTL_MS)) {
+        return configCache.data;
+      }
+
       const { data, error } = await retryFetch(() => supabase
         .from('app_config')
         .select('*')
@@ -171,7 +213,7 @@
       }
 
       const d = data as any;
-      return {
+      const result = {
         companyName: d.company_name,
         appSubtitle: d.app_subtitle,
         companyAddress: d.company_address,
@@ -193,6 +235,8 @@
         hotelPoliciesShow: d.hotel_policies_show !== false,
         hotelPoliciesText: d.hotel_policies_text || "The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.\n\nRooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.\n\nNote that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.\n\nThe usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.\n\nFor any specific queries related to a particular hotel, kindly reach out to local support team for further assistance"
       };
+      configCache = { data: result, timestamp: Date.now() };
+      return result;
     } catch (err) {
       return {
         companyName: "Hashmi Travel Solutions",
@@ -219,6 +263,7 @@
   };
 
   export const saveConfig = async (config: AppConfig & { fontSize?: number }) => {
+    invalidateDbCache('config');
     const payload: any = {
       id: '00000000-0000-0000-0000-000000000001',
       company_name: config.companyName,
@@ -500,6 +545,7 @@
       }
 
       console.log("Database restoration complete.");
+      invalidateDbCache('all');
     } catch (err) {
       console.error("Database restoration failed:", err);
       throw err;

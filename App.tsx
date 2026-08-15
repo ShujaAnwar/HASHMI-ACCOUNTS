@@ -12,7 +12,8 @@ import UserGuide from './components/UserGuide';
 import AutoBackupManager from './components/AutoBackupManager';
 import AutoRefreshManager from './components/AutoRefreshManager';
 import { AccountType, AppConfig, Voucher } from './types';
-import { getConfig } from './services/db';
+import { getConfig, invalidateDbCache } from './services/db';
+import { invalidateHajiCache } from './services/HajiService';
 import { supabase } from './services/supabase';
 
 const App: React.FC = () => {
@@ -32,6 +33,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleGlobalRefresh = useCallback(() => {
+    invalidateDbCache();
+    invalidateHajiCache();
     setRefreshKey(prev => prev + 1);
   }, []);
 
