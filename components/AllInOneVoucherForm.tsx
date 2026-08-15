@@ -88,7 +88,7 @@ const MADINAH_HOTELS = [
   { name: 'Sky View', cat: 'Premium' }
 ];
 
-const VEHICLES = ['Car', 'H1', 'Staria', 'GMC', 'Coaster', 'Bus', 'SUV', 'Pickup', 'Other'];
+const VEHICLES = ['Car', 'H1', 'Hiace', 'Staria', 'GMC', 'Coaster', 'Bus', 'SUV', 'Pickup', 'Other'];
 const SECTOR_SUGGESTIONS = [
   { label: 'Makkah → Jeddah', sector: 'Makkah → Jeddah', vehicle: 'Car', rate: 150 },
   { label: 'Makkah → Madinah', sector: 'Makkah → Madinah', vehicle: 'Car', rate: 350 },

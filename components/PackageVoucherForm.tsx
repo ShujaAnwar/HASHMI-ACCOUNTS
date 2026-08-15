@@ -36,6 +36,7 @@ const MEALS = ["Breakfast", "Lunch", "Dinner", "Room Only", "BB", "HB", "FB"];
 const VEHICLES = [
   "Car",
   "H1",
+  "Hiace",
   "Staria",
   "GMC",
   "Coaster",

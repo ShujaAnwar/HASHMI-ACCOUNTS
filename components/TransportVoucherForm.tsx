@@ -535,7 +535,7 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
                       </td>
                       <td className="px-6 py-4">
                         <select className="w-full bg-transparent border-none focus:ring-0 text-xs font-semibold cursor-pointer text-slate-600 dark:text-slate-400" value={item.vehicle} onChange={e => updateItem(idx, 'vehicle', e.target.value)}>
-                          {['Car', 'H1', 'Staria', 'GMC', 'Coaster', 'Bus', 'SUV', 'Pickup', 'Other'].map(v => <option key={v} value={v}>{v}</option>)}
+                          {['Car', 'H1', 'Hiace', 'Staria', 'GMC', 'Coaster', 'Bus', 'SUV', 'Pickup', 'Other'].map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                       </td>
                       <td className="px-6 py-4 text-center">
