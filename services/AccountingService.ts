@@ -416,8 +416,10 @@ export class AccountingService {
           const checkIn = this.formatDate(item.fromDate);
           const checkOut = this.formatDate(item.toDate);
           const meals = this.formatMeals(item.meals);
+          const roomType = item.roomType || voucher.details?.roomType || '';
+          const roomTypePart = roomType ? ` | Room Type: ${roomType}` : '';
           
-          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${item.numNights} | Meals: ${meals} | NORs: ${item.numRooms} (#${idx + 1})`;
+          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${item.numNights} | Rooms: ${item.numRooms}${roomTypePart} | Meals: ${meals} (#${idx + 1})`;
           
           if (customerId) {
             entries.push({ 
@@ -451,8 +453,10 @@ export class AccountingService {
         const meals = this.formatMeals(voucher.details?.meals);
         const nights = voucher.details?.numNights || 1;
         const rooms = voucher.details?.numRooms || 1;
+        const roomType = voucher.details?.roomType || '';
+        const roomTypePart = roomType ? ` | Room Type: ${roomType}` : '';
         
-        const legacyDesc = `${paxName} | ${hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${nights} | Meals: ${meals} | NORs: ${rooms}`;
+        const legacyDesc = `${paxName} | ${hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${nights} | Rooms: ${rooms}${roomTypePart} | Meals: ${meals}`;
         
         const vendorAmount = Number(voucher.details?.vendorAmountPKR) || amount;
         if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: legacyDesc, voucher_num: voucher.voucher_num });
@@ -554,7 +558,8 @@ export class AccountingService {
         details.hotelItems.forEach((item: any, idx: number) => {
           const itemAmountPKR = (Number(item.unitRate || 0) * Number(item.numRooms || 1) * Number(item.numNights || 1)) * rateMultiplier;
           const itemPax = item.paxName || globalPaxName;
-          const hotelDesc = `Hotel: ${itemPax} | ${item.hotelName} (${item.city}) | In: ${this.formatDate(item.fromDate)} | Out: ${this.formatDate(item.toDate)} | ${item.numNights}N | ${item.numRooms}R (#${idx+1})`;
+          const roomType = item.roomType ? ` | Room: ${item.roomType}` : '';
+          const hotelDesc = `Hotel: ${itemPax} | ${item.hotelName} (${item.city})${roomType} | In: ${this.formatDate(item.fromDate)} | Out: ${this.formatDate(item.toDate)} | ${item.numNights}N | ${item.numRooms}R (#${idx+1})`;
           const itemVendorId = item.vendorId || voucher.vendor_id;
 
           if (customerId && itemAmountPKR > 0) {
@@ -649,7 +654,8 @@ export class AccountingService {
             totalVendorCostPKR += stayCostPKR;
             const sVendorId = stay.vendorId || voucher.vendor_id;
             if (sVendorId) {
-              const stayDesc = `${stay.city} Hotel Stay #${idx + 1}: ${stay.hotelName || 'N/A'} | Stay: ${stay.checkIn || 'N/A'} to ${stay.checkOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+              const roomTypeStr = stay.roomType ? ` (${stay.roomType})` : '';
+              const stayDesc = `${stay.city} Hotel Stay #${idx + 1}: ${stay.hotelName || 'N/A'}${roomTypeStr} | Stay: ${stay.checkIn || 'N/A'} to ${stay.checkOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
               entries.push({ 
                 account_id: sVendorId, 
                 voucher_id: voucher.id, 
@@ -669,7 +675,8 @@ export class AccountingService {
           totalVendorCostPKR += makkahCostPKR;
           const mVendorId = details.makkahVendorId || voucher.vendor_id;
           if (mVendorId) {
-            const makkahDesc = `Makkah Hotel: ${details.makkahHotelName || 'N/A'} | Stay: ${details.makkahCheckIn || 'N/A'} to ${details.makkahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+            const makkahRoomTypeStr = details.makkahRoomType ? ` (${details.makkahRoomType})` : '';
+            const makkahDesc = `Makkah Hotel: ${details.makkahHotelName || 'N/A'}${makkahRoomTypeStr} | Stay: ${details.makkahCheckIn || 'N/A'} to ${details.makkahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
             entries.push({ 
               account_id: mVendorId, 
               voucher_id: voucher.id, 
@@ -688,7 +695,8 @@ export class AccountingService {
           totalVendorCostPKR += madinahCostPKR;
           const mdVendorId = details.madinahVendorId || voucher.vendor_id;
           if (mdVendorId) {
-            const madinahDesc = `Madinah Hotel: ${details.madinahHotelName || 'N/A'} | Stay: ${details.madinahCheckIn || 'N/A'} to ${details.madinahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
+            const madinahRoomTypeStr = details.madinahRoomType ? ` (${details.madinahRoomType})` : '';
+            const madinahDesc = `Madinah Hotel: ${details.madinahHotelName || 'N/A'}${madinahRoomTypeStr} | Stay: ${details.madinahCheckIn || 'N/A'} to ${details.madinahCheckOut || 'N/A'} | ${totalPilgrims} Pilgrims (${pilgrimNames})`;
             entries.push({ 
               account_id: mdVendorId, 
               voucher_id: voucher.id, 

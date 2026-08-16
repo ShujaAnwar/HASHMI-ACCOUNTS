@@ -310,6 +310,7 @@ import DateInput from './DateInput';
         
         const pax = (voucher.details.paxName || matchedItem.paxName || 'N/A').toUpperCase();
         const hotel = (matchedItem.hotelName || voucher.details.hotelName || 'N/A').toUpperCase();
+        const roomType = (matchedItem.roomType || voucher.details.roomType || '').toUpperCase();
         const ci = matchedItem.fromDate || voucher.details.fromDate || '-';
         const co = matchedItem.toDate || voucher.details.toDate || '-';
         const nights = matchedItem.numNights || voucher.details.numNights || '0';
@@ -319,7 +320,23 @@ import DateInput from './DateInput';
           ? mealsRaw.join(', ') 
           : (mealsRaw && mealsRaw !== 'NONE' ? mealsRaw : 'N/A');
         
-        return `${pax} | ${hotel} | Checkin: ${ci} | Checkout: ${co} | Nights: ${nights} | Rooms: ${rooms} | Meals: ${meals}`;
+        const roomTypePart = roomType ? ` | Room Type: ${roomType}` : '';
+        return `${pax} | ${hotel} | Checkin: ${ci} | Checkout: ${co} | Nights: ${nights} | Rooms: ${rooms}${roomTypePart} | Meals: ${meals}`;
+      }
+
+      if (voucher.type === VoucherType.ALL_IN_ONE && (entry.description?.includes('Hotel:') || (voucher.details?.hotelItems && voucher.details.hotelItems.length > 0))) {
+        const item = findMatchingBookingItem(entry, voucher) || voucher.details?.hotelItems?.[0];
+        if (item) {
+          const itemPax = (item.paxName || voucher.details.paxName || 'N/A').toUpperCase();
+          const hotel = (item.hotelName || 'N/A').toUpperCase();
+          const city = item.city ? ` (${item.city.toUpperCase()})` : '';
+          const roomType = (item.roomType || 'N/A').toUpperCase();
+          const ci = item.fromDate ? formatDate(item.fromDate) : '-';
+          const co = item.toDate ? formatDate(item.toDate) : '-';
+          const nights = item.numNights || '0';
+          const rooms = item.numRooms || '1';
+          return `HOTEL: ${itemPax} | ${hotel}${city} | IN: ${ci} | OUT: ${co} | NIGHTS: ${nights} | ROOMS: ${rooms} | ROOM TYPE: ${roomType}`;
+        }
       }
 
       if (voucher.type === VoucherType.TRANSPORT) {
@@ -348,6 +365,80 @@ import DateInput from './DateInput';
       }
       
       return entry.description && entry.description !== '-' ? entry.description : (voucher.description || '-');
+    };
+
+    const isBookingCompleted = (entry: any, voucher: Voucher | undefined): boolean => {
+      if (!voucher) return false;
+      if ((entry as any).isCancelled || (entry as any).isOpening) return false;
+
+      const isDatePassed = (dateVal?: string | Date | null): boolean => {
+        if (!dateVal) return false;
+        try {
+          const str = String(dateVal).trim();
+          if (!str || str === '-') return false;
+          
+          const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+          let d: Date;
+          if (dmyMatch) {
+            const day = parseInt(dmyMatch[1], 10);
+            const month = parseInt(dmyMatch[2], 10) - 1;
+            const year = parseInt(dmyMatch[3], 10);
+            d = new Date(year, month, day);
+          } else {
+            d = new Date(str);
+          }
+          
+          if (isNaN(d.getTime())) return false;
+          
+          const now = new Date();
+          const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+          const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          return targetDate <= todayDate;
+        } catch {
+          return false;
+        }
+      };
+
+      if (voucher.type === VoucherType.HOTEL) {
+        const matchedItem = findMatchingBookingItem(entry, voucher) || voucher.details?.items?.[0] || voucher.details || {};
+        const ci = matchedItem.fromDate || voucher.details?.fromDate || voucher.details?.checkIn || voucher.date;
+        return isDatePassed(ci);
+      }
+
+      if (voucher.type === VoucherType.TRANSPORT) {
+        const matchedItem = findMatchingBookingItem(entry, voucher) || voucher.details?.items?.[0] || {};
+        const moveDate = matchedItem.date || voucher.details?.date || voucher.date;
+        return isDatePassed(moveDate);
+      }
+
+      if (voucher.type === VoucherType.ALL_IN_ONE) {
+        const descLower = (entry.description || '').toLowerCase();
+        if (descLower.includes('hotel:') || (voucher.details?.hotelItems && voucher.details.hotelItems.length > 0)) {
+          const item = findMatchingBookingItem(entry, voucher) || voucher.details?.hotelItems?.[0];
+          const ci = item?.fromDate || voucher.details?.fromDate || voucher.date;
+          return isDatePassed(ci);
+        }
+        if (descLower.includes('transport:') || (voucher.details?.transportItems && voucher.details.transportItems.length > 0)) {
+          const item = findMatchingBookingItem(entry, voucher) || voucher.details?.transportItems?.[0];
+          const moveDate = item?.date || voucher.details?.date || voucher.date;
+          return isDatePassed(moveDate);
+        }
+      }
+
+      if (voucher.type === VoucherType.PACKAGE) {
+        const descLower = (entry.description || '').toLowerCase();
+        if (descLower.includes('hotel stay') || descLower.includes('makkah hotel') || descLower.includes('madinah hotel')) {
+          const item = findMatchingBookingItem(entry, voucher);
+          const ci = item?.checkIn || voucher.details?.makkahCheckIn || voucher.details?.madinahCheckIn || voucher.date;
+          return isDatePassed(ci);
+        }
+        if (descLower.includes('transport:')) {
+          const moveDate = voucher.details?.transportDate || voucher.date;
+          return isDatePassed(moveDate);
+        }
+      }
+
+      return false;
     };
 
     const ledgerWithRunningBalance = useMemo(() => {
@@ -463,6 +554,7 @@ import DateInput from './DateInput';
         const debitStr = entry.debit ? entry.debit.toString() : '';
         const creditStr = entry.credit ? entry.credit.toString() : '';
         const balStr = (entry as any).balanceAfter !== undefined ? (entry as any).balanceAfter.toString() : '';
+        const isCompleted = isBookingCompleted(entry, voucher);
 
         return (
           displayVNum.includes(term) ||
@@ -472,7 +564,8 @@ import DateInput from './DateInput';
           formattedD.includes(term) ||
           debitStr.includes(term) ||
           creditStr.includes(term) ||
-          balStr.includes(term)
+          balStr.includes(term) ||
+          (isCompleted && ('completed'.includes(term) || 'done'.includes(term)))
         );
       });
     }, [ledgerWithRunningBalance, ledgerSearchTerm, vouchers]);
@@ -740,6 +833,7 @@ import DateInput from './DateInput';
             : '';
 
           const isCancelled = (entry as any).isCancelled;
+          const isCompleted = isBookingCompleted(entry, voucher);
           return (
             <div 
               key={idx}
@@ -750,15 +844,22 @@ import DateInput from './DateInput';
                     ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' 
                     : bgAndBorder 
                       ? bgAndBorder 
-                      : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                      : isCompleted
+                        ? 'bg-white dark:bg-slate-900 border-emerald-200/70 dark:border-emerald-900/40'
+                        : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
               }`}
             >
               <div className="flex justify-between items-center mb-3">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                   <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">S.No: {idx + 1}</span>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{formatDate(entry.date)}</span>
                   {isCancelled && (
                     <span className="px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest bg-red-100 text-red-600 rounded-md">CANCELLED</span>
+                  )}
+                  {isCompleted && !isCancelled && (
+                    <span className="px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/50 rounded-md flex items-center gap-1">
+                      <span>✓</span> COMPLETED
+                    </span>
                   )}
                 </div>
                 {entry.voucherId && (
@@ -1265,60 +1366,70 @@ import DateInput from './DateInput';
                             displayRateSar = (voucher?.details?.unitRate || (entry.debit + entry.credit) / (voucher?.roe || 1)).toLocaleString(undefined, { minimumFractionDigits: 0 });
                           }
 
-                           const isCancelled = (entry as any).isCancelled;
-                           const textCol = (base: string) => isCancelled ? 'text-red-500/80 line-through decoration-red-500' : base;
+                          const isCancelled = (entry as any).isCancelled;
+                          const isCompleted = isBookingCompleted(entry, voucher);
+                          const textCol = (base: string) => isCancelled ? 'text-red-500/80 line-through decoration-red-500' : base;
 
-                           return (
-                             <tr 
-                               key={i} 
-                               className={`border-b border-slate-50 transition-colors ${
-                                 isCancelled
-                                   ? 'bg-rose-50/25 dark:bg-rose-950/10'
-                                   : (entry as any).isOpening 
-                                     ? 'bg-slate-50/50' 
-                                     : bgClass 
-                                       ? bgClass 
-                                       : ''
-                               }`} 
-                               style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}
-                             >
-                               <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
-                                 {i + 1}
-                               </td>
-                               <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
-                                 {(entry as any).isOpening ? '-' : (entry.date === '-' ? '-' : formatDate(entry.date))}
-                               </td>
-                               <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                 {voucher ? (
-                                   <button 
-                                     onClick={(e) => {
-                                       e.preventDefault();
-                                       onEditVoucher?.(voucher);
-                                     }}
-                                     className={`font-black hover:underline cursor-pointer text-center uppercase ${textCol('text-blue-600 hover:text-blue-800')}`}
-                                     style={{ 
-                                       background: 'none', 
-                                       border: 'none', 
-                                       padding: 0, 
-                                       whiteSpace: 'normal', 
-                                       fontSize: 'inherit',
-                                       wordBreak: 'break-word',
-                                       overflowWrap: 'break-word',
-                                       maxWidth: '100%'
-                                     }}
-                                   >
-                                     {displayVNum}
-                                   </button>
-                                 ) : (
-                                   <span className={`font-bold uppercase ${textCol('text-slate-400')}`}>{displayVNum}</span>
-                                 )}
-                               </td>
-                               <td className={`px-1 py-2 text-center uppercase font-bold text-[9px] ${textCol('text-slate-400')}`}>
-                                 {displayType}
-                               </td>
-                               <td className={`px-3 py-3 uppercase leading-normal font-bold text-[10px] ${textCol('text-slate-800')}`} style={{ whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                                 {displayDescription}
-                               </td>
+                          return (
+                            <tr 
+                              key={i} 
+                              className={`border-b border-slate-50 transition-colors ${
+                                isCancelled
+                                  ? 'bg-rose-50/25 dark:bg-rose-950/10'
+                                  : (entry as any).isOpening 
+                                    ? 'bg-slate-50/50' 
+                                    : bgClass 
+                                      ? bgClass 
+                                      : isCompleted
+                                        ? 'bg-emerald-50/20 dark:bg-emerald-950/10'
+                                        : ''
+                              }`} 
+                              style={{ pageBreakInside: 'avoid', pageBreakAfter: 'auto' }}
+                            >
+                              <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
+                                {i + 1}
+                              </td>
+                              <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
+                                {(entry as any).isOpening ? '-' : (entry.date === '-' ? '-' : formatDate(entry.date))}
+                              </td>
+                              <td className="px-1 py-2 text-center" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                {voucher ? (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      onEditVoucher?.(voucher);
+                                    }}
+                                    className={`font-black hover:underline cursor-pointer text-center uppercase ${textCol('text-blue-600 hover:text-blue-800')}`}
+                                    style={{ 
+                                      background: 'none', 
+                                      border: 'none', 
+                                      padding: 0, 
+                                      whiteSpace: 'normal', 
+                                      fontSize: 'inherit',
+                                      wordBreak: 'break-word',
+                                      overflowWrap: 'break-word',
+                                      maxWidth: '100%'
+                                    }}
+                                  >
+                                    {displayVNum}
+                                  </button>
+                                ) : (
+                                  <span className={`font-bold uppercase ${textCol('text-slate-400')}`}>{displayVNum}</span>
+                                )}
+                              </td>
+                              <td className={`px-1 py-2 text-center uppercase font-bold text-[9px] ${textCol('text-slate-400')}`}>
+                                {displayType}
+                              </td>
+                              <td className={`px-3 py-3 uppercase leading-normal font-bold text-[10px] ${textCol('text-slate-800')}`} style={{ whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span>{displayDescription}</span>
+                                  {isCompleted && !isCancelled && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-xs print:border-emerald-500 print:text-emerald-800 shrink-0">
+                                      ✓ COMPLETED
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
                                <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
                                  {displayRateSar}
                                </td>
