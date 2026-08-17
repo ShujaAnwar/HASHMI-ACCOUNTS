@@ -465,11 +465,29 @@ import DateInput from './DateInput';
 
       let running = 0;
       const fullLedger = sortedLedger.map(entry => {
-        const isCancelled = entry.voucherStatus === 'VOID' || (entry.voucherId ? (vouchers.find(v => v.id === entry.voucherId)?.status === 'VOID') : false);
-        if (!isCancelled) {
-          running += (entry.debit - entry.credit);
+        const voucher = entry.voucherId ? vouchers.find(v => v.id === entry.voucherId) : undefined;
+        const isCancelled = entry.voucherStatus === 'VOID' || (voucher?.status === 'VOID');
+        const itemRoe = voucher?.roe || currentROE || 1;
+
+        let displayDebit = entry.debit;
+        let displayCredit = entry.credit;
+
+        if (viewCurrency === Currency.SAR) {
+          displayDebit = entry.debit > 0 ? (entry.debit / itemRoe) : 0;
+          displayCredit = entry.credit > 0 ? (entry.credit / itemRoe) : 0;
         }
-        return { ...entry, balanceAfter: running, isCancelled };
+
+        if (!isCancelled) {
+          running += (displayDebit - displayCredit);
+        }
+        return { 
+          ...entry, 
+          displayDebit, 
+          displayCredit, 
+          balanceAfter: running, 
+          itemRoe,
+          isCancelled 
+        };
       });
 
       if (!fromDate && !toDate) return fullLedger;
@@ -490,14 +508,17 @@ import DateInput from './DateInput';
         id: 'period-opening',
         date: fromDate,
         description: 'Balance Brought Forward',
-        debit: lastPreEntry.balanceAfter > 0 ? lastPreEntry.balanceAfter : 0,
-        credit: lastPreEntry.balanceAfter < 0 ? Math.abs(lastPreEntry.balanceAfter) : 0,
+        debit: lastPreEntry.balanceAfter > 0 ? (viewCurrency === Currency.SAR ? lastPreEntry.balanceAfter * currentROE : lastPreEntry.balanceAfter) : 0,
+        credit: lastPreEntry.balanceAfter < 0 ? (viewCurrency === Currency.SAR ? Math.abs(lastPreEntry.balanceAfter) * currentROE : Math.abs(lastPreEntry.balanceAfter)) : 0,
+        displayDebit: lastPreEntry.balanceAfter > 0 ? lastPreEntry.balanceAfter : 0,
+        displayCredit: lastPreEntry.balanceAfter < 0 ? Math.abs(lastPreEntry.balanceAfter) : 0,
         balanceAfter: lastPreEntry.balanceAfter,
+        itemRoe: currentROE,
         isOpening: true
       };
 
       return [openingBalanceRow, ...periodEntries];
-    }, [selectedAccount, fromDate, toDate]);
+    }, [selectedAccount, fromDate, toDate, viewCurrency, vouchers, currentROE]);
 
     const scrollToPos = (position: 'top' | 'middle' | 'bottom') => {
       const mainElem = document.querySelector('main');
@@ -664,8 +685,10 @@ import DateInput from './DateInput';
         const blob = await html2pdf().set(opt).from(element).output('blob');
         const file = new File([blob], fileName, { type: 'application/pdf' });
 
-        const finalBalance = ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance;
-        const displayBalance = `${formatCurrency(getConvertedVal(Math.abs(finalBalance)))} ${finalBalance >= 0 ? 'DR' : 'CR'}`;
+        const finalBalance = ledgerWithRunningBalance.length > 0 
+          ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter 
+          : (viewCurrency === Currency.SAR ? ((selectedAccount.balance || 0) / currentROE) : selectedAccount.balance);
+        const displayBalance = `${formatCurrency(Math.abs(finalBalance))} ${finalBalance >= 0 ? 'DR' : 'CR'}`;
         const currencyPrefix = viewCurrency === Currency.PKR ? 'Rs:' : 'SAR:';
         const customMessage = sendPaymentReminder
           ? `Assalam o alaikum - Your Balance amount is ${currencyPrefix} *${displayBalance}* please make the payment as soon as possible. JAZAKALLAH KHAIR.`
@@ -748,8 +771,8 @@ import DateInput from './DateInput';
 
     if (!config) return null;
 
-    const totalVisibleDebit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening && !(e as any).isCancelled).reduce((sum, entry) => sum + entry.debit, 0);
-    const totalVisibleCredit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening && !(e as any).isCancelled).reduce((sum, entry) => sum + entry.credit, 0);
+    const totalVisibleDebit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening && !(e as any).isCancelled).reduce((sum, entry) => sum + ((entry as any).displayDebit !== undefined ? (entry as any).displayDebit : entry.debit), 0);
+    const totalVisibleCredit = ledgerWithRunningBalance.filter(e => !(e as any).isOpening && !(e as any).isCancelled).reduce((sum, entry) => sum + ((entry as any).displayCredit !== undefined ? (entry as any).displayCredit : entry.credit), 0);
     const totalTransactions = ledgerWithRunningBalance.filter(e => e.voucherId).length;
 
     const renderMobileAccounts = () => (
@@ -878,16 +901,16 @@ import DateInput from './DateInput';
               
               <div className="flex justify-between items-end">
                 <div className="space-y-1">
-                  {entry.debit > 0 && (
+                  {((entry as any).displayDebit !== undefined ? (entry as any).displayDebit : entry.debit) > 0 && (
                     <div>
                       <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest block">Debit (+)</span>
-                      <span className="text-sm font-orbitron font-black text-emerald-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal(entry.debit))}</span>
+                      <span className="text-sm font-orbitron font-black text-emerald-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency((entry as any).displayDebit !== undefined ? (entry as any).displayDebit : entry.debit)}</span>
                     </div>
                   )}
-                  {entry.credit > 0 && (
+                  {((entry as any).displayCredit !== undefined ? (entry as any).displayCredit : entry.credit) > 0 && (
                     <div>
                       <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest block">Credit (-)</span>
-                      <span className="text-sm font-orbitron font-black text-rose-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal(entry.credit))}</span>
+                      <span className="text-sm font-orbitron font-black text-rose-500">{viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency((entry as any).displayCredit !== undefined ? (entry as any).displayCredit : entry.credit)}</span>
                     </div>
                   )}
                 </div>
@@ -895,7 +918,7 @@ import DateInput from './DateInput';
                 <div className="text-right">
                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Running Bal</span>
                   <span className="text-md font-orbitron font-bold text-slate-800 dark:text-white">
-                    {viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency(getConvertedVal((entry as any).balanceAfter))}
+                    {viewCurrency === Currency.PKR ? 'Rs' : 'SAR'} {formatCurrency((entry as any).balanceAfter)}
                   </span>
                 </div>
               </div>
@@ -1091,8 +1114,7 @@ import DateInput from './DateInput';
             {(() => {
               const activeFinalBal = ledgerWithRunningBalance.length > 0 
                 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter 
-                : (selectedAccount.balance || 0);
-              const activeConvBal = getConvertedVal(activeFinalBal);
+                : (viewCurrency === Currency.SAR ? ((selectedAccount.balance || 0) / currentROE) : (selectedAccount.balance || 0));
               return (
                 <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-4 md:p-5 rounded-2xl shadow-xl border border-slate-700/60 mb-4 no-print flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="flex items-center space-x-4">
@@ -1109,7 +1131,7 @@ import DateInput from './DateInput';
                       <div className="flex items-baseline space-x-3 mt-1">
                         <p className="text-2xl md:text-3xl font-orbitron font-black text-emerald-400 tracking-tight">
                           {viewCurrency === Currency.PKR ? 'Rs. ' : 'SAR '}
-                          {formatCurrency(activeConvBal)}
+                          {formatCurrency(activeFinalBal)}
                         </p>
                         <span className={`text-xs font-black uppercase px-2.5 py-1 rounded-lg ${activeFinalBal >= 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
                           {activeFinalBal >= 0 ? 'Debit (DR)' : 'Credit (CR)'}
@@ -1122,13 +1144,13 @@ import DateInput from './DateInput';
                     <div className="bg-slate-800/80 p-2 md:p-2.5 px-3 md:px-4 rounded-xl border border-slate-700/50 text-center flex-1 md:flex-initial">
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Total Debit</p>
                       <p className="text-xs md:text-sm font-orbitron font-bold text-emerald-400 mt-0.5">
-                        {viewCurrency === Currency.PKR ? 'Rs ' : 'SAR '}{getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        {viewCurrency === Currency.PKR ? 'Rs ' : 'SAR '}{formatCurrency(totalVisibleDebit)}
                       </p>
                     </div>
                     <div className="bg-slate-800/80 p-2 md:p-2.5 px-3 md:px-4 rounded-xl border border-slate-700/50 text-center flex-1 md:flex-initial">
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Total Credit</p>
                       <p className="text-xs md:text-sm font-orbitron font-bold text-rose-400 mt-0.5">
-                        {viewCurrency === Currency.PKR ? 'Rs ' : 'SAR '}{getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        {viewCurrency === Currency.PKR ? 'Rs ' : 'SAR '}{formatCurrency(totalVisibleCredit)}
                       </p>
                     </div>
                     <div className="bg-slate-800/80 p-2 md:p-2.5 px-3 md:px-4 rounded-xl border border-slate-700/50 text-center flex-1 md:flex-initial">
@@ -1278,9 +1300,9 @@ import DateInput from './DateInput';
                           <th className="px-1 py-3 text-center w-[60px]">ROOMS</th>
                           <th className="px-1 py-3 text-center w-[60px]">NIGHTS</th>
                           <th className="px-1 py-3 text-center w-[60px]">ROE</th>
-                          <th className="px-1 py-3 text-right w-[100px]">DEBIT</th>
-                          <th className="px-1 py-3 text-right w-[100px]">CREDIT</th>
-                          <th className="px-2 py-3 text-right w-[120px]">ACCUMULATED BALANCE</th>
+                          <th className="px-1 py-3 text-right w-[100px]">{viewCurrency === Currency.SAR ? 'DEBIT (SAR)' : 'DEBIT'}</th>
+                          <th className="px-1 py-3 text-right w-[100px]">{viewCurrency === Currency.SAR ? 'CREDIT (SAR)' : 'CREDIT'}</th>
+                          <th className="px-2 py-3 text-right w-[120px]">{viewCurrency === Currency.SAR ? 'ACCUMULATED (SAR)' : 'ACCUMULATED BALANCE'}</th>
                         </tr>
                       </thead>
                       <tbody className="text-[11px] font-medium text-slate-600">
@@ -1440,17 +1462,21 @@ import DateInput from './DateInput';
                                  {displayNights}
                                </td>
                                <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
-                                 {isSar ? itemRoe : '-'}
+                                 {voucher?.roe ? voucher.roe : (viewCurrency === Currency.SAR ? ((entry as any).itemRoe || currentROE) : (isSar ? itemRoe : '-'))}
                                </td>
                                <td className={`px-1 py-2 text-right font-black ${textCol('text-slate-900')}`}>
-                                 {entry.debit > 0 ? getConvertedVal(entry.debit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
+                                 {((entry as any).displayDebit !== undefined ? (entry as any).displayDebit : entry.debit) > 0 
+                                   ? ((entry as any).displayDebit !== undefined ? (entry as any).displayDebit : entry.debit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                                   : '0'}
                                </td>
                                <td className={`px-1 py-2 text-right font-black ${textCol('text-slate-900')}`}>
-                                 {entry.credit > 0 ? getConvertedVal(entry.credit, itemRoe).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
+                                 {((entry as any).displayCredit !== undefined ? (entry as any).displayCredit : entry.credit) > 0 
+                                   ? ((entry as any).displayCredit !== undefined ? (entry as any).displayCredit : entry.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                                   : '0'}
                                </td>
                                <td className={`px-2 py-2 text-right font-black ${textCol('text-slate-900')}`}>
-                                 {formatCurrency(getConvertedVal(entry.balanceAfter))}
-                                 <span className="ml-0.5 text-[8px] opacity-40 uppercase">{entry.balanceAfter >= 0 ? 'DR' : 'CR'}</span>
+                                 {formatCurrency((entry as any).balanceAfter)}
+                                 <span className="ml-0.5 text-[8px] opacity-40 uppercase">{(entry as any).balanceAfter >= 0 ? 'DR' : 'CR'}</span>
                                </td>
                              </tr>
                            );
@@ -1467,13 +1493,13 @@ import DateInput from './DateInput';
                         <tr>
                           <td colSpan={8} className="px-4 py-4 text-right font-black tracking-tight border-t-2 border-slate-900">TOTAL FOR PERIOD:</td>
                           <td className="px-1 py-4 text-right text-emerald-700 bg-slate-50/50 border-t-2 border-slate-900">
-                            {getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            {totalVisibleDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-1 py-4 text-right text-rose-700 bg-slate-50/50 border-t-2 border-slate-900">
-                            {getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            {totalVisibleCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-2 py-4 text-right bg-slate-50 border-t-2 border-slate-900">
-                            {formatCurrency(getConvertedVal(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance))}
+                            {formatCurrency(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : (viewCurrency === Currency.SAR ? ((selectedAccount.balance || 0) / currentROE) : (selectedAccount.balance || 0)))}
                             <span className="ml-1 text-[8px] opacity-50">
                               {(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance) >= 0 ? 'DR' : 'CR'}
                             </span>
@@ -1498,14 +1524,14 @@ import DateInput from './DateInput';
                           <p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest mb-1 text-center">TOTAL CREDITS</p>
                           <p className="text-xl font-black text-rose-600">
                             {viewCurrency === Currency.PKR ? 'Rs. ' : 'SAR '} 
-                            {getConvertedVal(totalVisibleCredit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            {formatCurrency(totalVisibleCredit)}
                           </p>
                       </div>
                       <div className="flex flex-col items-center">
                           <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mb-1 text-center">TOTAL DEBITS</p>
                           <p className="text-xl font-black text-emerald-600">
                             {viewCurrency === Currency.PKR ? 'Rs. ' : 'SAR '} 
-                            {getConvertedVal(totalVisibleDebit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            {formatCurrency(totalVisibleDebit)}
                           </p>
                       </div>
                   </div>
@@ -1515,7 +1541,7 @@ import DateInput from './DateInput';
                       <div className="flex items-baseline justify-center space-x-3">
                         <p className="text-4xl font-black text-[#0f172a] leading-none tracking-tighter uppercase">
                           {viewCurrency === Currency.PKR ? 'Rs. ' : 'SAR '}
-                          {formatCurrency(getConvertedVal(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance))}
+                          {formatCurrency(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : (viewCurrency === Currency.SAR ? ((selectedAccount.balance || 0) / currentROE) : (selectedAccount.balance || 0)))}
                         </p>
                         <span className="font-black uppercase text-lg text-slate-300 leading-none">
                           {(ledgerWithRunningBalance.length > 0 ? ledgerWithRunningBalance[ledgerWithRunningBalance.length - 1].balanceAfter : selectedAccount.balance) >= 0 ? 'DR' : 'CR'}
