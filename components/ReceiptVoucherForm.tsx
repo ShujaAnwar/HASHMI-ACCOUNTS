@@ -81,9 +81,12 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
       type: VoucherType.RECEIPT,
       totalAmountPKR: totalPKR,
       status: VoucherStatus.POSTED,
+      reference: formData.reference,
       details: {
         bankId: formData.bankId,
-        unitRate: formData.amount
+        unitRate: formData.amount,
+        slipNo: formData.reference,
+        reference: formData.reference
       }
     });
   };
@@ -177,8 +180,14 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
               </div>
             </div>
             <div className="space-y-6">
-              <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-medium text-sm shadow-inner" placeholder="Reference # (Cheque/TT)" value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} />
-              <textarea className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-medium text-sm shadow-inner h-[110px]" placeholder="Transaction Narrative..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Slip No / Reference #</label>
+                <input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-medium text-sm shadow-inner" placeholder="Slip No / Reference # (Cheque/Deposit Slip)" value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Transaction Narrative</label>
+                <textarea className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-medium text-sm shadow-inner h-[85px]" placeholder="Transaction Narrative / Remarks..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+              </div>
             </div>
           </div>
 

@@ -274,12 +274,23 @@ import DateInput from './DateInput';
     };
 
     const getNarrativeForLedger = (entry: any, voucher: Voucher | undefined) => {
-      if (!voucher || !voucher.details) return entry.description || '-';
+      if (!voucher || !voucher.details) {
+        let desc = entry.description || '-';
+        if (entry.voucherNum?.startsWith('RV') && entry.reference && !desc.toUpperCase().includes(entry.reference.toUpperCase())) {
+          desc += ` | SLIP #: ${entry.reference}`;
+        }
+        return desc;
+      }
 
-      // For Transport, Hotel, and Package vouchers, we re-generate the narrative to ensure 
-      // specific details (like multi-sectors or price and pax breakdowns) are always up-to-date and displayed.
-      // For others, if we have a stored description, we can use it.
-      if (voucher.type !== VoucherType.HOTEL && voucher.type !== VoucherType.PACKAGE) {
+      // For Transport, Hotel, Package, and Receipt vouchers, we dynamically construct/enhance the narrative
+      if (
+        voucher.type !== VoucherType.HOTEL && 
+        voucher.type !== VoucherType.PACKAGE && 
+        voucher.type !== VoucherType.TRANSPORT && 
+        voucher.type !== ('TV' as any) &&
+        voucher.type !== VoucherType.RECEIPT && 
+        voucher.type !== ('RV' as any)
+      ) {
         if (entry.description && entry.description !== '-' && entry.description.trim() !== '') {
           const suffix = (voucher.type === VoucherType.VISA && voucher.details?.sendToEmbassy)
             ? ' | 🏛️ SENT TO EMBASSY'
@@ -288,6 +299,20 @@ import DateInput from './DateInput';
         }
       }
       
+      if (voucher.type === VoucherType.RECEIPT || voucher.type === ('RV' as any) || entry.voucherNum?.startsWith('RV')) {
+        const slipNo = voucher.reference || voucher.details?.slipNo || voucher.details?.slipNumber || voucher.details?.reference || voucher.details?.chequeNumber || voucher.details?.receiptNo;
+        const slipStr = slipNo ? ` | SLIP #: ${String(slipNo).toUpperCase()}` : '';
+        
+        let baseDesc = (entry.description && entry.description !== '-' && entry.description.trim() !== '' && entry.description !== 'Receipt Voucher') 
+          ? entry.description 
+          : (voucher.description || 'RECEIPT VOUCHER');
+        
+        if (slipNo && !baseDesc.toUpperCase().includes(String(slipNo).toUpperCase())) {
+          return `${baseDesc}${slipStr}`;
+        }
+        return baseDesc;
+      }
+
       if (voucher.type === VoucherType.PACKAGE) {
         if (entry.description && !entry.description.startsWith('UMRAH PACKAGE')) {
           return entry.description;
@@ -324,32 +349,59 @@ import DateInput from './DateInput';
         return `${pax} | ${hotel} | Checkin: ${ci} | Checkout: ${co} | Nights: ${nights} | Rooms: ${rooms}${roomTypePart} | Meals: ${meals}`;
       }
 
-      if (voucher.type === VoucherType.ALL_IN_ONE && (entry.description?.includes('Hotel:') || (voucher.details?.hotelItems && voucher.details.hotelItems.length > 0))) {
-        const item = findMatchingBookingItem(entry, voucher) || voucher.details?.hotelItems?.[0];
-        if (item) {
-          const itemPax = (item.paxName || voucher.details.paxName || 'N/A').toUpperCase();
-          const hotel = (item.hotelName || 'N/A').toUpperCase();
-          const city = item.city ? ` (${item.city.toUpperCase()})` : '';
-          const roomType = (item.roomType || 'N/A').toUpperCase();
-          const ci = item.fromDate ? formatDate(item.fromDate) : '-';
-          const co = item.toDate ? formatDate(item.toDate) : '-';
-          const nights = item.numNights || '0';
-          const rooms = item.numRooms || '1';
-          return `HOTEL: ${itemPax} | ${hotel}${city} | IN: ${ci} | OUT: ${co} | NIGHTS: ${nights} | ROOMS: ${rooms} | ROOM TYPE: ${roomType}`;
+      if (voucher.type === VoucherType.ALL_IN_ONE) {
+        if (entry.description?.includes('Hotel:') || (voucher.details?.hotelItems && voucher.details.hotelItems.length > 0)) {
+          const item = findMatchingBookingItem(entry, voucher) || voucher.details?.hotelItems?.[0];
+          if (item) {
+            const itemPax = (item.paxName || voucher.details.paxName || 'N/A').toUpperCase();
+            const hotel = (item.hotelName || 'N/A').toUpperCase();
+            const city = item.city ? ` (${item.city.toUpperCase()})` : '';
+            const roomType = (item.roomType || 'N/A').toUpperCase();
+            const ci = item.fromDate ? formatDate(item.fromDate) : '-';
+            const co = item.toDate ? formatDate(item.toDate) : '-';
+            const nights = item.numNights || '0';
+            const rooms = item.numRooms || '1';
+            return `HOTEL: ${itemPax} | ${hotel}${city} | IN: ${ci} | OUT: ${co} | NIGHTS: ${nights} | ROOMS: ${rooms} | ROOM TYPE: ${roomType}`;
+          }
+        }
+        if (entry.description?.includes('Transport:') || (voucher.details?.transportItems && voucher.details.transportItems.length > 0)) {
+          const item = findMatchingBookingItem(entry, voucher) || voucher.details?.transportItems?.[0];
+          if (item) {
+            const itemPax = (item.paxName || voucher.details.paxName || 'N/A').toUpperCase();
+            let sectorName = '';
+            if (item.isMultiSector && item.subSectors && Array.isArray(item.subSectors)) {
+              sectorName = item.subSectors.map((ss: any) => ss.date ? `${ss.route} [${formatDate(ss.date)}]` : ss.route).join(' -> ');
+            } else {
+              sectorName = item.sector === 'CUSTOM' ? (item.customLabel || 'Custom Route') : item.sector;
+            }
+            const moveDate = item.date || voucher.details?.departureDate || voucher.date;
+            const moveDateStr = moveDate && moveDate !== '-' ? ` | MOVEMENT DATE: ${formatDate(moveDate)}` : '';
+            return `TRANSPORT: ${itemPax} | ${sectorName.toUpperCase()} (${(item.vehicle || 'CAR').toUpperCase()})${moveDateStr}`;
+          }
         }
       }
 
-      if (voucher.type === VoucherType.TRANSPORT) {
-        const tPax = (voucher.details.paxName || '-').toUpperCase();
-        const firstItem = voucher.details.items?.[0] || {};
-        const vehicle = (firstItem.vehicle || 'N/A').toUpperCase();
+      if (voucher.type === VoucherType.TRANSPORT || voucher.type === ('TV' as any)) {
+        const matchedItem = findMatchingBookingItem(entry, voucher) || voucher.details.items?.[0] || voucher.details || {};
+        const tPax = (voucher.details?.paxName || matchedItem.paxName || 'N/A').toUpperCase();
+        const vehicle = (matchedItem.vehicle || voucher.details?.vehicle || 'N/A').toUpperCase();
+        const vehicleCount = Number(matchedItem.numVehicles) || 1;
+        const vehicleText = vehicleCount > 1 ? `${vehicleCount}X ${vehicle}` : vehicle;
         
-        let sector = (firstItem.sector === 'CUSTOM' ? firstItem.customLabel : (firstItem.sector === 'MULTI_SECTOR' ? 'Multi-Sector' : firstItem.sector)) || 'N/A';
-        if (firstItem.isMultiSector && firstItem.subSectors?.length > 0) {
-          sector = firstItem.subSectors.map((s: any) => s.route).join(' -> ');
+        let sector = (matchedItem.sector === 'CUSTOM' ? matchedItem.customLabel : (matchedItem.sector === 'MULTI_SECTOR' ? 'Multi-Sector' : matchedItem.sector)) || 'N/A';
+        if (matchedItem.isMultiSector && matchedItem.subSectors?.length > 0) {
+          sector = matchedItem.subSectors.map((s: any) => {
+            const sDate = s.date ? ` [${formatDate(s.date)}]` : '';
+            return `${s.route}${sDate}`;
+          }).join(' -> ');
         }
         
-        return `${tPax} | ${sector.toUpperCase()} (${vehicle})${voucher.description ? ` | ${voucher.description.toUpperCase()}` : ''}`;
+        const moveDate = matchedItem.date || voucher.details?.departureDate || voucher.details?.travelDate || voucher.date;
+        const moveDateStr = moveDate && moveDate !== '-' ? ` | MOVEMENT DATE: ${formatDate(moveDate)}` : '';
+        const flightStr = voucher.details?.flightNum ? ` | FLT: ${String(voucher.details.flightNum).toUpperCase()}` : '';
+        const descStr = voucher.description ? ` | ${voucher.description.toUpperCase()}` : '';
+        
+        return `${tPax} | ${sector.toUpperCase()} (${vehicleText})${moveDateStr}${flightStr}${descStr}`;
       }
 
       if (voucher.type === VoucherType.VISA) {
@@ -1316,6 +1368,7 @@ import DateInput from './DateInput';
                           const isSar = voucher?.currency === Currency.SAR;
 
                           const isVisa = voucher?.type === VoucherType.VISA || displayType === 'VV' || entry.voucherNum?.startsWith('VV');
+                          const isReceipt = voucher?.type === VoucherType.RECEIPT || voucher?.type === ('RV' as any) || displayType === 'RV' || entry.voucherNum?.startsWith('RV');
                           const highlightClass = (isVisa && entry.voucherNum) 
                             ? visaColorsMap[entry.voucherNum] || '' 
                             : '';
@@ -1327,7 +1380,11 @@ import DateInput from './DateInput';
                           let displayRooms = '-';
                           let displayNights = '-';
 
-                          if (voucher?.type === VoucherType.HOTEL) {
+                          if (isReceipt) {
+                            displayRateSar = '-';
+                            displayRooms = '-';
+                            displayNights = '-';
+                          } else if (voucher?.type === VoucherType.HOTEL) {
                             const item = findMatchingBookingItem(entry, voucher) || voucher.details.items?.[0] || voucher.details;
                             const rateVal = item?.unitRate !== undefined ? Number(item.unitRate) : (voucher.details?.unitRate !== undefined ? Number(voucher.details.unitRate) : undefined);
                             if (rateVal !== undefined && !isNaN(rateVal) && rateVal > 0) {
@@ -1462,7 +1519,7 @@ import DateInput from './DateInput';
                                  {displayNights}
                                </td>
                                <td className={`px-1 py-2 text-center font-bold ${textCol('text-slate-400')}`}>
-                                 {voucher?.roe ? voucher.roe : (viewCurrency === Currency.SAR ? ((entry as any).itemRoe || currentROE) : (isSar ? itemRoe : '-'))}
+                                 {isReceipt ? '-' : (voucher?.roe ? voucher.roe : (viewCurrency === Currency.SAR ? ((entry as any).itemRoe || currentROE) : (isSar ? itemRoe : '-')))}
                                </td>
                                <td className={`px-1 py-2 text-right font-black ${textCol('text-slate-900')}`}>
                                  {((entry as any).displayDebit !== undefined ? (entry as any).displayDebit : entry.debit) > 0 

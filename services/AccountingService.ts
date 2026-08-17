@@ -320,10 +320,16 @@ export class AccountingService {
     const customerId = voucher.customer_id;
     const vendorId = voucher.vendor_id;
 
-    if (voucher.type === 'RV') {
+    if (voucher.type === 'RV' || voucher.type === VoucherType.RECEIPT) {
       const bankId = voucher.details?.bankId;
-      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: voucher.description, voucher_num: voucher.voucher_num });
-      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: voucher.description, voucher_num: voucher.voucher_num });
+      const slipNo = voucher.reference || voucher.details?.slipNo || voucher.details?.slipNumber || voucher.details?.reference;
+      const slipPart = slipNo ? ` | Slip #: ${slipNo}` : '';
+      const receiptDesc = voucher.description 
+        ? `${voucher.description}${slipPart}` 
+        : (slipNo ? `Receipt Voucher | Slip #: ${slipNo}` : 'Receipt Voucher');
+
+      if (bankId) entries.push({ account_id: bankId, voucher_id: voucher.id, date: voucher.date, debit: amount, credit: 0, description: receiptDesc, voucher_num: voucher.voucher_num });
+      if (customerId) entries.push({ account_id: customerId, voucher_id: voucher.id, date: voucher.date, debit: 0, credit: amount, description: receiptDesc, voucher_num: voucher.voucher_num });
       
     } else if (voucher.type === 'TV' || voucher.type === 'TRANSPORT') {
       const items = voucher.details?.items || [];
@@ -339,11 +345,13 @@ export class AccountingService {
         let sectorName = item.sector === 'CUSTOM' ? (item.customLabel || 'Custom Route') : (item.sector === 'MULTI_SECTOR' ? 'Multi-Sector' : item.sector);
         
         if (item.isMultiSector && item.subSectors?.length > 0) {
-          sectorName = item.subSectors.map((s: any) => s.route).join(' -> ');
+          sectorName = item.subSectors.map((s: any) => s.date ? `${s.route} [${this.formatDate(s.date)}]` : s.route).join(' -> ');
         }
 
         const vehicleText = vehicleCount > 1 ? `${vehicleCount}x ${item.vehicle}` : item.vehicle;
-        const itemDesc = `${paxName} | ${sectorName.toUpperCase()} (${vehicleText}) | ${voucher.description || ''}`;
+        const movementDate = item.date || voucher.details?.departureDate || voucher.date;
+        const movementDateStr = movementDate ? ` | Movement Date: ${this.formatDate(movementDate)}` : '';
+        const itemDesc = `${paxName} | ${sectorName.toUpperCase()} (${vehicleText})${movementDateStr} | ${voucher.description || ''}`;
         
         if (customerId) {
           entries.push({ 
