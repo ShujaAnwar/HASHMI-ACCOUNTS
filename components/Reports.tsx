@@ -3,6 +3,7 @@ import { formatCurrency, formatDate } from '../utils/format';
 import DateInput from './DateInput';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
+import DailyTaskReport from './DailyTaskReport';
 
 interface ReportsProps {
   config: AppConfig;
@@ -11,10 +12,11 @@ interface ReportsProps {
   onEditVoucher?: (v: Voucher) => void;
   initialAccountId?: string | null;
   clearInitialAccount?: () => void;
+  initialSection?: 'TD' | 'TB' | 'PL' | 'BS' | 'GL';
 }
 
-const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, onEditVoucher, initialAccountId, clearInitialAccount }) => {
-  const [activeSection, setActiveSection] = useState<'TB' | 'PL' | 'BS' | 'GL'>('TB');
+const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, onEditVoucher, initialAccountId, clearInitialAccount, initialSection }) => {
+  const [activeSection, setActiveSection] = useState<'TD' | 'TB' | 'PL' | 'BS' | 'GL'>(() => initialSection || 'TD');
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), 0, 1).toISOString().split('T')[0]; 
@@ -57,7 +59,7 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
     
     setIsExporting(true);
     const element = reportRef.current;
-    const titleMap = { 'TB': 'Trial_Balance', 'PL': 'Profit_Loss', 'BS': 'Balance_Sheet', 'GL': 'General_Ledger' };
+    const titleMap = { 'TD': 'Daily_Task_Report', 'TB': 'Trial_Balance', 'PL': 'Profit_Loss', 'BS': 'Balance_Sheet', 'GL': 'General_Ledger' };
     const sectionName = titleMap[activeSection];
     const fileName = `${sectionName}_${formatDate(new Date())}.pdf`;
     
@@ -258,6 +260,17 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
 
   const renderMobileReport = () => {
     switch (activeSection) {
+      case 'TD':
+        return (
+          <DailyTaskReport 
+            config={config} 
+            accounts={accounts} 
+            vouchers={vouchers} 
+            onViewVoucher={onViewVoucher} 
+            onEditVoucher={onEditVoucher} 
+            onNavigateToLedger={navigateToLedger} 
+          />
+        );
       case 'TB':
         return (
           <div className="space-y-4">
@@ -473,7 +486,13 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
       </div>
       
       <div className="no-print flex space-x-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
-        {[{ id: 'TB', label: 'Trial', icon: '⚖️' }, { id: 'PL', label: 'P&L', icon: '📊' }, { id: 'BS', label: 'Position', icon: '🏛️' }, { id: 'GL', label: 'Ledger', icon: '📖' }].map(tab => (
+        {[
+          { id: 'TD', label: 'Today Tasks', icon: '📋' },
+          { id: 'TB', label: 'Trial', icon: '⚖️' },
+          { id: 'PL', label: 'P&L', icon: '📊' },
+          { id: 'BS', label: 'Position', icon: '🏛️' },
+          { id: 'GL', label: 'Ledger', icon: '📖' }
+        ].map(tab => (
           <button key={tab.id} onClick={() => setActiveSection(tab.id as any)} className={`px-8 py-5 rounded-[2rem] font-black transition-all flex items-center space-x-3 whitespace-nowrap border-b-4 ${activeSection === tab.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/20 border-blue-700 translate-y-[-2px]' : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
             <span className="text-xl">{tab.icon}</span><span className="text-[10px] uppercase tracking-widest">{tab.label}</span>
           </button>
@@ -484,8 +503,20 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
         {renderMobileReport()}
       </div>
 
-      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 min-h-[600px] transition-all relative overflow-hidden">
-        <div ref={reportRef} className="bg-white p-8 md:p-14 text-slate-900">
+      {activeSection === 'TD' ? (
+        <div className="hidden md:block">
+          <DailyTaskReport 
+            config={config} 
+            accounts={accounts} 
+            vouchers={vouchers} 
+            onViewVoucher={onViewVoucher} 
+            onEditVoucher={onEditVoucher} 
+            onNavigateToLedger={navigateToLedger} 
+          />
+        </div>
+      ) : (
+        <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 min-h-[600px] transition-all relative overflow-hidden">
+          <div ref={reportRef} className="bg-white p-8 md:p-14 text-slate-900">
           {activeSection === 'TB' && (
             <div className="animate-in fade-in duration-500">
               <ReportHeader title="Trial Balance" subtitle="Consolidated Account Headings & Codes" />
@@ -747,6 +778,7 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

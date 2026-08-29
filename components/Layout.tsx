@@ -11,6 +11,7 @@ interface LayoutProps {
   config: AppConfig;
   onLogout?: () => void;
   refreshKey?: number;
+  onOpenDailyBriefing?: () => void;
 }
 
 const AdminAuthModal: React.FC<{ 
@@ -80,7 +81,7 @@ const AdminAuthModal: React.FC<{
   );
 };
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, config, onLogout, refreshKey }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, config, onLogout, refreshKey, onOpenDailyBriefing }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
@@ -135,6 +136,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'daily-tasks', label: 'Today Tasks', icon: '📋' },
     { id: 'haji-tracking', label: 'Haji Tracking', icon: '☪️', count: hajiCount },
     { id: 'coa', label: 'Chart of Accounts', icon: '📁', count: coaCount },
     { id: 'ledger', label: 'General Ledger', icon: '📖', count: ledgerCount },
@@ -185,6 +187,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   const [lastScheduleClickTime, setLastScheduleClickTime] = useState(0);
 
   const handleNavClick = (id: string) => {
+    if (id === 'daily-tasks') {
+      if (onOpenDailyBriefing) {
+        onOpenDailyBriefing();
+      } else {
+        setActiveTab('reports');
+      }
+      return;
+    }
     if (id === 'schedule') {
       // Secret Trigger: Control Panel
       const now = Date.now();
@@ -237,6 +247,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          {onOpenDailyBriefing && (
+            <button 
+              onClick={onOpenDailyBriefing}
+              className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800 font-bold text-xs flex items-center gap-1 active:scale-95"
+              title="Aaj Kay Kaam / Daily Tasks Briefing"
+            >
+              <span>📋</span>
+            </button>
+          )}
           <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700">
             {isDarkMode ? '🌞' : '🌙'}
           </button>
@@ -248,7 +267,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
 
       {/* Desktop Navigation & Calligraphy Header */}
       <header className="hidden md:flex w-full bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-6 py-2 justify-between items-center z-30 transition-colors duration-300 no-print">
-        <div className="flex-1"></div>
+        <div className="flex-1 flex items-center space-x-3">
+          {onOpenDailyBriefing && (
+            <button
+              onClick={onOpenDailyBriefing}
+              className="px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-600 hover:text-white text-indigo-600 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center space-x-2 shadow-sm active:scale-95 group"
+              title="Open Today's Tasks, High Debtors & Action Briefing"
+            >
+              <span className="text-sm">📋</span>
+              <span>Aaj Kay Kaam / Daily Tasks</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 group-hover:bg-white animate-pulse"></span>
+            </button>
+          )}
+        </div>
         <h2 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tracking-normal animate-in fade-in slide-in-from-top-1 duration-1000" dir="rtl">
           بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
         </h2>

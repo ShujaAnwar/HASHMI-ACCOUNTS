@@ -1,5 +1,6 @@
 {
   "name": "Hashmi Travel Solutions",
-  "description": "An IFRS-compliant travel agency accounting system featuring multi-currency support (SAR/PKR), double-entry bookkeeping, and PowerBI-style financial dashboards.",
-  "requestFramePermissions": []
+  "description": "An IFRS-compliant travel agency accounting system featuring multi-currency support (SAR/PKR), double-entry bookkeeping, daily task briefings, top debtor reminders, and PowerBI-style financial dashboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

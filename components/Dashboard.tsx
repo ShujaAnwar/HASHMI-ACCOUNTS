@@ -621,6 +621,24 @@ const Dashboard: React.FC<{
           <button onClick={() => fetchData(false, true)} className="bg-white/50 dark:bg-rose-900/20 px-3 py-1 rounded-lg text-[9px] font-black text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40">RETRY</button>
         </div>
       )}
+      {/* Mobile Daily Tasks Briefing Banner */}
+      <div 
+        onClick={() => onNavigate?.('reports')} 
+        className="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-900 text-white p-5 rounded-[2rem] shadow-lg flex items-center justify-between cursor-pointer active:scale-95 transition-all border border-indigo-500/30"
+      >
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-xl">
+            📋
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300 block">Daily Operations</span>
+            <h3 className="text-sm font-black font-orbitron uppercase text-white">Aaj Kay Kaam & Daily Report</h3>
+            <p className="text-[10px] text-slate-300">Pending collections, movements & vouchers</p>
+          </div>
+        </div>
+        <span className="text-indigo-400 text-lg">➔</span>
+      </div>
+
       {/* Mobile Balance Cards (Horizontal Scroll) */}
       <div className="flex space-x-3 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4">
         {[
@@ -864,6 +882,14 @@ const Dashboard: React.FC<{
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <button 
+                onClick={() => onNavigate?.('reports')}
+                className="no-print flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/20"
+                title="View Today's Tasks, High Debtors and Movements"
+              >
+                <span>📋</span>
+                <span>Aaj Kay Kaam / Daily Report</span>
+              </button>
               <button 
                 onClick={onRefresh}
                 className="no-print flex items-center space-x-2 bg-emerald-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-600/10"

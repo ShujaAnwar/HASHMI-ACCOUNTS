@@ -11,8 +11,9 @@ import LoginForm from './components/LoginForm';
 import UserGuide from './components/UserGuide';
 import AutoBackupManager from './components/AutoBackupManager';
 import AutoRefreshManager from './components/AutoRefreshManager';
-import { AccountType, AppConfig, Voucher } from './types';
-import { getConfig, invalidateDbCache } from './services/db';
+import DailyBriefingModal from './components/DailyBriefingModal';
+import { AccountType, AppConfig, Voucher, Account } from './types';
+import { getConfig, invalidateDbCache, getAccounts, getVouchers } from './services/db';
 import { invalidateHajiCache } from './services/HajiService';
 import { supabase } from './services/supabase';
 
@@ -22,6 +23,10 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showDailyBriefing, setShowDailyBriefing] = useState(false);
+  const [briefingAccounts, setBriefingAccounts] = useState<Account[]>([]);
+  const [briefingVouchers, setBriefingVouchers] = useState<Voucher[]>([]);
+  const [initialReportSection, setInitialReportSection] = useState<'TD' | 'TB' | 'PL' | 'BS' | 'GL'>('TD');
   
   // Cross-tab action state
   const [intent, setIntent] = useState<{ type: 'EDIT' | 'VIEW', voucher: Voucher } | null>(null);
@@ -32,11 +37,40 @@ const App: React.FC = () => {
     setConfig(freshConfig);
   }, []);
 
+  const loadBriefingData = useCallback(async () => {
+    try {
+      const [accs, vchs] = await Promise.all([
+        getAccounts(),
+        getVouchers()
+      ]);
+      setBriefingAccounts(accs);
+      setBriefingVouchers(vchs);
+    } catch (e) {
+      console.error("Failed to load briefing data:", e);
+    }
+  }, []);
+
   const handleGlobalRefresh = useCallback(() => {
     invalidateDbCache();
     invalidateHajiCache();
     setRefreshKey(prev => prev + 1);
-  }, []);
+    loadBriefingData();
+  }, [loadBriefingData]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadBriefingData();
+      // Auto-open briefing if enabled
+      const shouldAutoOpen = localStorage.getItem('tlp_auto_open_daily_briefing') !== 'false';
+      if (shouldAutoOpen) {
+        // slight delay for smooth UI mounting
+        const timer = window.setTimeout(() => {
+          setShowDailyBriefing(true);
+        }, 600);
+        return () => window.clearTimeout(timer);
+      }
+    }
+  }, [isAuthenticated, loadBriefingData]);
 
   useEffect(() => {
     // Initial data load
@@ -155,7 +189,7 @@ const App: React.FC = () => {
       case 'haji-tracking':
         return <HajiTracking config={config} />;
       case 'reports':
-        return <Reports config={config} refreshKey={refreshKey} onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} />;
+        return <Reports config={config} refreshKey={refreshKey} onViewVoucher={handleViewVoucher} onEditVoucher={handleEditVoucher} initialAccountId={selectedAccountId} clearInitialAccount={() => setSelectedAccountId(null)} initialSection={initialReportSection} />;
       case 'control':
         return <ControlPanel config={config} onConfigUpdate={refreshConfig} />;
       case 'help':
@@ -179,9 +213,44 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} config={config} onLogout={handleLogout} refreshKey={refreshKey}>
+    <Layout 
+      activeTab={activeTab} 
+      setActiveTab={setActiveTab} 
+      config={config} 
+      onLogout={handleLogout} 
+      refreshKey={refreshKey}
+      onOpenDailyBriefing={() => {
+        loadBriefingData();
+        setShowDailyBriefing(true);
+      }}
+    >
       <AutoBackupManager config={config} />
       <AutoRefreshManager config={config} onRefresh={handleGlobalRefresh} />
+      
+      {showDailyBriefing && (
+        <DailyBriefingModal
+          isOpen={showDailyBriefing}
+          onClose={() => setShowDailyBriefing(false)}
+          config={config}
+          accounts={briefingAccounts}
+          vouchers={briefingVouchers}
+          onNavigateToReports={() => {
+            setInitialReportSection('TD');
+            setActiveTab('reports');
+            setShowDailyBriefing(false);
+          }}
+          onNavigateToLedger={(accId) => {
+            setSelectedAccountId(accId);
+            setActiveTab('customers');
+            setShowDailyBriefing(false);
+          }}
+          onViewVoucher={(v) => {
+            handleViewVoucher(v);
+            setShowDailyBriefing(false);
+          }}
+        />
+      )}
+
       <div className="animate-in fade-in duration-500">
         {renderContent()}
       </div>
