@@ -4,6 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TravelLedger Pro</title>
+    <script>
+        // Suppress benign browser extension errors (MetaMask, wallet extensions, etc.)
+        (function() {
+            function isExtensionError(err) {
+                if (!err) return false;
+                var str = (typeof err === 'string' ? err : (err.message || err.toString() || '')) + ' ' + (err.stack || '');
+                return /MetaMask|ethereum|web3|solana|coinbase|chrome-extension|moz-extension|safari-extension|evmAsk/i.test(str);
+            }
+            window.addEventListener('unhandledrejection', function(event) {
+                if (isExtensionError(event.reason) || (event.reason && isExtensionError(event.reason.message))) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+            }, true);
+            window.addEventListener('error', function(event) {
+                if (isExtensionError(event.error) || isExtensionError(event.message) || isExtensionError(event.filename)) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    return true;
+                }
+            }, true);
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>

@@ -31,6 +31,7 @@ import TicketVoucherForm from './TicketVoucherForm';
 import AllInOneVoucherForm from './AllInOneVoucherForm';
 import { PackageVoucherForm } from './PackageVoucherForm';
 import { VoucherConfirmationModal } from './VoucherConfirmationModal';
+import DigitalVoucherVerification from './DigitalVoucherVerification';
 
 const amountToWords = (num: number): string => {
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
@@ -68,6 +69,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [inspectingPublicVoucher, setInspectingPublicVoucher] = useState<Voucher | null>(null);
   
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [allVouchers, setAllVouchers] = useState<Voucher[]>([]);
@@ -755,7 +757,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 v.details.items.map((item: any, i: number) => (
                   <tr key={i} className={i > 0 ? 'border-t border-slate-200' : ''}>
                     <td className="py-2 px-2 border-r border-slate-300 uppercase">{v.details?.paxName || 'N/A'}</td>
-                    <td className="py-2 px-2 border-r border-slate-300 uppercase">{item.hotelName || 'N/A'}</td>
+                    <td className="py-2 px-2 border-r border-slate-300 uppercase">
+                      <div>{item.hotelName || 'N/A'}</div>
+                      {(item.confirmationNo || item.hotelConfirmationNo || v.details?.confirmationNo || v.reference) && (
+                        <div className="text-[8px] text-emerald-700 font-black mt-0.5">
+                          Conf: {item.confirmationNo || item.hotelConfirmationNo || v.details?.confirmationNo || v.reference}
+                        </div>
+                      )}
+                    </td>
                     <td className="py-2 px-2 border-r border-slate-300 uppercase">
                       {item.roomType || 'N/A'}
                       {item.adults !== undefined && (
@@ -780,7 +789,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               ) : (
                 <tr>
                   <td className="py-3 px-2 border-r border-slate-300 uppercase">{v.details?.paxName || v.details?.headName || accounts.find(a => a.id === v.customerId || a.id === v.vendorId)?.name || 'N/A'}</td>
-                  <td className="py-3 px-2 border-r border-slate-300 uppercase">{v.details?.hotelName || v.details?.airline || v.description || 'N/A'}</td>
+                  <td className="py-3 px-2 border-r border-slate-300 uppercase">
+                    <div>{v.details?.hotelName || v.details?.airline || v.description || 'N/A'}</div>
+                    {(v.type === VoucherType.HOTEL && (v.details?.confirmationNo || v.reference)) && (
+                      <div className="text-[8px] text-emerald-700 font-black mt-0.5">
+                        Conf: {v.details?.confirmationNo || v.reference}
+                      </div>
+                    )}
+                  </td>
                   <td className="py-3 px-2 border-r border-slate-300 uppercase">
                     {v.details?.roomType || 'N/A'}
                     {v.details?.adults !== undefined && (
@@ -819,15 +835,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         )}
 
         <div className="mt-auto pt-4">
-          <div className="text-center border-t border-b border-dashed border-slate-300 py-3 mb-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="text-center border-t border-b border-dashed border-slate-300 py-2.5 mb-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
             This is a computer-generated invoice and requires no signature or stamp
           </div>
-          <h3 className="text-[11px] font-black border-b border-slate-900 pb-1 mb-2 tracking-tight uppercase">Acknowledgement</h3>
-          <ol className="text-[8px] space-y-0.5 font-bold text-slate-700 uppercase leading-tight">
-            <li>1. ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li>
-            <li>2. IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li>
-            <li>3. ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY.</li>
-          </ol>
+          <div className="mt-2">
+            <h3 className="text-[11px] font-black border-b border-slate-900 pb-1 mb-2 tracking-tight uppercase">Acknowledgement</h3>
+            <ol className="text-[8px] space-y-0.5 font-bold text-slate-700 uppercase leading-tight">
+              <li>1. ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li>
+              <li>2. IF PAYMENT'S MADE, DISREGARD THIS INVOICE.</li>
+              <li>3. ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY.</li>
+            </ol>
+          </div>
         </div>
       </div>
     );
@@ -888,19 +906,41 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             </tr>
           </thead>
           <tbody className="text-[9px] uppercase font-bold text-slate-800">
-            <tr className="bg-white">
-              <td className="p-2 border border-slate-300">{v.details?.hotelName}</td>
-              <td className="p-2 border border-slate-300">{v.details?.paxName}</td>
-              <td className="p-2 border border-slate-300">{v.details?.city}, {v.details?.country}</td>
-              <td className="p-2 border border-slate-300">
-                {v.reference || 'N/A'}
-                {v.details?.bookingRef && (
-                  <div className="text-[8px] text-blue-600 mt-0.5 font-black">
-                    REF: {v.details.bookingRef}
-                  </div>
-                )}
-              </td>
-            </tr>
+            {v.details?.items?.length > 0 ? (
+              v.details.items.map((item: any, i: number) => (
+                <tr key={i} className="bg-white">
+                  <td className="p-2 border border-slate-300">{item.hotelName || v.details?.hotelName}</td>
+                  <td className="p-2 border border-slate-300">{v.details?.paxName}</td>
+                  <td className="p-2 border border-slate-300">{item.city || v.details?.city}, {item.country || v.details?.country}</td>
+                  <td className="p-2 border border-slate-300">
+                    <span className="font-black text-emerald-700">
+                      {item.confirmationNo || item.hotelConfirmationNo || v.details?.confirmationNo || v.reference || 'N/A'}
+                    </span>
+                    {v.details?.bookingRef && (
+                      <div className="text-[8px] text-blue-600 mt-0.5 font-black">
+                        REF: {v.details.bookingRef}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr className="bg-white">
+                <td className="p-2 border border-slate-300">{v.details?.hotelName}</td>
+                <td className="p-2 border border-slate-300">{v.details?.paxName}</td>
+                <td className="p-2 border border-slate-300">{v.details?.city}, {v.details?.country}</td>
+                <td className="p-2 border border-slate-300">
+                  <span className="font-black text-emerald-700">
+                    {v.details?.confirmationNo || v.reference || 'N/A'}
+                  </span>
+                  {v.details?.bookingRef && (
+                    <div className="text-[8px] text-blue-600 mt-0.5 font-black">
+                      REF: {v.details.bookingRef}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
@@ -911,40 +951,62 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <th className="p-1.5 border border-slate-400">MEAL</th>
               <th className="p-1.5 border border-slate-400">CHECK IN</th>
               <th className="p-1.5 border border-slate-400">CHECK OUT</th>
-              <th className="p-1.5 border border-slate-400">NIGHT(s)</th>
-              <th className="p-1.5 border border-slate-400">ROOM(s)</th>
-              <th className="p-1.5 border border-slate-400">TOTAL</th>
+              <th className="p-1.5 border border-slate-400 text-center">NIGHT(s)</th>
+              <th className="p-1.5 border border-slate-400 text-center">ROOM(s)</th>
+              <th className="p-1.5 border border-slate-400 text-right">TOTAL</th>
             </tr>
           </thead>
           <tbody className="text-[9px] font-bold uppercase text-slate-800">
-            <tr className="bg-white">
-              <td className="p-2 border border-slate-300">
-                {v.details?.roomType}
-                <div className="text-[8px] text-slate-500 mt-0.5">
-                  {v.details?.adults || 0} ADULTS / {v.details?.children || 0} CHILDREN
-                </div>
-              </td>
-              <td className="p-2 border border-slate-300">{formatMeals(v.details?.meals)}</td>
-              <td className="p-2 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}</td>
-              <td className="p-2 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? formatDate(v.details.toDate) : '-'}</td>
-              <td className="p-2 border border-slate-300 text-center">{v.details?.numNights}</td>
-              <td className="p-2 border border-slate-300 text-center">{v.details?.numRooms}</td>
-              <td className="p-2 border border-slate-300 font-black text-right">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-            </tr>
+            {v.details?.items?.length > 0 ? (
+              v.details.items.map((item: any, i: number) => (
+                <tr key={i} className="bg-white">
+                  <td className="p-2 border border-slate-300">
+                    {item.roomType}
+                    <div className="text-[8px] text-slate-500 mt-0.5 font-normal">
+                      {item.adults || 0} ADULTS / {item.children || 0} CHILDREN
+                    </div>
+                  </td>
+                  <td className="p-2 border border-slate-300">{formatMeals(item.meals)}</td>
+                  <td className="p-2 border border-slate-300 whitespace-nowrap">{item.fromDate ? formatDate(item.fromDate) : '-'}</td>
+                  <td className="p-2 border border-slate-300 whitespace-nowrap">{item.toDate ? formatDate(item.toDate) : '-'}</td>
+                  <td className="p-2 border border-slate-300 text-center">{item.numNights}</td>
+                  <td className="p-2 border border-slate-300 text-center">{item.numRooms}</td>
+                  <td className="p-2 border border-slate-300 font-black text-right">
+                    PKR {(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr className="bg-white">
+                <td className="p-2 border border-slate-300">
+                  {v.details?.roomType}
+                  <div className="text-[8px] text-slate-500 mt-0.5 font-normal">
+                    {v.details?.adults || 0} ADULTS / {v.details?.children || 0} CHILDREN
+                  </div>
+                </td>
+                <td className="p-2 border border-slate-300">{formatMeals(v.details?.meals)}</td>
+                <td className="p-2 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}</td>
+                <td className="p-2 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? formatDate(v.details.toDate) : '-'}</td>
+                <td className="p-2 border border-slate-300 text-center">{v.details?.numNights}</td>
+                <td className="p-2 border border-slate-300 text-center">{v.details?.numRooms}</td>
+                <td className="p-2 border border-slate-300 font-black text-right">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              </tr>
+            )}
           </tbody>
         </table>
 
-        <div className="mt-auto pt-4 text-[9px] font-bold leading-relaxed space-y-1 text-slate-700 uppercase">
-           <p className="underline font-black text-slate-900 mb-1 tracking-widest">Notes</p>
-           <ul className="list-disc pl-4 space-y-0.5">
-             <li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li>
-             <li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY.</li>
-           </ul>
+        <div className="mt-auto pt-4 border-t border-slate-100">
+          <div className="text-[9px] font-bold leading-relaxed space-y-1 text-slate-700 uppercase">
+             <p className="underline font-black text-slate-900 mb-1 tracking-widest">Notes</p>
+             <ul className="list-disc pl-4 space-y-0.5">
+               <li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li>
+               <li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY.</li>
+             </ul>
+             <p className="text-[10px] font-medium text-slate-600 mt-2 pt-1 border-t border-slate-100">
+               <span className="font-black text-slate-900">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately.
+             </p>
+          </div>
         </div>
-
-        <p className="text-[10px] font-medium text-slate-600 mt-4 pt-2 border-t border-slate-100">
-          <span className="font-black text-slate-900">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately.
-        </p>
       </div>
     );
   };
@@ -1005,7 +1067,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             {v.details?.items?.length > 0 ? (
               v.details.items.map((item: any, i: number) => (
                 <tr key={i} className="bg-white border-b border-slate-200">
-                  <td className="p-2 border-r border-slate-300">{item.hotelName}</td>
+                  <td className="p-2 border-r border-slate-300">
+                    <div>{item.hotelName}</div>
+                    {(item.confirmationNo || item.hotelConfirmationNo) && (
+                      <div className="text-[8px] font-black text-emerald-700 mt-0.5">
+                        Conf: {item.confirmationNo || item.hotelConfirmationNo}
+                      </div>
+                    )}
+                  </td>
                   <td className="p-2 border-r border-slate-300">
                     {item.roomType}
                     <div className="text-[8px] opacity-60 mt-0.5">
@@ -1023,7 +1092,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               ))
             ) : (
               <tr className="bg-white border-b border-slate-200">
-                <td className="p-2 border-r border-slate-300">{v.details?.hotelName}</td>
+                <td className="p-2 border-r border-slate-300">
+                  <div>{v.details?.hotelName}</div>
+                  {(v.details?.confirmationNo || v.reference) && (
+                    <div className="text-[8px] font-black text-emerald-700 mt-0.5">
+                      Conf: {v.details?.confirmationNo || v.reference}
+                    </div>
+                  )}
+                </td>
                 <td className="p-2 border-r border-slate-300">
                   {v.details?.roomType}
                   <div className="text-[8px] opacity-60 mt-0.5">
@@ -1044,11 +1120,11 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           </tbody>
         </table>
 
-        <div className="mt-auto pt-6">
+        <div className="mt-auto pt-4">
           <div className="bg-[#0b7ea1] text-white py-1.5 px-6 text-center font-black uppercase text-[11px] tracking-widest rounded-t-lg">
             TERMS AND CONDITIONS
           </div>
-          <ul className="text-[9px] font-bold text-slate-700 p-4 space-y-1.5 uppercase border border-t-0 border-slate-300 bg-slate-50/50 rounded-b-lg">
+          <ul className="text-[9px] font-bold text-slate-700 p-3 space-y-1 uppercase border border-t-0 border-slate-300 bg-slate-50/50 rounded-b-lg">
             <li>▪ Above rates are net and non commission-able.</li>
             <li>▪ Once you Re-Confirm this booking it will be Non Cancellation.</li>
             <li>▪ Check in after 16:00 hour and check out at 12:00 hour.</li>
@@ -1133,7 +1209,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <div key={i} className={`grid grid-cols-2 gap-x-16 gap-y-2 pb-3 ${i > 0 ? 'mt-3 pt-3 border-t border-slate-100' : ''}`}>
                 <div className="space-y-2">
                   <div className="space-y-0.5">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">HOTEL NAME</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">HOTEL NAME</p>
+                      {(item.confirmationNo || item.hotelConfirmationNo) && (
+                        <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 uppercase tracking-wider">
+                          Conf #: {item.confirmationNo || item.hotelConfirmationNo}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[14px] font-black uppercase text-[#0f172a] leading-tight">
                       {item.hotelName || 'N/A'}
                     </p>
@@ -1174,7 +1257,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             <div className="grid grid-cols-2 gap-x-16 gap-y-2 border-b border-slate-100 pb-3">
               <div className="space-y-2">
                 <div className="space-y-0.5">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">HOTEL NAME</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">HOTEL NAME</p>
+                    {(v.details?.confirmationNo || v.reference) && (
+                      <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 uppercase tracking-wider">
+                        Conf #: {v.details?.confirmationNo || v.reference}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[14px] font-black uppercase text-[#0f172a] leading-tight">
                     {v.details?.hotelName || 'N/A'}
                   </p>
@@ -1217,6 +1307,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             <thead>
               <tr className="text-[8px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">HOTEL / CITY</th>
+                <th className="py-1.5 px-3 text-left border-r border-slate-700">CONF NO</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">ROOM TYPE</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">MEAL</th>
                 <th className="py-1.5 px-3 text-left border-r border-slate-700">NO OF ROOMS</th>
@@ -1229,6 +1320,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 v.details.items.map((item: any, i: number) => (
                   <tr key={i} className="bg-slate-50 border-b border-slate-200">
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.hotelName} ({item.city})</td>
+                    <td className="py-1.5 px-3 border-r border-slate-200 font-black text-emerald-700 uppercase">
+                      {item.confirmationNo || item.hotelConfirmationNo || v.details?.confirmationNo || v.reference || '-'}
+                    </td>
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.roomType}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(item.meals)}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200">{item.numRooms}</td>
@@ -1239,6 +1333,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               ) : (
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{v.details?.hotelName} ({v.details?.city})</td>
+                  <td className="py-1.5 px-3 border-r border-slate-200 font-black text-emerald-700 uppercase">
+                    {v.details?.confirmationNo || v.reference || '-'}
+                  </td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{v.details?.roomType || 'TRIPLE'}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(v.details?.meals)}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numRooms || 1}</td>
@@ -1274,9 +1371,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
         {/* Booking Notes - Updated narrative and locked to bottom */}
         <div className="mt-auto pt-2 pb-1 border-t border-slate-100">
-          <div className="border border-slate-200 p-3 rounded-md bg-slate-50/50">
+          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50/50">
             <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
-              <span className="font-black text-[#0f172a] not-italic">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to contact us.
+              <span className="font-black text-[#0f172a] not-italic">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
             </p>
           </div>
         </div>
@@ -1479,17 +1576,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         </div>
 
         {/* Remarks Section */}
-        {v.description && (
-          <div className="mb-4 p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+        <div className="mb-3">
+          <div className="p-2.5 border border-slate-200 rounded-lg bg-slate-50/50 min-h-[56px]">
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">REMARKS / INSTRUCTIONS</p>
             <p className="text-[10px] font-medium text-slate-700 leading-tight whitespace-pre-wrap">
-              {v.description}
+              {v.description || 'Confirmed transport transfer service. Please present this voucher upon vehicle arrival.'}
             </p>
           </div>
-        )}
+        </div>
 
         {/* Signatures */}
-        <div className="mt-auto pt-6 pb-2">
+        <div className="mt-auto pt-3 pb-2">
           <div className="flex justify-between items-end">
             <div className="text-center">
               <div className="w-40 border-t border-slate-900 pt-1 font-black text-[9px] uppercase tracking-widest">
@@ -1676,17 +1773,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         </div>
 
         {/* Remarks Section */}
-        {v.description && (
-          <div className="mb-4 p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+        <div className="mb-3">
+          <div className="p-2.5 border border-slate-200 rounded-lg bg-slate-50/50 min-h-[56px]">
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">REMARKS / INSTRUCTIONS</p>
             <p className="text-[10px] font-medium text-slate-700 leading-tight whitespace-pre-wrap">
-              {v.description}
+              {v.description || 'Confirmed visa processing service.'}
             </p>
           </div>
-        )}
+        </div>
 
         {/* Signatures */}
-        <div className="mt-auto pt-6 pb-2">
+        <div className="mt-auto pt-3 pb-2">
           <div className="flex justify-between items-end">
             <div className="text-center">
               <div className="w-40 border-t border-slate-900 pt-1 font-black text-[9px] uppercase tracking-widest">
@@ -2004,10 +2101,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         )}
 
         {/* Booking Notes - Locked to Bottom like sample */}
-        <div className="mt-auto pt-2 pb-2">
-          <div className="border border-slate-200 p-3 rounded-md bg-slate-50">
+        <div className="mt-auto pt-2 pb-1">
+          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50">
             <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
-              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to contact us.
+              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
             </p>
           </div>
         </div>
@@ -2269,10 +2366,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         )}
 
         {/* Booking Notes - Locked to Bottom like sample */}
-        <div className="mt-auto pt-2 pb-2">
-          <div className="border border-slate-200 p-3 rounded-md bg-slate-50">
+        <div className="mt-auto pt-2 pb-1">
+          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50">
             <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
-              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. if you need any further clarification, please do not hesitate to contact us.
+              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
             </p>
           </div>
         </div>
@@ -2640,8 +2737,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                       <p className={`font-black text-base leading-none ${isCancelled ? 'text-red-500/80 line-through' : 'text-slate-900 dark:text-white'}`}>{v.totalAmountPKR.toLocaleString()}</p>
                     </td>
                     <td className="px-5 py-6">
-                      <div className="flex justify-center space-x-2">
-                         <button onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all text-xs" title="View">👁️</button>
+                      <div className="flex justify-center space-x-1.5">
+                         <button onClick={() => { setActiveType(v.type); setViewingVoucher(v); setInspectorView('SERVICE'); }} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white transition-all text-xs" title="View Voucher">👁️</button>
+                         <button onClick={() => setInspectingPublicVoucher(v)} className="p-2.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-xs font-bold" title="Scan / Share QR Digital E-Voucher">📱</button>
                          <button onClick={() => handleEdit(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-amber-500 hover:text-white transition-all text-xs" title="Edit">✏️</button>
                          <button onClick={() => handleClone(v)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-xs" title="Clone">👯</button>
                          <button 
@@ -2700,6 +2798,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     </label>
                   )}
                   <button 
+                    onClick={() => setInspectingPublicVoucher(viewingVoucher)} 
+                    className="flex-1 sm:flex-none justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-3 md:py-2 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center space-x-1.5 shadow-xl shadow-indigo-500/20"
+                    title="View Digital E-Voucher & QR Code Portal"
+                  >
+                    <span>📱</span> 
+                    <span className="hidden sm:inline">QR Portal</span>
+                  </button>
+                  <button 
                     onClick={handleDownloadPDF} 
                     disabled={isDownloading}
                     className="flex-1 sm:flex-none justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-3 md:py-2 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center space-x-2 disabled:opacity-50 shadow-xl"
@@ -2729,6 +2835,15 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             </div>
           </div>
         </div>
+      )}
+
+      {inspectingPublicVoucher && (
+        <DigitalVoucherVerification
+          voucherObj={inspectingPublicVoucher}
+          config={config}
+          accounts={accounts}
+          onClose={() => setInspectingPublicVoucher(null)}
+        />
       )}
 
       {showForm && renderVoucherForm()}

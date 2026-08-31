@@ -124,7 +124,21 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     reference: isClone ? '' : (initialData?.reference || ''),
     paxName: initialData?.details?.paxName || '',
     passportNumber: initialData?.details?.passportNumber || '',
-    items: initialData?.details?.items || [{
+    items: initialData?.details?.items?.map((it: any) => ({
+      hotelName: it.hotelName || '',
+      city: it.city || 'Makkah',
+      country: it.country || 'Saudi Arabia',
+      roomType: it.roomType || 'DBL C.V',
+      numRooms: it.numRooms || 1,
+      numNights: it.numNights || 0,
+      unitRate: it.unitRate || 0,
+      fromDate: it.fromDate || '',
+      toDate: it.toDate || '',
+      meals: (Array.isArray(it.meals) ? it.meals : (typeof it.meals === 'string' ? [it.meals] : [])) as string[],
+      adults: it.adults || 2,
+      children: it.children || 0,
+      confirmationNo: it.confirmationNo || it.hotelConfirmationNo || it.reference || ''
+    })) || [{
       hotelName: initialData?.details?.hotelName || '',
       city: initialData?.details?.city || 'Makkah',
       country: initialData?.details?.country || 'Saudi Arabia',
@@ -136,7 +150,8 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
       toDate: initialData?.details?.toDate || '',
       meals: (Array.isArray(initialData?.details?.meals) ? initialData.details.meals : (typeof initialData?.details?.meals === 'string' ? [initialData.details.meals] : [])) as string[],
       adults: initialData?.details?.adults || 2,
-      children: initialData?.details?.children || 0
+      children: initialData?.details?.children || 0,
+      confirmationNo: initialData?.details?.confirmationNo || initialData?.reference || ''
     }],
     bookingRef: initialData?.details?.bookingRef || '',
   });
@@ -257,13 +272,17 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
       }
     }
 
+    const mainConfNo = formData.items?.find((it: any) => it.confirmationNo)?.confirmationNo || formData.reference || '';
+
     onSave({
       ...formData,
+      reference: formData.reference || mainConfNo,
       type: VoucherType.HOTEL,
       totalAmountPKR: totalPKR,
       status: VoucherStatus.POSTED,
       details: {
         ...formData,
+        confirmationNo: mainConfNo,
         hajiId,
         totalSelectedCurrency
       }
@@ -468,7 +487,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-3 border-t border-slate-50 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="mt-3 pt-3 border-t border-slate-50 dark:border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div className="space-y-1">
                       <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ROOM TYPE</label>
                       <select 
@@ -495,6 +514,17 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                           onChange={e => updateItem(idx, 'roomType', e.target.value)} 
                         />
                       )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                        <span>HOTEL CONFIRMATION #</span>
+                      </label>
+                      <input 
+                        className="w-full bg-blue-50/50 dark:bg-slate-900 border-none rounded-lg p-2 text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 placeholder:text-slate-400 outline-none ring-1 ring-blue-100 dark:ring-blue-900/30" 
+                        placeholder="e.g. HC-88392 / 109283" 
+                        value={item.confirmationNo || ''} 
+                        onChange={e => updateItem(idx, 'confirmationNo', e.target.value.toUpperCase())} 
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">ADULTS</label>

@@ -548,6 +548,10 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
                              <label className="text-[8px] font-black text-slate-400 uppercase">HB # / Booking Ref</label>
                              <input className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-black uppercase" placeholder="e.g. HB-12345" value={item.reference} onChange={e => updateHotelItem(idx, 'reference', e.target.value.toUpperCase())} />
                           </div>
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Hotel Conf #</label>
+                             <input className="w-full bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-2 text-[10px] font-black uppercase text-emerald-800 dark:text-emerald-300" placeholder="e.g. CONF-9988" value={item.confirmationNo || ''} onChange={e => updateHotelItem(idx, 'confirmationNo', e.target.value.toUpperCase())} />
+                          </div>
                        </div>
 
                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

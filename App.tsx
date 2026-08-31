@@ -12,6 +12,7 @@ import UserGuide from './components/UserGuide';
 import AutoBackupManager from './components/AutoBackupManager';
 import AutoRefreshManager from './components/AutoRefreshManager';
 import DailyBriefingModal from './components/DailyBriefingModal';
+import DigitalVoucherVerification from './components/DigitalVoucherVerification';
 import { AccountType, AppConfig, Voucher, Account } from './types';
 import { getConfig, invalidateDbCache, getAccounts, getVouchers } from './services/db';
 import { invalidateHajiCache } from './services/HajiService';
@@ -28,6 +29,13 @@ const App: React.FC = () => {
   const [briefingVouchers, setBriefingVouchers] = useState<Voucher[]>([]);
   const [initialReportSection, setInitialReportSection] = useState<'TD' | 'TB' | 'PL' | 'BS' | 'GL'>('TD');
   
+  // Public QR Code verification from URL parameters
+  const [publicVerifyParams, setPublicVerifyParams] = useState<{
+    data?: string;
+    num?: string;
+    id?: string;
+  } | null>(null);
+
   // Cross-tab action state
   const [intent, setIntent] = useState<{ type: 'EDIT' | 'VIEW', voucher: Voucher } | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -76,6 +84,22 @@ const App: React.FC = () => {
     // Initial data load
     refreshConfig();
 
+    // Check for public QR verification parameters in URL
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const verifyData = urlParams.get('d') || urlParams.get('verify') || urlParams.get('data');
+      const vNum = urlParams.get('vNum') || urlParams.get('voucherNum') || urlParams.get('num');
+      const vId = urlParams.get('id') || urlParams.get('voucherId');
+
+      if (verifyData || vNum || vId) {
+        setPublicVerifyParams({
+          data: verifyData || undefined,
+          num: vNum || undefined,
+          id: vId || undefined
+        });
+      }
+    }
+
     // Check current Supabase Auth Session
     const checkSession = async () => {
       try {
@@ -118,17 +142,25 @@ const App: React.FC = () => {
     
     checkSession();
 
-    // Global suppression for MetaMask errors within App
+    // Global suppression for MetaMask / web3 / extension errors within App
     const handleRejection = (event: PromiseRejectionEvent) => {
-      if (event.reason && (
-        event.reason.message?.includes('MetaMask') || 
-        event.reason.message?.includes('ethereum')
-      )) {
+      const reasonStr = event.reason ? (typeof event.reason === 'string' ? event.reason : (event.reason.message || event.reason.toString() || '')) : '';
+      if (/MetaMask|ethereum|web3|solana|coinbase|extension/i.test(reasonStr)) {
         event.preventDefault();
+        event.stopImmediatePropagation?.();
       }
     };
 
-    window.addEventListener('unhandledrejection', handleRejection);
+    const handleError = (event: ErrorEvent) => {
+      const errorStr = (event.message || '') + ' ' + (event.filename || '');
+      if (/MetaMask|ethereum|web3|solana|coinbase|extension/i.test(errorStr)) {
+        event.preventDefault();
+        event.stopImmediatePropagation?.();
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleRejection, true);
+    window.addEventListener('error', handleError, true);
 
     // Listen for Auth state changes (Login/Logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -138,7 +170,8 @@ const App: React.FC = () => {
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener('unhandledrejection', handleRejection);
+      window.removeEventListener('unhandledrejection', handleRejection, true);
+      window.removeEventListener('error', handleError, true);
     };
   }, [refreshConfig]);
 
@@ -205,6 +238,25 @@ const App: React.FC = () => {
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6"></div>
         <p className="opacity-50 text-[10px] uppercase tracking-[0.5em] font-bold tracking-widest">Secure Handshake...</p>
       </div>
+    );
+  }
+
+  // Standalone QR Code Public Verification Portal View (Accessible without login)
+  if (publicVerifyParams) {
+    return (
+      <DigitalVoucherVerification
+        encodedDataFromUrl={publicVerifyParams.data}
+        voucherNumFromUrl={publicVerifyParams.num}
+        voucherIdFromUrl={publicVerifyParams.id}
+        config={config}
+        isStandalonePage={true}
+        onClose={() => {
+          setPublicVerifyParams(null);
+          if (typeof window !== 'undefined') {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }}
+      />
     );
   }
 
