@@ -2798,6 +2798,18 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     </label>
                   )}
                   <button 
+                    onClick={() => {
+                      const v = viewingVoucher;
+                      setViewingVoucher(null);
+                      handleClone(v);
+                    }} 
+                    className="flex-1 sm:flex-none justify-center bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-600 hover:text-white px-3.5 py-3 md:py-2 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center space-x-1.5 shadow-sm"
+                    title="Clone / Duplicate this Voucher"
+                  >
+                    <span>👯</span> 
+                    <span className="hidden sm:inline">Clone</span>
+                  </button>
+                  <button 
                     onClick={() => setInspectingPublicVoucher(viewingVoucher)} 
                     className="flex-1 sm:flex-none justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-3 md:py-2 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center space-x-1.5 shadow-xl shadow-indigo-500/20"
                     title="View Digital E-Voucher & QR Code Portal"

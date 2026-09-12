@@ -47,6 +47,8 @@ interface HajiMovement {
   actionRequired: string;
   category: 'HOTEL' | 'TRANSPORT' | 'FLIGHT' | 'VISA';
   rawVoucher: Voucher;
+  vendorId?: string;
+  isConfirmed?: boolean;
 }
 
 interface HajiStatus {
@@ -412,14 +414,8 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
     vouchers
       .filter(v => v.status !== VoucherStatus.VOID)
       .forEach(v => {
-      const rawItems = (Array.isArray(v.details?.items) && v.details.items.length > 0)
-        ? v.details.items
-        : ((Array.isArray(v.details?.transportItems) && v.details.transportItems.length > 0)
-            ? v.details.transportItems
-            : [v.details || {}]); 
-      rawItems.forEach((item: any, idx: number) => {
+        // CASE A: PACKAGE VOUCHER
         if (v.type === VoucherType.PACKAGE || (v.type as string) === 'PKV') {
-          // A package voucher applies to ALL Hajjis in the package
           const hajjisList = v.details?.hajjis || [];
           hajjisList.forEach((hajiItem: any, hIdx: number) => {
              const rawPaxName = hajiItem.fullName;
@@ -428,7 +424,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                // 1. Makkah Hotel
                if (v.details?.makkahCheckIn) {
                   const mkMovement: Partial<HajiMovement> = {
-                     id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-makkah`,
+                     id: `${v.id}-pkv-${hIdx}-${paxName.replace(/\s+/g, '_')}-makkah`,
                      paxName: paxName,
                      date: new Date(v.details.makkahCheckIn),
                      toDate: v.details.makkahCheckOut ? new Date(v.details.makkahCheckOut) : undefined,
@@ -445,7 +441,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                // 2. Madinah Hotel
                if (v.details?.madinahCheckIn) {
                   const mdMovement: Partial<HajiMovement> = {
-                     id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-madinah`,
+                     id: `${v.id}-pkv-${hIdx}-${paxName.replace(/\s+/g, '_')}-madinah`,
                      paxName: paxName,
                      date: new Date(v.details.madinahCheckIn),
                      toDate: v.details.madinahCheckOut ? new Date(v.details.madinahCheckOut) : undefined,
@@ -473,7 +469,7 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                   if (depTimeStr) detailStr += ` | Time: ${depTimeStr}`;
 
                   const tMovement: Partial<HajiMovement> = {
-                     id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-transport`,
+                     id: `${v.id}-pkv-${hIdx}-${paxName.replace(/\s+/g, '_')}-transport`,
                      paxName: paxName,
                      date: parsedMovementDate,
                      type: VoucherType.TRANSPORT,
@@ -486,15 +482,32 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                   allMovements.push(tMovement as HajiMovement);
                }
 
-               // 4. Ziyarat
-               if (v.details?.ziyaratDetails) {
-                  const zMovement: Partial<HajiMovement> = {
-                     id: `${v.id}-${idx}-${hIdx}-${paxName.replace(/\s+/g, '_')}-ziyarat`,
+               // 4. Visa (if checkin exists)
+               if (v.details?.visaCheckIn) {
+                  const vMovement: Partial<HajiMovement> = {
+                     id: `${v.id}-pkv-${hIdx}-${paxName.replace(/\s+/g, '_')}-visa`,
                      paxName: paxName,
-                     date: new Date(v.date),
+                     date: new Date(v.details.visaCheckIn),
+                     toDate: v.details.visaCheckOut ? new Date(v.details.visaCheckOut) : undefined,
+                     type: VoucherType.VISA,
+                     category: 'VISA',
+                     location: 'KSA',
+                     details: `Visa Check-in | Stay: ${v.details.visaDuration || '-'} days`,
+                     actionRequired: "Visa Arrival Preparation",
+                     rawVoucher: v
+                  };
+                  allMovements.push(vMovement as HajiMovement);
+               }
+
+               // 5. Ziyarat
+               if (v.details?.ziyaratDate) {
+                  const zMovement: Partial<HajiMovement> = {
+                     id: `${v.id}-pkv-${hIdx}-${paxName.replace(/\s+/g, '_')}-ziyarat`,
+                     paxName: paxName,
+                     date: new Date(v.details.ziyaratDate),
                      type: VoucherType.TRANSPORT,
                      category: 'TRANSPORT',
-                     location: 'Local Ziyarats',
+                     location: `${v.details.ziyaratCity || 'Holy Sites'} Ziyarat`,
                      details: v.details.ziyaratDetails,
                      actionRequired: "Local Tour",
                      rawVoucher: v
@@ -503,200 +516,308 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                }
              });
           });
-        } else {
-          // Non-package vouchers: Hotel, Transport, Ticket, All-In-One
+        } 
+        // CASE B: ALL-IN-ONE (UNIFIED SERVICE) VOUCHER
+        else if (v.type === VoucherType.ALL_IN_ONE || (v.type as string) === 'AV') {
           const customer = accounts.find(a => a.id === v.customerId);
-          const globalPaxName = item?.paxName || v.details?.paxName || v.details?.headName || customer?.name || 'Passenger';
+          const namesSet = new Set<string>();
 
-          let paxNames = splitPaxNames(globalPaxName);
-          if (paxNames.length === 0) paxNames = [globalPaxName];
+          if (v.details?.paxName) {
+            splitPaxNames(v.details.paxName).forEach(n => namesSet.add(n));
+          }
+          (v.details?.visaItems || []).forEach((vi: any) => {
+            if (vi.paxName) splitPaxNames(vi.paxName).forEach(n => namesSet.add(n));
+          });
+          (v.details?.ticketItems || []).forEach((ti: any) => {
+            if (ti.paxName) splitPaxNames(ti.paxName).forEach(n => namesSet.add(n));
+          });
+          if (namesSet.size === 0) {
+            const fallback = customer?.name || 'Unified Passenger';
+            splitPaxNames(fallback).forEach(n => namesSet.add(n));
+          }
+          const allPaxes = Array.from(namesSet);
 
-          paxNames.forEach((paxName) => {
-            let movement: Partial<HajiMovement> = {
-              id: `${v.id}-${idx}-${paxName.replace(/\s+/g, '_')}`,
-              paxName,
-              rawVoucher: v,
-            };
-
-            if (v.type === VoucherType.HOTEL) {
-              const fromDate = item?.fromDate || v.details?.fromDate;
-              const toDate = item?.toDate || v.details?.toDate;
-              const numNights = Number(item?.numNights || v.details?.numNights || 0);
-              
-              if (fromDate) {
-                movement.date = new Date(fromDate);
-                if (toDate) {
-                  movement.toDate = new Date(toDate);
-                } else if (numNights > 0) {
-                  const end = new Date(movement.date);
-                  end.setDate(end.getDate() + numNights);
-                  movement.toDate = end;
+          allPaxes.forEach((paxName, pIdx) => {
+            // 1. Hotel Items
+            (v.details?.hotelItems || []).forEach((hItem: any, hIdx: number) => {
+              if (hItem.fromDate) {
+                const fromDate = new Date(hItem.fromDate);
+                let toDate: Date | undefined = undefined;
+                if (hItem.toDate) {
+                  toDate = new Date(hItem.toDate);
+                } else if (Number(hItem.numNights) > 0) {
+                  toDate = new Date(fromDate);
+                  toDate.setDate(toDate.getDate() + Number(hItem.numNights));
                 }
-                movement.type = VoucherType.HOTEL;
-                movement.category = 'HOTEL';
-                const city = item?.city || v.details?.city || v.details?.location || '';
-                movement.location = `${item?.hotelName || v.details?.hotelName || 'Hotel'}${city ? ' (' + city + ')' : ''}`;
-                movement.details = `${item?.hotelName || v.details?.hotelName} (${item?.roomType || v.details?.roomType || 'Standard'})`;
-                movement.actionRequired = "Check-in Arrangement";
-                allMovements.push(movement as HajiMovement);
+
+                const city = hItem.city || '';
+                const hotelName = hItem.hotelName || 'Hotel';
+                let detailsText = `${hotelName} (${hItem.roomType || 'Standard'})`;
+                if (hItem.confirmationNo) detailsText += ` | Conf: ${hItem.confirmationNo}`;
+                if (hItem.meal) detailsText += ` | ${hItem.meal}`;
+
+                allMovements.push({
+                  id: `${v.id}-aio-${pIdx}-h${hIdx}-${paxName.replace(/\s+/g, '_')}`,
+                  paxName,
+                  date: fromDate,
+                  toDate,
+                  type: VoucherType.HOTEL,
+                  category: 'HOTEL',
+                  location: `${hotelName}${city ? ` (${city})` : ''}`,
+                  details: detailsText,
+                  actionRequired: "Check-in Arrangement",
+                  rawVoucher: v
+                });
               }
-            } else if (v.type === VoucherType.TRANSPORT) {
-              if (item?.isMultiSector && item?.subSectors?.length > 0) {
-                item.subSectors.forEach((sub: any, sIdx: number) => {
-                  const subMovement = { ...movement };
-                  subMovement.id = `${v.id}-${idx}-s-${sIdx}-${paxName.replace(/\s+/g, '_')}`;
+            });
 
-                  const movementDateStr = sub.date || sub.movementDate || item.date || item.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
-                  const parsedSubDate = new Date(movementDateStr);
+            // 2. Ground Transport Items
+            (v.details?.transportItems || []).forEach((tItem: any, tIdx: number) => {
+              const vendorName = accounts.find(a => a.id === tItem.vendorId)?.name;
+              const isConfirmed = Boolean(tItem.vendorId || v.details?.transportBooked);
 
-                  const depTimeStr = sub.departureTime || sub.time || v.details?.departureTime;
-                  if (depTimeStr) {
-                    const [h, m] = depTimeStr.split(':').map(Number);
-                    if (!isNaN(h) && !isNaN(m)) parsedSubDate.setHours(h, m, 0, 0);
+              if (tItem.isMultiSector && Array.isArray(tItem.subSectors) && tItem.subSectors.length > 0) {
+                tItem.subSectors.forEach((sub: any, sIdx: number) => {
+                  const mDateStr = sub.date || tItem.date || v.date;
+                  const parsedDate = new Date(mDateStr);
+                  if (sub.time) {
+                    const [h, m] = sub.time.split(':').map(Number);
+                    if (!isNaN(h) && !isNaN(m)) parsedDate.setHours(h, m, 0, 0);
                   }
 
-                  subMovement.date = parsedSubDate;
-                  subMovement.type = VoucherType.TRANSPORT;
-                  subMovement.category = 'TRANSPORT';
-                  subMovement.location = sub.route;
+                  const route = sub.route || 'Multi-Sector Route';
+                  let detailsText = `${tItem.vehicle || 'Vehicle'}: ${route}`;
+                  if (sub.time) detailsText += ` | Time: ${sub.time}`;
+                  if (vendorName) detailsText += ` | Vendor: ${vendorName}`;
 
-                  let detailParts = [`${item.vehicle || 'Vehicle'}: ${sub.route}`];
-                  if (depTimeStr) detailParts.push(`Time: ${depTimeStr}`);
-                  if (sub.note) detailParts.push(`(${sub.note})`);
+                  const isAirport = route.toUpperCase().includes('AIRPORT') || route.toUpperCase().includes('JED');
 
-                  subMovement.details = detailParts.join(' | ');
-
-                  if (sub.route.toLowerCase().includes('airport')) {
-                    subMovement.actionRequired = "Airport Logistics";
-                  } else {
-                    subMovement.actionRequired = "Transport Pickup";
-                  }
-                  allMovements.push(subMovement as HajiMovement);
+                  allMovements.push({
+                    id: `${v.id}-aio-${pIdx}-t${tIdx}-s${sIdx}-${paxName.replace(/\s+/g, '_')}`,
+                    paxName,
+                    date: parsedDate,
+                    type: VoucherType.TRANSPORT,
+                    category: 'TRANSPORT',
+                    location: route,
+                    details: detailsText,
+                    actionRequired: isAirport ? "Airport Logistics" : "Transport Pickup",
+                    rawVoucher: v,
+                    vendorId: tItem.vendorId,
+                    isConfirmed
+                  });
                 });
               } else {
-                const movementDateStr = item?.date || item?.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
-                const parsedMovementDate = new Date(movementDateStr);
-
-                const depTimeStr = item?.departureTime || item?.time || v.details?.departureTime;
-                if (depTimeStr) {
-                  const [h, m] = depTimeStr.split(':').map(Number);
-                  if (!isNaN(h) && !isNaN(m)) parsedMovementDate.setHours(h, m, 0, 0);
+                const mDateStr = tItem.date || v.date;
+                const parsedDate = new Date(mDateStr);
+                const depTime = tItem.departureTime || tItem.time;
+                if (depTime) {
+                  const [h, m] = depTime.split(':').map(Number);
+                  if (!isNaN(h) && !isNaN(m)) parsedDate.setHours(h, m, 0, 0);
                 }
 
-                movement.date = parsedMovementDate;
-                movement.type = VoucherType.TRANSPORT;
-                movement.category = 'TRANSPORT';
-                const sector = item?.sector === 'MULTI_SECTOR' ? item?.customLabel : (item?.sector || v.details?.sector || item?.route || v.details?.route || 'Transit');
+                const route = tItem.sector === 'CUSTOM' ? (tItem.customLabel || 'Custom Route') : (tItem.sector || 'Route');
+                let detailsText = `${tItem.vehicle || 'Vehicle'}: ${route}`;
+                if (depTime) detailsText += ` | Time: ${depTime}`;
+                if (vendorName) detailsText += ` | Vendor: ${vendorName}`;
 
-                movement.location = sector;
+                const isAirport = route.toUpperCase().includes('AIRPORT') || route.toUpperCase().includes('JED');
 
-                let detailParts = [`${item?.vehicle || v.details?.vehicle || 'Vehicle'}: ${sector}`];
-                if (depTimeStr) detailParts.push(`Time: ${depTimeStr}`);
-                if (item?.note) detailParts.push(`(${item.note})`);
-
-                movement.details = detailParts.join(' | ');
-
-                if (sector && sector.toLowerCase().includes('airport')) {
-                  movement.actionRequired = "Airport Logistics";
-                } else {
-                  movement.actionRequired = "Transport Pickup";
-                }
-                allMovements.push(movement as HajiMovement);
+                allMovements.push({
+                  id: `${v.id}-aio-${pIdx}-t${tIdx}-${paxName.replace(/\s+/g, '_')}`,
+                  paxName,
+                  date: parsedDate,
+                  type: VoucherType.TRANSPORT,
+                  category: 'TRANSPORT',
+                  location: route,
+                  details: detailsText,
+                  actionRequired: isAirport ? "Airport Logistics" : "Transport Pickup",
+                  rawVoucher: v,
+                  vendorId: tItem.vendorId,
+                  isConfirmed
+                });
               }
-            } else if (v.type === VoucherType.TICKET) {
-              const flightDate = item?.date || v.details?.date || v.date;
-              movement.date = new Date(flightDate);
-              movement.type = VoucherType.TICKET;
-              movement.category = 'FLIGHT';
-              movement.location = item?.sector || v.details?.sector || 'Airport';
-              movement.details = `Flight ${item?.flightNum || v.details?.flightNum || ''}: ${movement.location}`;
-              movement.actionRequired = "Flight Monitoring";
-              allMovements.push(movement as HajiMovement);
-            } else if (v.type === VoucherType.VISA) {
-              const checkInStr = item?.checkInDate || v.details?.checkInDate || '';
-              const checkOutStr = item?.checkOutDate || v.details?.checkOutDate || '';
-              if (checkInStr) {
-                const checkInMovement = { ...movement };
-                checkInMovement.id = `${v.id}-${idx}-visa-in-${paxName.replace(/\s+/g, '_')}`;
-                checkInMovement.date = new Date(checkInStr);
-                if (checkOutStr) {
-                  checkInMovement.toDate = new Date(checkOutStr);
-                }
-                checkInMovement.type = VoucherType.VISA;
-                checkInMovement.category = 'VISA';
-                checkInMovement.location = 'KSA';
-                checkInMovement.details = `Visa Check-in | KSA Arrival: ${item?.ksaArrivalTime || v.details?.ksaArrivalTime || 'N/A'} | Stay: ${item?.durationOfStay || v.details?.durationOfStay || '-'} days`;
-                checkInMovement.actionRequired = "Visa Arrival Preparation";
-                allMovements.push(checkInMovement as HajiMovement);
-              }
-            } else if (v.type === VoucherType.ALL_IN_ONE || (v.type as string) === 'AV') {
-              // 1. Hotel Items
-              (v.details?.hotelItems || []).forEach((hItem: any, hIdx: number) => {
-                 if (hItem.fromDate) {
-                   const hMovement: Partial<HajiMovement> = {
-                      id: `${v.id}-${idx}-h-${hIdx}-${paxName.replace(/\s+/g, '_')}`,
-                      paxName: paxName,
-                      date: new Date(hItem.fromDate),
-                      toDate: hItem.toDate ? new Date(hItem.toDate) : undefined,
-                      type: VoucherType.HOTEL,
-                      category: 'HOTEL',
-                      location: `${hItem.hotelName} (${hItem.city || 'KSA'})`,
-                      details: `${hItem.hotelName} (${hItem.roomType || 'Standard'})`,
-                      actionRequired: "Check-in Arrangement",
-                      rawVoucher: v
-                   };
-                   allMovements.push(hMovement as HajiMovement);
-                 }
+            });
+
+            // 3. Visa Items
+            const matchingVisa = (v.details?.visaItems || []).find((vi: any) => 
+              vi.paxName && vi.paxName.toLowerCase().trim() === paxName.toLowerCase().trim()
+            ) || (v.details?.visaItems && v.details.visaItems[pIdx]) || (v.details?.visaItems && v.details.visaItems[0]);
+
+            if (matchingVisa) {
+              const passport = matchingVisa.passportNumber || v.details?.passportNumber || '';
+              allMovements.push({
+                id: `${v.id}-aio-${pIdx}-v-${paxName.replace(/\s+/g, '_')}`,
+                paxName,
+                date: new Date(v.date),
+                type: VoucherType.VISA,
+                category: 'VISA',
+                location: 'KSA Visa Entry',
+                details: `Visa Status | Passport: ${passport || 'N/A'}${matchingVisa.rate ? ` | Rate: ${matchingVisa.rate} ${v.currency || 'PKR'}` : ''}`,
+                actionRequired: "Visa Arrival Preparation",
+                rawVoucher: v
               });
+            }
 
-              // 2. Transport Items
-              (v.details?.transportItems || []).forEach((tItem: any, tIdx: number) => {
-                  const movementDateStr = tItem.date || tItem.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
+            // 4. Ticket / Flight Items
+            const matchingTicket = (v.details?.ticketItems || []).find((ti: any) =>
+              ti.paxName && ti.paxName.toLowerCase().trim() === paxName.toLowerCase().trim()
+            ) || (v.details?.ticketItems && v.details.ticketItems[pIdx]) || (v.details?.ticketItems && v.details.ticketItems[0]);
+
+            if (matchingTicket && (matchingTicket.sector || matchingTicket.airline || matchingTicket.reference)) {
+              allMovements.push({
+                id: `${v.id}-aio-${pIdx}-fl-${paxName.replace(/\s+/g, '_')}`,
+                paxName,
+                date: new Date(v.date),
+                type: VoucherType.TICKET,
+                category: 'FLIGHT',
+                location: matchingTicket.sector || 'Flight Transfer',
+                details: `${matchingTicket.airline || 'Flight'}: ${matchingTicket.sector || ''}${matchingTicket.reference ? ` | PNR: ${matchingTicket.reference}` : ''}`,
+                actionRequired: "Flight Logistics",
+                rawVoucher: v
+              });
+            }
+          });
+        }
+        // CASE C: STANDARD SINGLE-SERVICE VOUCHERS (HOTEL, TRANSPORT, TICKET, VISA)
+        else {
+          const rawItems = (Array.isArray(v.details?.items) && v.details.items.length > 0)
+            ? v.details.items
+            : ((Array.isArray(v.details?.transportItems) && v.details.transportItems.length > 0)
+                ? v.details.transportItems
+                : [v.details || {}]); 
+
+          rawItems.forEach((item: any, idx: number) => {
+            const customer = accounts.find(a => a.id === v.customerId);
+            const globalPaxName = item?.paxName || v.details?.paxName || v.details?.headName || customer?.name || 'Passenger';
+
+            let paxNames = splitPaxNames(globalPaxName);
+            if (paxNames.length === 0) paxNames = [globalPaxName];
+
+            paxNames.forEach((paxName) => {
+              let movement: Partial<HajiMovement> = {
+                id: `${v.id}-${idx}-${paxName.replace(/\s+/g, '_')}`,
+                paxName,
+                rawVoucher: v,
+              };
+
+              if (v.type === VoucherType.HOTEL) {
+                const fromDate = item?.fromDate || v.details?.fromDate;
+                const toDate = item?.toDate || v.details?.toDate;
+                const numNights = Number(item?.numNights || v.details?.numNights || 0);
+                
+                if (fromDate) {
+                  movement.date = new Date(fromDate);
+                  if (toDate) {
+                    movement.toDate = new Date(toDate);
+                  } else if (numNights > 0) {
+                    const end = new Date(movement.date);
+                    end.setDate(end.getDate() + numNights);
+                    movement.toDate = end;
+                  }
+                  movement.type = VoucherType.HOTEL;
+                  movement.category = 'HOTEL';
+                  const city = item?.city || v.details?.city || v.details?.location || '';
+                  movement.location = `${item?.hotelName || v.details?.hotelName || 'Hotel'}${city ? ' (' + city + ')' : ''}`;
+                  movement.details = `${item?.hotelName || v.details?.hotelName} (${item?.roomType || v.details?.roomType || 'Standard'})`;
+                  movement.actionRequired = "Check-in Arrangement";
+                  allMovements.push(movement as HajiMovement);
+                }
+              } else if (v.type === VoucherType.TRANSPORT) {
+                if (item?.isMultiSector && item?.subSectors?.length > 0) {
+                  item.subSectors.forEach((sub: any, sIdx: number) => {
+                    const subMovement = { ...movement };
+                    subMovement.id = `${v.id}-${idx}-s-${sIdx}-${paxName.replace(/\s+/g, '_')}`;
+
+                    const movementDateStr = sub.date || sub.movementDate || item.date || item.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
+                    const parsedSubDate = new Date(movementDateStr);
+
+                    const depTimeStr = sub.time || sub.departureTime || item?.departureTime || v.details?.departureTime;
+                    if (depTimeStr) {
+                      const [h, m] = depTimeStr.split(':').map(Number);
+                      if (!isNaN(h) && !isNaN(m)) parsedSubDate.setHours(h, m, 0, 0);
+                    }
+
+                    subMovement.date = parsedSubDate;
+                    subMovement.type = VoucherType.TRANSPORT;
+                    subMovement.category = 'TRANSPORT';
+                    subMovement.location = sub.route || sub.sector || 'Route Sector';
+
+                    let detailParts = [`${item?.vehicle || v.details?.vehicle || 'Vehicle'}: ${subMovement.location}`];
+                    if (depTimeStr) detailParts.push(`Time: ${depTimeStr}`);
+                    if (sub.driverName || item?.driverName) detailParts.push(`Driver: ${sub.driverName || item.driverName}`);
+                    if (sub.note || item?.note) detailParts.push(`(${sub.note || item.note})`);
+
+                    subMovement.details = detailParts.join(' | ');
+
+                    if (subMovement.location && subMovement.location.toLowerCase().includes('airport')) {
+                      subMovement.actionRequired = "Airport Logistics";
+                    } else {
+                      subMovement.actionRequired = "Transport Pickup";
+                    }
+                    allMovements.push(subMovement as HajiMovement);
+                  });
+                } else {
+                  const movementDateStr = item?.date || item?.movementDate || v.details?.transportDate || v.details?.date || v.details?.fromDate || v.date;
                   const parsedMovementDate = new Date(movementDateStr);
 
-                  const depTimeStr = tItem.departureTime || tItem.time || v.details?.departureTime;
+                  const depTimeStr = item?.departureTime || v.details?.departureTime;
                   if (depTimeStr) {
                     const [h, m] = depTimeStr.split(':').map(Number);
                     if (!isNaN(h) && !isNaN(m)) parsedMovementDate.setHours(h, m, 0, 0);
                   }
 
-                  let detailParts = [`${tItem.vehicle || 'Vehicle'}: ${tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector}`];
+                  movement.date = parsedMovementDate;
+                  movement.type = VoucherType.TRANSPORT;
+                  movement.category = 'TRANSPORT';
+
+                  const sector = item?.sector === 'CUSTOM' ? item?.customLabel : (item?.sector || v.details?.sector || 'Transport Route');
+                  movement.location = sector;
+
+                  let detailParts = [`${item?.vehicle || v.details?.vehicle || 'Vehicle'}: ${sector}`];
                   if (depTimeStr) detailParts.push(`Time: ${depTimeStr}`);
+                  if (item?.driverName) detailParts.push(`Driver: ${item.driverName}`);
+                  if (item?.note) detailParts.push(`(${item.note})`);
 
-                  const tMovement: Partial<HajiMovement> = {
-                     id: `${v.id}-${idx}-t-${tIdx}-${paxName.replace(/\s+/g, '_')}`,
-                     paxName: paxName,
-                     date: parsedMovementDate,
-                     type: VoucherType.TRANSPORT,
-                     category: 'TRANSPORT',
-                     location: tItem.sector === 'CUSTOM' ? tItem.customLabel : tItem.sector,
-                     details: detailParts.join(' | '),
-                     actionRequired: "Transport Pickup",
-                     rawVoucher: v
-                  };
-                  allMovements.push(tMovement as HajiMovement);
-              });
+                  movement.details = detailParts.join(' | ');
 
-              // 3. Visa Items (Optional for tracking, but good for context)
-              (v.details?.visaItems || []).forEach((vItem: any, vIdx: number) => {
-                  const vMovement: Partial<HajiMovement> = {
-                     id: `${v.id}-${idx}-v-${vIdx}-${paxName.replace(/\s+/g, '_')}`,
-                     paxName: paxName,
-                     date: new Date(v.date),
-                     type: VoucherType.VISA,
-                     category: 'VISA',
-                     location: 'Visa Processing',
-                     details: `Passport: ${vItem.passportNumber || v.details?.passportNumber || 'N/A'}`,
-                     actionRequired: "Visa Status Check",
-                     rawVoucher: v
-                  };
-                  allMovements.push(vMovement as HajiMovement);
-              });
-            }
+                  if (sector && sector.toLowerCase().includes('airport')) {
+                    movement.actionRequired = "Airport Logistics";
+                  } else {
+                    movement.actionRequired = "Transport Pickup";
+                  }
+                  allMovements.push(movement as HajiMovement);
+                }
+              } else if (v.type === VoucherType.TICKET) {
+                const flightDate = item?.date || v.details?.date || v.date;
+                movement.date = new Date(flightDate);
+                movement.type = VoucherType.TICKET;
+                movement.category = 'FLIGHT';
+                movement.location = item?.sector || v.details?.sector || 'Airport';
+                movement.details = `Flight ${item?.flightNum || v.details?.flightNum || ''}: ${movement.location}`;
+                movement.actionRequired = "Flight Monitoring";
+                allMovements.push(movement as HajiMovement);
+              } else if (v.type === VoucherType.VISA) {
+                const checkInStr = item?.checkInDate || v.details?.checkInDate || '';
+                const checkOutStr = item?.checkOutDate || v.details?.checkOutDate || '';
+                if (checkInStr) {
+                  const checkInMovement = { ...movement };
+                  checkInMovement.id = `${v.id}-${idx}-visa-in-${paxName.replace(/\s+/g, '_')}`;
+                  checkInMovement.date = new Date(checkInStr);
+                  if (checkOutStr) {
+                    checkInMovement.toDate = new Date(checkOutStr);
+                  }
+                  checkInMovement.type = VoucherType.VISA;
+                  checkInMovement.category = 'VISA';
+                  checkInMovement.location = 'KSA';
+                  checkInMovement.details = `Visa Check-in | KSA Arrival: ${item?.ksaArrivalTime || v.details?.ksaArrivalTime || 'N/A'} | Stay: ${item?.durationOfStay || v.details?.durationOfStay || '-'} days`;
+                  checkInMovement.actionRequired = "Visa Arrival Preparation";
+                  allMovements.push(checkInMovement as HajiMovement);
+                }
+              }
+            });
           });
         }
       });
-    });
 
     // 2. Group by Haji (Normalize using Master List if possible)
     const grouped = allMovements.reduce((acc, m) => {
@@ -708,6 +829,9 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                      (Array.isArray(details.visaItems) ? details.visaItems.find((it: any) => 
                         it.paxName && splitPaxNames(it.paxName).some(pn => pn.toLowerCase() === m.paxName.toLowerCase())
                      )?.hajiId : null) ||
+                     (Array.isArray(details.ticketItems) ? details.ticketItems.find((it: any) => 
+                        it.paxName && splitPaxNames(it.paxName).some(pn => pn.toLowerCase() === m.paxName.toLowerCase())
+                     )?.hajiId : null) ||
                      (Array.isArray(details.hajjis) ? details.hajjis.find((it: any) => 
                         it.fullName && splitPaxNames(it.fullName).some(pn => pn.toLowerCase() === m.paxName.toLowerCase())
                      )?.hajiId : null);
@@ -716,7 +840,11 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       const masterRecord = hajiMasterList.find(h => 
         (voucherHajiId && h.hajiId === voucherHajiId) || 
         (h.fullName && m.paxName && h.fullName.trim().toLowerCase() === m.paxName.trim().toLowerCase()) || 
-        (h.passportNumber && details.passportNumber && h.passportNumber.trim().toUpperCase().replace(/\s+/g, '') === details.passportNumber.trim().toUpperCase().replace(/\s+/g, ''))
+        (h.passportNumber && (
+          (details.passportNumber && h.passportNumber.trim().toUpperCase().replace(/\s+/g, '') === details.passportNumber.trim().toUpperCase().replace(/\s+/g, '')) ||
+          (Array.isArray(details.visaItems) && details.visaItems.some((vi: any) => vi.passportNumber && h.passportNumber.trim().toUpperCase().replace(/\s+/g, '') === vi.passportNumber.trim().toUpperCase().replace(/\s+/g, ''))) ||
+          (Array.isArray(details.ticketItems) && details.ticketItems.some((ti: any) => ti.passportNumber && h.passportNumber.trim().toUpperCase().replace(/\s+/g, '') === ti.passportNumber.trim().toUpperCase().replace(/\s+/g, '')))
+        ))
       );
 
       const key = masterRecord?.hajiId || voucherHajiId || m.paxName;
@@ -735,7 +863,12 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
       // Try to find the real name and Passport from Master if key is hajiId
       const hajiMasterRecord = hajiMasterList.find(h => h.hajiId === key || h.fullName === key);
       const paxName = hajiMasterRecord?.fullName || timeline[0].paxName;
-      const passportNumber = hajiMasterRecord?.passportNumber || '';
+      const details = timeline[0]?.rawVoucher?.details || {};
+      const passportNumber = hajiMasterRecord?.passportNumber || 
+        details.passportNumber || 
+        (Array.isArray(details.visaItems) ? details.visaItems.find((vi: any) => vi.paxName && vi.paxName.toLowerCase().includes(paxName.toLowerCase()))?.passportNumber : '') ||
+        (Array.isArray(details.ticketItems) ? details.ticketItems.find((ti: any) => ti.paxName && ti.paxName.toLowerCase().includes(paxName.toLowerCase()))?.passportNumber : '') ||
+        '';
       const hajiId = hajiMasterRecord?.hajiId || (key.startsWith('H-') ? key : '');
 
       const now = new Date();
@@ -1478,11 +1611,12 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                         )}
 
                         {/* Transport Booking Status Badge/Indicator */}
-                        {haji.timeline.some(m => m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT) && (
+                        {haji.timeline.some(m => m.category === 'TRANSPORT') && (
                           <div className="mt-2.5 flex flex-col gap-1.5">
-                            {haji.timeline.filter(m => m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT).map(m => {
-                              const isBooked = m.rawVoucher?.details?.transportBooked;
-                              const vendorName = accounts.find(a => a.id === m.rawVoucher.details?.ksaVendorId)?.name || 'KSA Vendor';
+                            {haji.timeline.filter(m => m.category === 'TRANSPORT').map(m => {
+                              const isBooked = Boolean(m.isConfirmed || m.vendorId || m.rawVoucher?.details?.transportBooked);
+                              const vendorId = m.vendorId || m.rawVoucher?.details?.ksaVendorId;
+                              const vendorName = accounts.find(a => a.id === vendorId)?.name || 'Confirmed Vendor';
                               const vIcon = getVehicleIcon(m.details, 'TRANSPORT');
                               const mDateFormatted = formatDate(m.date);
                               return (
@@ -1812,12 +1946,12 @@ const HajiTracking: React.FC<HajiTrackingProps> = ({ config }) => {
                           <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase leading-tight mb-1">{m.location}</p>
                           <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase">{m.details}</p>
 
-                          {m.category === 'TRANSPORT' && m.rawVoucher?.type === VoucherType.TRANSPORT && (
+                          {m.category === 'TRANSPORT' && (
                             <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px] space-y-1">
-                              {m.rawVoucher?.details?.transportBooked ? (
+                              {Boolean(m.isConfirmed || m.vendorId || m.rawVoucher?.details?.transportBooked) ? (
                                 <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-extrabold uppercase tracking-wider text-[9px]">
                                   <span>✅</span>
-                                  <span>Transport Booking Confirmed – Booked with <span className="font-bold underline">{accounts.find(a => a.id === m.rawVoucher.details.ksaVendorId)?.name || 'Confirmed Vendor'}</span>.</span>
+                                  <span>Transport Booking Confirmed – Booked with <span className="font-bold underline">{accounts.find(a => a.id === (m.vendorId || m.rawVoucher?.details?.ksaVendorId))?.name || 'Confirmed Vendor'}</span>.</span>
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-extrabold uppercase tracking-wider text-[9px]">

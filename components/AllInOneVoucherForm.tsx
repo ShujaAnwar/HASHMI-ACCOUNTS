@@ -144,7 +144,7 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
     voucherNum: initialData?.voucherNum || '', // Placeholder, will be updated by useEffect if needed
     customerId: initialData?.customerId || '',
     description: initialData?.description || '',
-    reference: initialData?.reference || '',
+    reference: isClone ? '' : (initialData?.reference || ''),
     paxName: initialData?.details?.paxName || '',
     passportNumber: initialData?.details?.passportNumber || '',
     
@@ -202,12 +202,42 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
     setFormData(prev => ({ ...prev, visaItems: prev.visaItems.filter((_, i) => i !== index) }));
   };
 
+  const cloneVisaItem = (index: number) => {
+    setFormData(prev => {
+      const items = [...prev.visaItems];
+      const itemToClone = { ...items[index] };
+      items.splice(index + 1, 0, itemToClone);
+      return { ...prev, visaItems: items };
+    });
+  };
+
   const removeHotelItem = (index: number) => {
     setFormData(prev => ({ ...prev, hotelItems: prev.hotelItems.filter((_, i) => i !== index) }));
   };
 
+  const cloneHotelItem = (index: number) => {
+    setFormData(prev => {
+      const items = [...prev.hotelItems];
+      const itemToClone = { ...items[index], reference: '', confirmationNo: '' };
+      items.splice(index + 1, 0, itemToClone);
+      return { ...prev, hotelItems: items };
+    });
+  };
+
   const removeTransportItem = (index: number) => {
     setFormData(prev => ({ ...prev, transportItems: prev.transportItems.filter((_, i) => i !== index) }));
+  };
+
+  const cloneTransportItem = (index: number) => {
+    setFormData(prev => {
+      const items = [...prev.transportItems];
+      const itemToClone = { 
+        ...items[index],
+        subSectors: items[index].subSectors ? items[index].subSectors.map((s: any) => ({ ...s })) : undefined
+      };
+      items.splice(index + 1, 0, itemToClone);
+      return { ...prev, transportItems: items };
+    });
   };
 
   const addTicketItem = () => {
@@ -221,6 +251,15 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
 
   const removeTicketItem = (index: number) => {
     setFormData(prev => ({ ...prev, ticketItems: (prev.ticketItems || []).filter((_, i) => i !== index) }));
+  };
+
+  const cloneTicketItem = (index: number) => {
+    setFormData(prev => {
+      const items = [...(prev.ticketItems || [])];
+      const itemToClone = { ...items[index], pnr: '', reference: '' };
+      items.splice(index + 1, 0, itemToClone);
+      return { ...prev, ticketItems: items };
+    });
   };
 
   const updateTicketItem = (index: number, field: string, value: any) => {
@@ -402,10 +441,19 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
         
         <div className="px-8 pt-6 pb-2 flex justify-between items-center bg-[#f8fbff] dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
             <div>
-                <h1 className="text-xl font-black font-orbitron text-slate-800 dark:text-white uppercase tracking-tighter">
-                    ALL-IN-ONE VOUCHER
-                </h1>
-                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">Unified Travel Management - {config.companyName}</p>
+                <div className="flex items-center space-x-3">
+                  <h1 className="text-xl font-black font-orbitron text-slate-800 dark:text-white uppercase tracking-tighter">
+                      {isClone ? 'CLONE ALL-IN-ONE VOUCHER' : (initialData ? 'EDIT ALL-IN-ONE VOUCHER' : 'ALL-IN-ONE VOUCHER')}
+                  </h1>
+                  {isClone && (
+                    <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border border-amber-300 dark:border-amber-700 flex items-center gap-1.5 shadow-sm">
+                      <span>👯</span> CLONE MODE (NEW VOUCHER)
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">
+                  {isClone ? 'Duplicating Unified Travel Voucher with new Voucher Number' : `Unified Travel Management - ${config.companyName}`}
+                </p>
             </div>
             <button onClick={onCancel} className="bg-white dark:bg-slate-800 p-3 rounded-2xl text-slate-400 hover:text-rose-500 transition-colors shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">✕</button>
         </div>
@@ -474,7 +522,24 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
              <div className="space-y-4">
                 {formData.visaItems.map((item: any, idx: number) => (
                    <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-100 dark:ring-slate-800 flex flex-col md:flex-row gap-4 relative animate-in fade-in slide-in-from-bottom-2">
-                       <button type="button" onClick={() => removeVisaItem(idx)} className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg">✕</button>
+                       <div className="absolute -top-2.5 -right-2.5 flex items-center space-x-1.5 z-10">
+                         <button 
+                           type="button" 
+                           onClick={() => cloneVisaItem(idx)} 
+                           className="h-6 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full flex items-center justify-center text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95" 
+                           title="Clone this Visa"
+                         >
+                           <span className="mr-1">👯</span> Clone
+                         </button>
+                         <button 
+                           type="button" 
+                           onClick={() => removeVisaItem(idx)} 
+                           className="w-6 h-6 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg transition-transform active:scale-95" 
+                           title="Remove Visa"
+                         >
+                           ✕
+                         </button>
+                       </div>
                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1">
                              <label className="text-[8px] font-black text-slate-400 uppercase">Pax Name</label>
@@ -521,7 +586,24 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
              <div className="space-y-4">
                 {formData.hotelItems.map((item: any, idx: number) => (
                    <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-100 dark:ring-slate-800 space-y-4 relative animate-in fade-in slide-in-from-bottom-2">
-                       <button type="button" onClick={() => removeHotelItem(idx)} className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg">✕</button>
+                       <div className="absolute -top-2.5 -right-2.5 flex items-center space-x-1.5 z-10">
+                         <button 
+                           type="button" 
+                           onClick={() => cloneHotelItem(idx)} 
+                           className="h-6 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full flex items-center justify-center text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95" 
+                           title="Clone this Hotel Stay"
+                         >
+                           <span className="mr-1">👯</span> Clone
+                         </button>
+                         <button 
+                           type="button" 
+                           onClick={() => removeHotelItem(idx)} 
+                           className="w-6 h-6 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg transition-transform active:scale-95" 
+                           title="Remove Stay"
+                         >
+                           ✕
+                         </button>
+                       </div>
                        
                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1">
@@ -629,7 +711,24 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
              <div className="space-y-4">
                 {formData.transportItems.map((item: any, idx: number) => (
                    <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-100 dark:ring-slate-800 flex flex-col md:flex-row gap-4 relative animate-in fade-in slide-in-from-bottom-2">
-                       <button type="button" onClick={() => removeTransportItem(idx)} className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg">✕</button>
+                       <div className="absolute -top-2.5 -right-2.5 flex items-center space-x-1.5 z-10">
+                         <button 
+                           type="button" 
+                           onClick={() => cloneTransportItem(idx)} 
+                           className="h-6 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95" 
+                           title="Clone this Transport Route"
+                         >
+                           <span className="mr-1">👯</span> Clone
+                         </button>
+                         <button 
+                           type="button" 
+                           onClick={() => removeTransportItem(idx)} 
+                           className="w-6 h-6 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg transition-transform active:scale-95" 
+                           title="Remove Route"
+                         >
+                           ✕
+                         </button>
+                       </div>
                        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
                           <div className="space-y-1">
                              <label className="text-[8px] font-black text-slate-400 uppercase">Sector Arrangement</label>
@@ -745,7 +844,24 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
              <div className="space-y-4">
                 {(formData.ticketItems || []).map((item: any, idx: number) => (
                    <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm ring-1 ring-slate-100 dark:ring-slate-800 space-y-4 relative">
-                       <button type="button" onClick={() => removeTicketItem(idx)} className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg">✕</button>
+                       <div className="absolute -top-2.5 -right-2.5 flex items-center space-x-1.5 z-10">
+                         <button 
+                           type="button" 
+                           onClick={() => cloneTicketItem(idx)} 
+                           className="h-6 px-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-full flex items-center justify-center text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95" 
+                           title="Clone this Ticket / Flight"
+                         >
+                           <span className="mr-1">👯</span> Clone
+                         </button>
+                         <button 
+                           type="button" 
+                           onClick={() => removeTicketItem(idx)} 
+                           className="w-6 h-6 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-lg transition-transform active:scale-95" 
+                           title="Remove Ticket"
+                         >
+                           ✕
+                         </button>
+                       </div>
                        
                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-1">
@@ -849,9 +965,9 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
               <button type="button" onClick={onCancel} className="flex-1 md:flex-none px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-2xl uppercase text-[10px] tracking-widest transition-all hover:bg-slate-200">Discard</button>
               <button 
                 onClick={handleSubmit}
-                className="flex-1 md:flex-none px-12 py-3 bg-slate-900 dark:bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-slate-900/20 dark:shadow-blue-600/20 uppercase text-[10px] tracking-[0.3em] font-orbitron transition-all active:scale-95"
+                className="flex-1 md:flex-none px-10 py-3 bg-slate-900 dark:bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-slate-900/20 dark:shadow-blue-600/20 uppercase text-[10px] tracking-[0.2em] font-orbitron transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                Post Unified Voucher
+                {isClone ? <span>👯 Clone & Post Voucher</span> : (initialData ? <span>Update Unified Voucher</span> : <span>Post Unified Voucher</span>)}
               </button>
            </div>
         </div>
