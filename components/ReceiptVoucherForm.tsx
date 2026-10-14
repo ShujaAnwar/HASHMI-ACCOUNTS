@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
+import { SearchableAccountSelect } from './SearchableAccountSelect';
 import { AccountingService } from '../services/AccountingService';
 
 interface ReceiptVoucherFormProps {
@@ -150,33 +151,25 @@ const ReceiptVoucherForm: React.FC<ReceiptVoucherFormProps> = ({ initialData, on
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Credit Account (Paid From)</label>
-                <select required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
-                  <option value="">Select Account...</option>
-                  <optgroup label="Cash & Bank">
-                    {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                  </optgroup>
-                  <optgroup label="Customers">
-                    {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                  </optgroup>
-                  <optgroup label="Vendors">
-                    {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                  </optgroup>
-                </select>
+                <SearchableAccountSelect
+                  required
+                  accounts={depositToAccounts}
+                  value={formData.customerId}
+                  onChange={val => setFormData({...formData, customerId: val})}
+                  placeholder="Search or Select Account..."
+                  buttonClassName="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Debit Account (Received in)</label>
-                <select required className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner" value={formData.bankId} onChange={e => setFormData({...formData, bankId: e.target.value})}>
-                  <option value="">Select Account...</option>
-                  <optgroup label="Cash & Bank">
-                    {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                  </optgroup>
-                  <optgroup label="Customers">
-                    {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                  </optgroup>
-                  <optgroup label="Vendors">
-                    {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                  </optgroup>
-                </select>
+                <SearchableAccountSelect
+                  required
+                  accounts={depositToAccounts}
+                  value={formData.bankId}
+                  onChange={val => setFormData({...formData, bankId: val})}
+                  placeholder="Search or Select Account..."
+                  buttonClassName="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm shadow-inner"
+                />
               </div>
             </div>
             <div className="space-y-6">

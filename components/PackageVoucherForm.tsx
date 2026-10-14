@@ -12,6 +12,7 @@ import {
 import { getAccounts, getConfig } from "../services/db";
 import DateInput from "./DateInput";
 import HajiSelector from "./HajiSelector";
+import { SearchableAccountSelect } from "./SearchableAccountSelect";
 import { AccountingService } from "../services/AccountingService";
 import { HajiService } from "../services/HajiService";
 
@@ -848,21 +849,16 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
                 Customer Account (Debited)
               </label>
-              <select
+              <SearchableAccountSelect
                 required
-                className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                accounts={customerAccounts}
                 value={formData.customerId}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, customerId: e.target.value }))
+                onChange={(val) =>
+                  setFormData((p) => ({ ...p, customerId: val }))
                 }
-              >
-                <option value="">Select Customer Account</option>
-                {customerAccounts.map((ac) => (
-                  <option key={ac.id} value={ac.id}>
-                    {ac.name} [{ac.currency}]
-                  </option>
-                ))}
-              </select>
+                placeholder="Search or Select Customer Account..."
+                buttonClassName="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+              />
             </div>
 
             <div>
@@ -1190,18 +1186,14 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
                             Hotel Vendor/Supplier Account
                           </label>
-                          <select
-                            className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                          <SearchableAccountSelect
+                            accounts={vendorAccounts}
                             value={stay.vendorId}
-                            onChange={(e) => updateStayField(stay.id, "vendorId", e.target.value)}
-                          >
-                            <option value="">No vendor (No credit ledger entry)</option>
-                            {vendorAccounts.map((ac) => (
-                              <option key={ac.id} value={ac.id}>
-                                {ac.name}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(val) => updateStayField(stay.id, "vendorId", val)}
+                            emptyOptionLabel="No vendor (No credit ledger entry)"
+                            placeholder="Search or Select Hotel Vendor..."
+                            buttonClassName="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                          />
                         </div>
 
                         <div>
@@ -1375,11 +1367,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
                     Hotel Vendor Account
                   </label>
-                  <select
-                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                  <SearchableAccountSelect
+                    accounts={vendorAccounts}
                     value={formData.makkahVendorId}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       if (val) {
                         setEditedFields((p) => ({ ...p, makkahCost: false }));
                       }
@@ -1388,14 +1379,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                         makkahVendorId: val,
                       }));
                     }}
-                  >
-                    <option value="">No vendor (No credit ledger entry)</option>
-                    {vendorAccounts.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
+                    emptyOptionLabel="No vendor (No credit ledger entry)"
+                    placeholder="Search or Select Hotel Vendor..."
+                    buttonClassName="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                  />
                 </div>
 
                 <div>
@@ -1569,11 +1556,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
                     Hotel Vendor Account
                   </label>
-                  <select
-                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                  <SearchableAccountSelect
+                    accounts={vendorAccounts}
                     value={formData.madinahVendorId}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       if (val) {
                         setEditedFields((p) => ({ ...p, madinahCost: false }));
                       }
@@ -1582,14 +1568,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                         madinahVendorId: val,
                       }));
                     }}
-                  >
-                    <option value="">No vendor (No credit ledger entry)</option>
-                    {vendorAccounts.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
+                    emptyOptionLabel="No vendor (No credit ledger entry)"
+                    placeholder="Search or Select Hotel Vendor..."
+                    buttonClassName="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                  />
                 </div>
 
                 <div>
@@ -1717,11 +1699,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
                     Transport Vendor
                   </label>
-                  <select
-                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                  <SearchableAccountSelect
+                    accounts={vendorAccounts}
                     value={formData.transportVendorId}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       if (val) {
                         setEditedFields((p) => ({ ...p, transportCost: false }));
                       }
@@ -1730,14 +1711,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                         transportVendorId: val,
                       }));
                     }}
-                  >
-                    <option value="">No vendor</option>
-                    {vendorAccounts.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
+                    emptyOptionLabel="No vendor"
+                    placeholder="Search or Select Transport Vendor..."
+                    buttonClassName="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                  />
                 </div>
 
                 <div>
@@ -1812,11 +1789,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
                     Ziyarat Vendor
                   </label>
-                  <select
-                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                  <SearchableAccountSelect
+                    accounts={vendorAccounts}
                     value={formData.ziyaratVendorId}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       if (val) {
                         setEditedFields((p) => ({ ...p, ziyaratCost: false }));
                       }
@@ -1825,14 +1801,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                         ziyaratVendorId: val,
                       }));
                     }}
-                  >
-                    <option value="">No vendor</option>
-                    {vendorAccounts.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
+                    emptyOptionLabel="No vendor"
+                    placeholder="Search or Select Ziyarat Vendor..."
+                    buttonClassName="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                  />
                 </div>
 
                 <div>
@@ -1933,11 +1905,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block font-orbitron">
                     Ticket Vendor
                   </label>
-                  <select
-                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                  <SearchableAccountSelect
+                    accounts={vendorAccounts}
                     value={formData.ticketVendorId}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       if (val) {
                         setEditedFields((p) => ({ ...p, ticketCost: false }));
                       }
@@ -1946,14 +1917,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                         ticketVendorId: val,
                       }));
                     }}
-                  >
-                    <option value="">No vendor</option>
-                    {vendorAccounts.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
+                    emptyOptionLabel="No vendor"
+                    placeholder="Search or Select Ticket Vendor..."
+                    buttonClassName="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                  />
                 </div>
 
                 <div>
@@ -2018,11 +1985,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">
                     Services Vendor
                   </label>
-                  <select
-                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase select-custom outline-none text-slate-800 dark:text-white"
+                  <SearchableAccountSelect
+                    accounts={vendorAccounts}
                     value={formData.otherVendorId}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       if (val) {
                         setEditedFields((p) => ({ ...p, otherCost: false }));
                       }
@@ -2031,14 +1997,10 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
                         otherVendorId: val,
                       }));
                     }}
-                  >
-                    <option value="">No vendor</option>
-                    {vendorAccounts.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
+                    emptyOptionLabel="No vendor"
+                    placeholder="Search or Select Services Vendor..."
+                    buttonClassName="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black uppercase outline-none text-slate-800 dark:text-white"
+                  />
                 </div>
 
                 <div>

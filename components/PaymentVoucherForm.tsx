@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
+import { SearchableAccountSelect } from './SearchableAccountSelect';
 import { AccountingService } from '../services/AccountingService';
 
 interface PaymentVoucherFormProps {
@@ -64,6 +65,12 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
   const vendorAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.VENDOR), [accounts]);
   const cashBankAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CASH_BANK), [accounts]);
   const customerAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CUSTOMER), [accounts]);
+  const debitAccounts = useMemo(() => [
+    ...vendorAccounts,
+    ...expenseAccounts,
+    ...customerAccounts,
+    ...cashBankAccounts
+  ], [vendorAccounts, expenseAccounts, customerAccounts, cashBankAccounts]);
 
   const handleDateChange = (newDate: string) => {
     setFormData(prev => {
@@ -188,10 +195,14 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
             </div>
             <div>
               <InputLabel>Credit Account (Paid From)</InputLabel>
-              <select required className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-rose-500 cursor-pointer outline-none transition-all" value={formData.bankId} onChange={e => setFormData({...formData, bankId: e.target.value})}>
-                <option value="">Select Cash/Bank...</option>
-                {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-              </select>
+              <SearchableAccountSelect
+                required
+                accounts={cashBankAccounts}
+                value={formData.bankId}
+                onChange={val => setFormData({...formData, bankId: val})}
+                placeholder="Search or Select Cash/Bank..."
+                buttonClassName="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-rose-500 cursor-pointer outline-none transition-all"
+              />
             </div>
           </div>
  
@@ -226,26 +237,14 @@ const PaymentVoucherForm: React.FC<PaymentVoucherFormProps> = ({ initialData, on
                         />
                       </td>
                       <td className="px-2 py-4">
-                        <select 
+                        <SearchableAccountSelect
                           required
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 cursor-pointer focus:ring-2 focus:ring-rose-500 outline-none"
+                          accounts={debitAccounts}
                           value={item.accountId}
-                          onChange={e => updateItem(idx, 'accountId', e.target.value)}
-                        >
-                          <option value="">Select Account...</option>
-                          <optgroup label="Operating Expenses">
-                            {expenseAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                          </optgroup>
-                          <optgroup label="Vendor Settlements">
-                            {vendorAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                          </optgroup>
-                          <optgroup label="Cash & Bank">
-                            {cashBankAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                          </optgroup>
-                          <optgroup label="Customers">
-                            {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.code ? `${a.code} - ` : ''}{a.name}</option>)}
-                          </optgroup>
-                        </select>
+                          onChange={val => updateItem(idx, 'accountId', val)}
+                          placeholder="Search or Select Account..."
+                          buttonClassName="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 cursor-pointer focus:ring-2 focus:ring-rose-500 outline-none"
+                        />
                       </td>
                       <td className="px-2 py-4">
                         <input 

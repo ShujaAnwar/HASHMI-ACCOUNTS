@@ -88,15 +88,11 @@ export const invalidateDbCache = (target?: 'accounts' | 'vouchers' | 'config' | 
         return accountsCache.data;
       }
 
-      const [accountsRes, vouchersRes] = await Promise.all([
-        retryFetch(() => supabase
-          .from('accounts')
-          .select('*, ledger:ledger_entries(*)')
-          .order('code', { ascending: true })),
-        retryFetch(() => supabase
-          .from('vouchers')
-          .select('id, status'))
-      ]);
+      // Fetch accounts and all voucher statuses
+      const accountsRes = await retryFetch(() => supabase
+        .from('accounts')
+        .select('*, ledger:ledger_entries(*)')
+        .order('code', { ascending: true }));
 
       const { data, error } = accountsRes;
       if (error) {
@@ -105,10 +101,25 @@ export const invalidateDbCache = (target?: 'accounts' | 'vouchers' | 'config' | 
       }
 
       const vouchersMap = new Map<string, string>();
-      if (vouchersRes.data) {
-        vouchersRes.data.forEach((v: any) => {
-          vouchersMap.set(v.id, v.status);
-        });
+      if (vouchersCache?.data) {
+        vouchersCache.data.forEach(v => vouchersMap.set(v.id, v.status));
+      } else {
+        // Fetch all voucher statuses in chunks so we never miss void statuses beyond 1000
+        let vFrom = 0;
+        let vMore = true;
+        while (vMore) {
+          const { data: vChunk } = await supabase
+            .from('vouchers')
+            .select('id, status')
+            .range(vFrom, vFrom + 999);
+          if (vChunk && vChunk.length > 0) {
+            vChunk.forEach((v: any) => vouchersMap.set(v.id, v.status));
+            if (vChunk.length < 1000) vMore = false;
+            else vFrom += 1000;
+          } else {
+            vMore = false;
+          }
+        }
       }
 
       const result = ((data as any) || []).map((acc: any) => {
@@ -155,6 +166,20 @@ export const invalidateDbCache = (target?: 'accounts' | 'vouchers' | 'config' | 
     return { data: null, error: lastError };
   };
 
+  export const getVouchersCount = async (): Promise<number> => {
+    try {
+      const { count, error } = await supabase
+        .from('vouchers')
+        .select('*', { count: 'exact', head: true });
+      if (!error && typeof count === 'number') {
+        return count;
+      }
+    } catch (e) {
+      console.warn("Failed to get voucher count:", e);
+    }
+    return vouchersCache?.data?.length || 0;
+  };
+
   export const getVouchers = async (forceRefresh = false): Promise<Voucher[]> => {
     try {
       const now = Date.now();
@@ -162,22 +187,95 @@ export const invalidateDbCache = (target?: 'accounts' | 'vouchers' | 'config' | 
         return vouchersCache.data;
       }
 
-      const { data, error } = await retryFetch(() => supabase
-        .from('vouchers')
-        .select('*')
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false }));
-      
-      if (error) {
-        console.warn("Unable to fetch vouchers:", error.message || error);
+      const PAGE_SIZE = 1000;
+      let allVouchersData: any[] = [];
+      let from = 0;
+      let hasMore = true;
+      let fetchError: any = null;
+
+      while (hasMore) {
+        const { data, error } = await retryFetch(() => supabase
+          .from('vouchers')
+          .select('*')
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1));
+
+        if (error) {
+          fetchError = error;
+          console.warn(`Error fetching vouchers chunk [${from} - ${from + PAGE_SIZE - 1}]:`, error.message || error);
+          if (allVouchersData.length > 0) {
+            // Keep partial results if earlier batches succeeded
+            break;
+          }
+          return vouchersCache ? vouchersCache.data : [];
+        }
+
+        if (data && data.length > 0) {
+          allVouchersData.push(...data);
+          if (data.length < PAGE_SIZE) {
+            hasMore = false;
+          } else {
+            from += PAGE_SIZE;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (fetchError && allVouchersData.length === 0) {
         return vouchersCache ? vouchersCache.data : [];
       }
-      const result = ((data as any) || []).map(mapVoucher);
+
+      const result = allVouchersData.map(mapVoucher);
       vouchersCache = { data: result, timestamp: Date.now() };
       return result;
     } catch (err) {
       console.error("System error fetching vouchers:", err);
       return vouchersCache ? vouchersCache.data : [];
+    }
+  };
+
+  export const getVoucherByIdOrNum = async (idOrNum: string): Promise<Voucher | null> => {
+    if (!idOrNum) return null;
+    try {
+      const cleanTarget = decodeURIComponent(idOrNum).trim();
+      // 1. Check cached vouchers if available
+      if (vouchersCache?.data) {
+        const cached = vouchersCache.data.find(v => 
+          (v.id && v.id.toLowerCase() === cleanTarget.toLowerCase()) || 
+          (v.voucherNum && v.voucherNum.toLowerCase() === cleanTarget.toLowerCase())
+        );
+        if (cached) return cached;
+      }
+
+      // 2. Query Supabase
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanTarget);
+      let query = supabase.from('vouchers').select('*');
+      if (isUuid) {
+        query = query.or(`id.eq.${cleanTarget},voucher_num.eq.${cleanTarget}`);
+      } else {
+        query = query.eq('voucher_num', cleanTarget);
+      }
+
+      const { data, error } = await query.limit(1).maybeSingle();
+      if (error) {
+        console.warn("Error looking up voucher in Supabase:", error.message);
+        // Fallback: try fetching all or checking case-insensitive
+        const { data: fallbackList } = await supabase.from('vouchers').select('*').ilike('voucher_num', cleanTarget).limit(1);
+        if (fallbackList && fallbackList.length > 0) {
+          return mapVoucher(fallbackList[0]);
+        }
+        return null;
+      }
+
+      if (data) {
+        return mapVoucher(data);
+      }
+      return null;
+    } catch (err) {
+      console.error("System error in getVoucherByIdOrNum:", err);
+      return null;
     }
   };
 

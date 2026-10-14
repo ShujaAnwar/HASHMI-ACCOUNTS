@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppConfig } from '../types';
 import { supabase } from '../services/supabase';
-import { getAccounts, getVouchers } from '../services/db';
+import { getAccounts, getVouchers, getVouchersCount } from '../services/db';
 import { HajiService } from '../services/HajiService';
 
 interface LayoutProps {
@@ -114,13 +114,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, conf
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const [vouchers, hajis, accs] = await Promise.all([
+        const [vCount, vouchers, hajis, accs] = await Promise.all([
+          getVouchersCount(),
           getVouchers(),
           HajiService.getAll(),
           getAccounts()
         ]);
 
-        setVoucherCount(vouchers.length);
+        setVoucherCount(Math.max(vCount, vouchers.length));
         setHajiCount(hajis.length);
 
         setCoaCount(accs.length);

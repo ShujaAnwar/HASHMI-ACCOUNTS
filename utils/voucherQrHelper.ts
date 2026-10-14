@@ -89,16 +89,37 @@ export const decodeVoucherData = (encodedData: string): VerifiedVoucherPayload |
 
 /**
  * Generates the full public verification web URL for a voucher.
+ * Security: Does NOT embed sensitive customer info, passport/CNIC data, passwords or financial records.
+ * Contains only the secure unique voucher reference / token and type.
  */
 export const getVoucherVerificationUrl = (voucher: Voucher, config?: AppConfig): string => {
-  if (typeof window === 'undefined') return '';
-  const origin = window.location.origin;
-  const pathname = window.location.pathname;
-  const encoded = encodeVoucherData(voucher, config);
-  const vNum = encodeURIComponent(voucher.voucherNum);
+  const vNum = encodeURIComponent(voucher.voucherNum || '');
   const id = voucher.id ? encodeURIComponent(voucher.id) : '';
+  const type = encodeURIComponent(voucher.type || '');
+  const encoded = encodeVoucherData(voucher, config);
+  const dataParam = encoded ? `&d=${encodeURIComponent(encoded)}` : '';
 
-  return `${origin}${pathname}?verify=${vNum}&id=${id}&d=${encoded}`;
+  // 1. Check for configured public web URL in AppConfig
+  const customWebUrl = (config as any)?.publicWebUrl || (config as any)?.verificationUrl;
+  if (customWebUrl && typeof customWebUrl === 'string' && customWebUrl.startsWith('http')) {
+    const cleanBase = customWebUrl.replace(/\/+$/, '');
+    return `${cleanBase}/?verify=${vNum}&id=${id}&type=${type}${dataParam}`;
+  }
+
+  // 2. Check browser location
+  if (typeof window !== 'undefined') {
+    // Desktop / offline file protocol fallback
+    if (window.location.protocol === 'file:') {
+      return `travelledger://voucher?verify=${vNum}&id=${id}&type=${type}${dataParam}`;
+    }
+
+    const origin = window.location.origin;
+    const pathname = window.location.pathname || '/';
+    return `${origin}${pathname}?verify=${vNum}&id=${id}&type=${type}${dataParam}`;
+  }
+
+  // 3. System fallback
+  return `https://travelledger.pro/?verify=${vNum}&id=${id}&type=${type}${dataParam}`;
 };
 
 /**

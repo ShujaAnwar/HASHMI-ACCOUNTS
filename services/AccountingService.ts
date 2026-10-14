@@ -37,22 +37,23 @@ export class AccountingService {
     let queryError: any = null;
     
     if (type === 'PKV' || type === 'PACKAGE') {
-      const { data, error } = await supabase
+      const { count: pkvCount, error } = await supabase
         .from('vouchers')
-        .select('id, details')
-        .eq('type', 'AV');
+        .select('*', { count: 'exact', head: true })
+        .eq('type', 'AV')
+        .contains('details', { is_package: true });
       if (error) queryError = error;
-      else {
-        count = (data || []).filter((v: any) => v.details?.is_package === true).length;
-      }
+      else count = pkvCount || 0;
     } else if (type === 'AV' || type === 'ALL_IN_ONE') {
-      const { data, error } = await supabase
-        .from('vouchers')
-        .select('id, details')
-        .eq('type', 'AV');
-      if (error) queryError = error;
+      const [totalAvRes, pkvRes] = await Promise.all([
+        supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('type', 'AV'),
+        supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('type', 'AV').contains('details', { is_package: true })
+      ]);
+      if (totalAvRes.error) queryError = totalAvRes.error;
       else {
-        count = (data || []).filter((v: any) => !v.details?.is_package).length;
+        const totalAv = totalAvRes.count || 0;
+        const pkvCount = pkvRes.count || 0;
+        count = Math.max(0, totalAv - pkvCount);
       }
     } else {
       const { count: dbCount, error } = await supabase
@@ -72,7 +73,7 @@ export class AccountingService {
     // If it does, keep incrementing until we find a unique one.
     let exists = true;
     let attempts = 0;
-    while (exists && attempts < 100) {
+    while (exists && attempts < 1000) {
       const { data, error: checkError } = await supabase
         .from('vouchers')
         .select('id')

@@ -15,14 +15,33 @@ export class HajiService {
       return hajiCache.data;
     }
 
-    const { data, error } = await supabase
-      .from('haji_master')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const PAGE_SIZE = 1000;
+    let allHajisData: any[] = [];
+    let from = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('haji_master')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        allHajisData.push(...data);
+        if (data.length < PAGE_SIZE) {
+          hasMore = false;
+        } else {
+          from += PAGE_SIZE;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
     
-    if (error) throw error;
-    
-    const result = (data || []).map(row => ({
+    const result = allHajisData.map(row => ({
       id: row.id,
       hajiId: row.haji_id,
       fullName: row.full_name,

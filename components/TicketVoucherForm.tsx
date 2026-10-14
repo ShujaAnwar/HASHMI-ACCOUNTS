@@ -3,6 +3,7 @@ import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, Ap
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
 import HajiSelector from './HajiSelector';
+import { SearchableAccountSelect } from './SearchableAccountSelect';
 import { AccountingService } from '../services/AccountingService';
 import { HajiService } from '../services/HajiService';
 
@@ -184,17 +185,25 @@ const TicketVoucherForm: React.FC<TicketVoucherFormProps> = ({ initialData, onSa
                <div className="grid grid-cols-2 gap-4">
                  <div>
                     <InputLabel>Customer (Debit)</InputLabel>
-                    <select required className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-4 font-bold" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
-                      <option value="">Select...</option>
-                      {accounts.filter(a => a.type === AccountType.CUSTOMER).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
+                    <SearchableAccountSelect
+                      required
+                      accounts={accounts.filter(a => a.type === AccountType.CUSTOMER)}
+                      value={formData.customerId}
+                      onChange={val => setFormData({...formData, customerId: val})}
+                      placeholder="Search or Select Customer..."
+                      buttonClassName="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 font-bold"
+                    />
                  </div>
                  <div>
                     <InputLabel>Vendor (Credit)</InputLabel>
-                    <select required className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-4 font-bold" value={formData.vendorId} onChange={e => setFormData({...formData, vendorId: e.target.value})}>
-                      <option value="">Select...</option>
-                      {accounts.filter(a => a.type === AccountType.VENDOR).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
+                    <SearchableAccountSelect
+                      required
+                      accounts={accounts.filter(a => a.type === AccountType.VENDOR)}
+                      value={formData.vendorId}
+                      onChange={val => setFormData({...formData, vendorId: val})}
+                      placeholder="Search or Select Vendor..."
+                      buttonClassName="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 font-bold"
+                    />
                  </div>
                </div>
             </div>

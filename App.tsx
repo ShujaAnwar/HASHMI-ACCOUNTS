@@ -87,8 +87,9 @@ const App: React.FC = () => {
     // Check for public QR verification parameters in URL
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const verifyData = urlParams.get('d') || urlParams.get('verify') || urlParams.get('data');
-      const vNum = urlParams.get('vNum') || urlParams.get('voucherNum') || urlParams.get('num');
+      const rawVerify = urlParams.get('verify');
+      const verifyData = urlParams.get('d') || urlParams.get('data') || (rawVerify && rawVerify.length > 50 ? rawVerify : undefined);
+      const vNum = urlParams.get('vNum') || urlParams.get('voucherNum') || urlParams.get('num') || (rawVerify && rawVerify.length <= 50 ? rawVerify : undefined);
       const vId = urlParams.get('id') || urlParams.get('voucherId');
 
       if (verifyData || vNum || vId) {

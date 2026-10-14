@@ -32,6 +32,7 @@ import AllInOneVoucherForm from './AllInOneVoucherForm';
 import { PackageVoucherForm } from './PackageVoucherForm';
 import { VoucherConfirmationModal } from './VoucherConfirmationModal';
 import DigitalVoucherVerification from './DigitalVoucherVerification';
+import VoucherQRCode from './VoucherQRCode';
 
 const amountToWords = (num: number): string => {
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
@@ -77,6 +78,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const [searchTerm, setSearchTerm] = useState('');
 
   const voucherRef = useRef<HTMLDivElement>(null);
+  
+  const qrCodeSize = config?.voucherQRCodeSize || 64;
+  const showVoucherQR = config?.showVoucherQRCode !== false;
   
   const toggleSelection = (id: string) => {
     setSelectedVoucherIds(prev => 
@@ -442,6 +446,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     };
 
     try {
+      // Ensure all images and QR codes have settled
+      await new Promise(r => setTimeout(r, 120));
       // @ts-ignore
       await html2pdf().set(opt).from(element).save();
     } catch (err) {
@@ -473,6 +479,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     };
 
     try {
+      // Ensure all images and QR codes have settled
+      await new Promise(r => setTimeout(r, 120));
       // @ts-ignore
       const blob = await html2pdf().set(opt).from(element).output('blob');
       const file = new File([blob], fileName, { type: 'application/pdf' });
@@ -537,8 +545,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               </p>
             )}
           </div>
-          <div className="text-right">
-            <div className="border-2 border-slate-900 px-6 py-2 text-center min-w-[180px] rounded-sm shadow-sm">
+          <div className="text-right flex items-center justify-end gap-3 shrink-0">
+            <div className="border-2 border-slate-900 px-5 py-2 text-center min-w-[170px] rounded-sm shadow-sm">
               <p className="font-bold text-[11px] uppercase tracking-wide">
                 {v.type === VoucherType.RECEIPT ? 'RECEIPT' : v.type === VoucherType.PAYMENT ? 'PAYMENT' : 'VOUCHER'} : {invoiceNum}
               </p>
@@ -546,6 +554,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <p className="font-bold text-[11px] mt-0.5">(PKR) = {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
               )}
             </div>
+            {showVoucherQR && (
+              <VoucherQRCode 
+                voucher={v} 
+                config={config} 
+                size={qrCodeSize} 
+                showLabel={true} 
+                onClick={() => setInspectingPublicVoucher(v)} 
+                className="shrink-0 cursor-pointer" 
+              />
+            )}
           </div>
         </div>
 
@@ -874,12 +892,24 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <p className="text-[10px] text-slate-400 font-bold">{config.appSubtitle}</p>
             )}
           </div>
-          <div className="text-right">
-             <div className="flex items-center justify-end space-x-3 border-b-2 border-slate-300 pb-0.5 mb-1">
-                <span className="text-slate-500 font-bold text-[14px]">Invoice #</span>
-                <span className="text-slate-900 font-black text-[18px] tracking-tighter">{invoiceNum}</span>
+          <div className="text-right flex items-center justify-end gap-3 shrink-0">
+             <div>
+               <div className="flex items-center justify-end space-x-3 border-b-2 border-slate-300 pb-0.5 mb-1">
+                  <span className="text-slate-500 font-bold text-[14px]">Invoice #</span>
+                  <span className="text-slate-900 font-black text-[18px] tracking-tighter">{invoiceNum}</span>
+               </div>
+               <p className="text-[#0b7ea1] font-black uppercase text-[12px] leading-tight">{v.details?.hotelName}</p>
              </div>
-             <p className="text-[#0b7ea1] font-black uppercase text-[12px] leading-tight">{v.details?.hotelName}</p>
+             {showVoucherQR && (
+               <VoucherQRCode 
+                 voucher={v} 
+                 config={config} 
+                 size={qrCodeSize} 
+                 showLabel={true} 
+                 onClick={() => setInspectingPublicVoucher(v)} 
+                 className="shrink-0 cursor-pointer" 
+               />
+             )}
           </div>
         </div>
 
@@ -1018,19 +1048,34 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const branding = getBranding(v);
     return (
       <div ref={voucherRef} className="bg-white p-8 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
-        <div className="flex flex-col items-center mb-6 border-b border-slate-100 pb-3">
-          <div className="flex justify-center mb-2">
-            {branding.logo ? (
-              <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
-            ) : (
-              <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{branding.name}</div>
-            )}
+        <div className="flex justify-between items-start mb-6 border-b border-slate-100 pb-3">
+          <div className="w-16 shrink-0"></div>
+          <div className="flex flex-col items-center flex-1">
+            <div className="flex justify-center mb-2">
+              {branding.logo ? (
+                <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+              ) : (
+                <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{branding.name}</div>
+              )}
+            </div>
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide flex flex-wrap justify-center gap-x-3 gap-y-0.5 mt-1">
+              {config?.companyCell && <span>CELL: {config.companyCell}</span>}
+              {config?.companyPhone && <span>PHONE: {config.companyPhone}</span>}
+              {config?.companyEmail && <span>EMAIL: {config.companyEmail}</span>}
+            </div>
           </div>
-          <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide flex flex-wrap justify-center gap-x-3 gap-y-0.5 mt-1">
-            {config?.companyCell && <span>CELL: {config.companyCell}</span>}
-            {config?.companyPhone && <span>PHONE: {config.companyPhone}</span>}
-            {config?.companyEmail && <span>EMAIL: {config.companyEmail}</span>}
-          </div>
+          {showVoucherQR && (
+            <div className="shrink-0">
+              <VoucherQRCode 
+                voucher={v} 
+                config={config} 
+                size={qrCodeSize} 
+                showLabel={true} 
+                onClick={() => setInspectingPublicVoucher(v)} 
+                className="shrink-0 cursor-pointer" 
+              />
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-y-1 mb-4 text-[10px] font-bold uppercase tracking-wide">
@@ -1165,7 +1210,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <div className="text-center flex-1 transition-all flex items-center justify-center overflow-visible">
             <h1 className="text-[32px] font-black text-[#0f172a] uppercase tracking-tighter leading-none whitespace-nowrap">Hotel Booking Voucher</h1>
           </div>
-          <div className="w-56 text-right pr-4">
+          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
               <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
                   Emergency Num: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
@@ -1181,6 +1226,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   </p>
                 )}
              </div>
+             {showVoucherQR && (
+               <VoucherQRCode 
+                 voucher={v} 
+                 config={config} 
+                 size={qrCodeSize} 
+                 showLabel={true} 
+                 onClick={() => setInspectingPublicVoucher(v)} 
+                 className="shrink-0 cursor-pointer" 
+               />
+             )}
           </div>
         </div>
 
@@ -1371,10 +1426,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
         {/* Booking Notes - Updated narrative and locked to bottom */}
         <div className="mt-auto pt-2 pb-1 border-t border-slate-100">
-          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50/50">
+          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50/50 flex items-center justify-between gap-4">
             <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
-              <span className="font-black text-[#0f172a] not-italic">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
+              <span className="font-black text-[#0f172a] not-italic">Booking Notes:</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
             </p>
+            {showVoucherQR && (
+              <div className="shrink-0 flex items-center gap-1.5 pl-3 border-l border-slate-200 text-[8px] text-slate-600 font-bold whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                <span>DIGITAL E-VOUCHER • SCAN QR TO VERIFY</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1409,7 +1470,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               )
             )}
           </div>
-          <div className="w-40 text-right pr-4">
+          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
                   {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
@@ -1420,6 +1481,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   </p>
                 )}
              </div>
+             {showVoucherQR && (
+               <VoucherQRCode 
+                 voucher={v} 
+                 config={config} 
+                 size={qrCodeSize} 
+                 showLabel={true} 
+                 onClick={() => setInspectingPublicVoucher(v)} 
+                 className="shrink-0 cursor-pointer" 
+               />
+             )}
           </div>
         </div>
 
@@ -1637,7 +1708,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               )
             )}
           </div>
-          <div className="w-40 text-right pr-4">
+          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
                   {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
@@ -1648,6 +1719,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   </p>
                 )}
              </div>
+             {showVoucherQR && (
+               <VoucherQRCode 
+                 voucher={v} 
+                 config={config} 
+                 size={qrCodeSize} 
+                 showLabel={true} 
+                 onClick={() => setInspectingPublicVoucher(v)} 
+                 className="shrink-0 cursor-pointer" 
+               />
+             )}
           </div>
         </div>
 
@@ -1806,6 +1887,198 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     );
   };
 
+  const renderTicketVoucher = (v: Voucher) => {
+    const branding = getBranding(v);
+    const customerAccount = accounts.find(a => a.id === v.customerId);
+    const details = v.details || {};
+    const ticketItems = details.ticketItems && details.ticketItems.length > 0 ? details.ticketItems : [
+      {
+        paxName: details.paxName || 'N/A',
+        passportNumber: details.passportNumber || 'N/A',
+        airline: details.airline || 'N/A',
+        sector: details.sector || 'N/A',
+        reference: v.reference || details.reference || 'N/A',
+        rate: details.unitRate || details.amount || (v.totalAmountPKR / (v.roe || 1))
+      }
+    ];
+
+    return (
+      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+        {/* Header - Dynamic Branding */}
+        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
+          <div className="shrink-0" style={{ minWidth: "128px" }}>
+             {branding.logo ? (
+               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+             ) : (
+               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
+             )}
+          </div>
+          <div className="text-center flex-1 transition-all">
+            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Air Ticket Voucher</h1>
+            {branding.isCustom ? (
+              <p className="text-[14px] font-bold uppercase tracking-wider text-blue-600">
+                {branding.name}
+              </p>
+            ) : (
+              config?.appSubtitle && config.appSubtitle !== 'Travel Solutions by Shuja Anwar' && (
+                <p className="text-[14px] font-bold uppercase tracking-wider text-[#e11d48]">
+                  {config.appSubtitle}
+                </p>
+              )
+            )}
+          </div>
+          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
+             <div className="space-y-0.5">
+                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+                </p>
+                {!branding.isCustom && config?.companyPhone && (
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
+                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                  </p>
+                )}
+             </div>
+             {showVoucherQR && (
+               <VoucherQRCode 
+                 voucher={v} 
+                 config={config} 
+                 size={qrCodeSize} 
+                 showLabel={true} 
+                 onClick={() => setInspectingPublicVoucher(v)} 
+                 className="shrink-0 cursor-pointer" 
+               />
+             )}
+          </div>
+        </div>
+
+        {/* Reference Line */}
+        <div className="mb-3 flex justify-between items-end">
+          <p className="text-[13px] font-black text-[#0f172a]">Ticket Voucher No: {v.voucherNum}</p>
+          <p className="text-[11px] font-black text-slate-500 uppercase tracking-tight">
+            Date: {formatDate(v.date)}
+          </p>
+        </div>
+
+        {/* Details Grid */}
+        <div className="grid grid-cols-2 gap-x-16 gap-y-2 mb-3 border-b border-slate-100 pb-3">
+          <div className="space-y-2">
+            <div className="space-y-0.5">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMER / ACCOUNT</p>
+              <p className="text-[14px] font-black uppercase text-[#0f172a] leading-tight">
+                {customerAccount?.companyName || customerAccount?.name || 'N/A'}
+              </p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">PRIMARY PASSENGER</p>
+              <p className="text-[12px] font-black uppercase text-slate-700">
+                {details.paxName || 'N/A'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="space-y-0.5">
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">PNR / E-TICKET REF</p>
+              <p className="text-[12px] font-black text-[#0f172a] font-mono">{v.reference || details.reference || 'N/A'}</p>
+            </div>
+            {details.passportNumber && (
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">PASSPORT NUMBER</p>
+                <p className="text-[12px] font-black text-slate-700 font-mono">
+                  {details.passportNumber}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Flight & Travel Sector Banner */}
+        <div className="mb-4 relative border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 py-3.5 px-4 overflow-hidden flex items-stretch">
+          <div className="absolute -left-3.5 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-r-2 border-dashed border-slate-200 rounded-full z-10" />
+          <div className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-l-2 border-dashed border-slate-200 rounded-full z-10" />
+          
+          <div className="w-full grid grid-cols-4 gap-2 px-3 items-center divide-x divide-dashed divide-slate-200">
+            <div className="flex flex-col justify-center space-y-0.5 pl-1">
+              <span className="text-[7.5px] font-black text-slate-400 tracking-widest uppercase">AIRLINE</span>
+              <span className="text-[12px] font-black text-indigo-700 tracking-wide uppercase flex items-center gap-1">
+                <span>✈️</span> {details.airline || 'Commercial Airline'}
+              </span>
+            </div>
+            <div className="flex flex-col justify-center space-y-0.5 pl-4">
+              <span className="text-[7.5px] font-black text-slate-400 tracking-widest uppercase">SECTOR / ROUTE</span>
+              <span className="text-[12px] font-black text-[#0f172a] uppercase tracking-wide">
+                {details.sector || 'N/A'}
+              </span>
+            </div>
+            <div className="flex flex-col justify-center space-y-0.5 pl-4">
+              <span className="text-[7.5px] font-black text-slate-400 tracking-widest uppercase">PNR / BOOKING REF</span>
+              <span className="text-[12px] font-black text-blue-600 font-mono">
+                {v.reference || details.reference || 'CONFIRMED'}
+              </span>
+            </div>
+            <div className="flex flex-col justify-center space-y-0.5 pl-4">
+              <span className="text-[7.5px] font-black text-slate-400 tracking-widest uppercase">FLIGHT STATUS</span>
+              <span className="text-[11px] font-black text-emerald-700 uppercase tracking-tight">
+                Confirmed Ticket
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Ticket Items Table */}
+        <div className="mb-3 flex-1">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="text-[8px] font-black uppercase tracking-widest text-white bg-[#0f172a]">
+                <th className="py-1.5 px-3 text-left border-r border-slate-700 w-10">#</th>
+                <th className="py-1.5 px-3 text-left border-r border-slate-700">PASSENGER NAME</th>
+                <th className="py-1.5 px-3 text-left border-r border-slate-700">PASSPORT #</th>
+                <th className="py-1.5 px-3 text-center border-r border-slate-700">AIRLINE</th>
+                <th className="py-1.5 px-3 text-center border-r border-slate-700">SECTOR</th>
+                <th className={`py-1.5 px-3 text-center ${showBookingAmounts ? 'border-r border-slate-700' : ''}`}>PNR / TICKET</th>
+                {showBookingAmounts && (
+                  <th className="py-1.5 px-3 text-right">AMOUNT ({v.currency})</th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="text-[9px] font-bold text-slate-800">
+              {ticketItems.map((item: any, i: number) => (
+                <tr key={i} className="border border-slate-200 border-t-0 hover:bg-slate-50/50">
+                  <td className="py-2 px-3 border-r border-slate-200 font-mono text-slate-400">{i + 1}</td>
+                  <td className="py-2 px-3 border-r border-slate-200 uppercase font-black">{item.paxName || details.paxName || 'N/A'}</td>
+                  <td className="py-2 px-3 border-r border-slate-200 uppercase font-mono">{item.passportNumber || details.passportNumber || 'N/A'}</td>
+                  <td className="py-2 px-3 text-center border-r border-slate-200 uppercase">{item.airline || details.airline || 'N/A'}</td>
+                  <td className="py-2 px-3 text-center border-r border-slate-200 uppercase">{item.sector || details.sector || 'N/A'}</td>
+                  <td className={`py-2 px-3 text-center uppercase font-mono text-blue-700 font-black ${showBookingAmounts ? 'border-r border-slate-200' : ''}`}>{item.reference || v.reference || details.reference || 'N/A'}</td>
+                  {showBookingAmounts && (
+                    <td className="py-2 px-3 text-right font-black text-slate-900">{Number(item.rate || 0).toLocaleString()}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer Policies */}
+        <div className="mt-auto pt-2 border-t border-slate-100">
+          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50/50">
+            <p className="text-[9px] font-medium text-slate-700 leading-tight">
+              <span className="font-black text-[#0f172a]">Important Notice:</span> Please report to the airport at least 3-4 hours prior to departure for international flights. Ensure passport validity of at least 6 months and valid visas. Reconfirm flight timings 24 hours before travel.
+            </p>
+          </div>
+          <div className="flex justify-between items-end mt-4 pt-2">
+            <div className="text-[8px] text-slate-400 uppercase font-bold">
+              Issued: {new Date(v.date).toLocaleDateString()} | System Verified Electronic Voucher
+            </div>
+            <div className="w-40 border-t border-slate-900 pt-1 text-center font-black text-[9px] uppercase tracking-widest">
+              Authorized Signature
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderInspectorContent = () => {
     if (!viewingVoucher) return null;
     
@@ -1825,6 +2098,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       case 'SERVICE': 
         if (viewingVoucher.type === VoucherType.TRANSPORT) return renderTransportVoucher(viewingVoucher);
         if (viewingVoucher.type === VoucherType.VISA) return renderVisaVoucher(viewingVoucher);
+        if (viewingVoucher.type === VoucherType.TICKET) return renderTicketVoucher(viewingVoucher);
         if (viewingVoucher.type === VoucherType.ALL_IN_ONE) return renderAllInOneVoucher(viewingVoucher);
         return renderServiceVoucher(viewingVoucher);
       default: return renderOfficialInvoice(viewingVoucher);
@@ -1869,7 +2143,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               )
             )}
           </div>
-          <div className="w-40 text-right pr-4">
+          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
                   {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
@@ -1880,6 +2154,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   </p>
                 )}
              </div>
+             {showVoucherQR && (
+               <VoucherQRCode 
+                 voucher={v} 
+                 config={config} 
+                 size={qrCodeSize} 
+                 showLabel={true} 
+                 onClick={() => setInspectingPublicVoucher(v)} 
+                 className="shrink-0 cursor-pointer" 
+               />
+             )}
           </div>
         </div>
 
@@ -2102,10 +2386,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
         {/* Booking Notes - Locked to Bottom like sample */}
         <div className="mt-auto pt-2 pb-1">
-          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50">
+          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50 flex items-center justify-between gap-4">
             <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
-              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
+              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes:</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
             </p>
+            {showVoucherQR && (
+              <div className="shrink-0 flex items-center gap-1.5 pl-3 border-l border-slate-200 text-[8px] text-slate-600 font-bold whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                <span>DIGITAL E-VOUCHER • SCAN QR TO VERIFY</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2162,7 +2452,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               )
             )}
           </div>
-          <div className="w-40 text-right pr-4">
+          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
                   {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
@@ -2173,6 +2463,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   </p>
                 )}
              </div>
+             {showVoucherQR && (
+               <VoucherQRCode 
+                 voucher={v} 
+                 config={config} 
+                 size={qrCodeSize} 
+                 showLabel={true} 
+                 onClick={() => setInspectingPublicVoucher(v)} 
+                 className="shrink-0 cursor-pointer" 
+               />
+             )}
           </div>
         </div>
 
@@ -2367,10 +2667,16 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
 
         {/* Booking Notes - Locked to Bottom like sample */}
         <div className="mt-auto pt-2 pb-1">
-          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50">
+          <div className="border border-slate-200 p-2.5 rounded-md bg-slate-50 flex items-center justify-between gap-4">
             <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
-              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes: :</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
+              <span className="font-black text-[#0f172a] not-italic uppercase">Booking Notes:</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
             </p>
+            {showVoucherQR && (
+              <div className="shrink-0 flex items-center gap-1.5 pl-3 border-l border-slate-200 text-[8px] text-slate-600 font-bold whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                <span>DIGITAL E-VOUCHER • SCAN QR TO VERIFY</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2402,7 +2708,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
       case VoucherType.VISA: return <VisaVoucherForm {...props} />;
       case VoucherType.TICKET: return <TicketVoucherForm {...props} />;
       case VoucherType.PAYMENT: return <PaymentVoucherForm {...props} />;
-      case VoucherType.ALL_IN_ONE: return <AllInOneVoucherForm {...props} />;
+      case VoucherType.ALL_IN_ONE: return <AllInOneVoucherForm key={voucherToEdit?.id ? `${voucherToEdit.id}-${formMode}` : `aio-${formMode}`} {...props} />;
       case VoucherType.PACKAGE: return <PackageVoucherForm {...props} />;
       default: return null;
     }
@@ -2816,6 +3122,14 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   >
                     <span>📱</span> 
                     <span className="hidden sm:inline">QR Portal</span>
+                  </button>
+                  <button 
+                    onClick={() => window.print()} 
+                    className="flex-1 sm:flex-none justify-center bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-3 md:py-2 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center space-x-1.5 shadow-xl shadow-blue-500/20"
+                    title="Print Voucher on Paper / Printer for Customer (Ctrl+P)"
+                  >
+                    <span>🖨️</span> 
+                    <span className="hidden sm:inline">Print</span>
                   </button>
                   <button 
                     onClick={handleDownloadPDF} 

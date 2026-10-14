@@ -3,6 +3,7 @@ import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, Ap
 import { getAccounts, getConfig } from '../services/db';
 import DateInput from './DateInput';
 import HajiSelector from './HajiSelector';
+import { SearchableAccountSelect } from './SearchableAccountSelect';
 import { AccountingService } from '../services/AccountingService';
 
 import { HajiService } from '../services/HajiService';
@@ -354,23 +355,36 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <InputLabel>Client (Debit)</InputLabel>
-              <select required className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
-                <option value="">Select Customer...</option>
-                {accounts.filter(a => a.type === AccountType.CUSTOMER).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <SearchableAccountSelect
+                required
+                accounts={accounts.filter(a => a.type === AccountType.CUSTOMER)}
+                value={formData.customerId}
+                onChange={val => setFormData({...formData, customerId: val})}
+                placeholder="Search or Select Customer..."
+                buttonClassName="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all"
+              />
             </div>
             <div>
               <InputLabel>Vendor (Credit)</InputLabel>
-              <select required className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all" value={formData.vendorId} onChange={e => setFormData({...formData, vendorId: e.target.value})}>
-                <option value="">Select Vendor...</option>
-                {accounts.filter(a => a.type === AccountType.VENDOR).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <SearchableAccountSelect
+                required
+                accounts={accounts.filter(a => a.type === AccountType.VENDOR)}
+                value={formData.vendorId}
+                onChange={val => setFormData({...formData, vendorId: val})}
+                placeholder="Search or Select Vendor..."
+                buttonClassName="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all"
+              />
             </div>
             <div>
               <InputLabel>Revenue (Credit)</InputLabel>
-              <select required className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all" value={formData.incomeAccountId} onChange={e => setFormData({...formData, incomeAccountId: e.target.value})}>
-                {incomeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <SearchableAccountSelect
+                required
+                accounts={incomeAccounts}
+                value={formData.incomeAccountId}
+                onChange={val => setFormData({...formData, incomeAccountId: val})}
+                placeholder="Search or Select Revenue Account..."
+                buttonClassName="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all"
+              />
             </div>
           </div>
 
@@ -465,17 +479,14 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
               {formData.transportBooked && (
                 <div className="animate-in fade-in duration-200">
                   <InputLabel>Confirmed Vendor</InputLabel>
-                  <select 
+                  <SearchableAccountSelect
                     required={formData.transportBooked}
-                    className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all" 
-                    value={formData.ksaVendorId} 
-                    onChange={e => setFormData({...formData, ksaVendorId: e.target.value})}
-                  >
-                    <option value="">Select Confirmed Vendor...</option>
-                    {accounts.filter(a => a.type === AccountType.VENDOR).map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
+                    accounts={accounts.filter(a => a.type === AccountType.VENDOR)}
+                    value={formData.ksaVendorId}
+                    onChange={val => setFormData({...formData, ksaVendorId: val})}
+                    placeholder="Search or Select Confirmed Vendor..."
+                    buttonClassName="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none transition-all"
+                  />
                 </div>
               )}
             </div>

@@ -96,6 +96,9 @@ export interface AppConfig {
   autoRefreshIntervalMinutes?: number;
   hotelPoliciesShow?: boolean;
   hotelPoliciesText?: string;
+  showVoucherQRCode?: boolean;
+  voucherQRCodeSize?: number;
+  publicWebUrl?: string;
 }
 
 export interface HajiMaster {

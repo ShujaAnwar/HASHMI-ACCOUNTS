@@ -12,49 +12,57 @@ interface VoucherQRCodeProps {
   darkColor?: string;
 }
 
+// Global cache for instant synchronous rendering
+const qrCodeCache = new Map<string, string>();
+
 export const VoucherQRCode: React.FC<VoucherQRCodeProps> = ({
   voucher,
   config,
-  size = 76,
+  size = 68,
   showLabel = true,
   className = '',
   onClick,
   darkColor = '#0f172a'
 }) => {
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
-
   const verificationUrl = useMemo(() => {
     return getVoucherVerificationUrl(voucher, config);
   }, [voucher, config]);
 
+  const cacheKey = useMemo(() => {
+    return `${verificationUrl}_${size}_${darkColor}`;
+  }, [verificationUrl, size, darkColor]);
+
+  const [qrDataUrl, setQrDataUrl] = useState<string>(() => {
+    return qrCodeCache.get(cacheKey) || '';
+  });
+
   useEffect(() => {
     let isMounted = true;
     if (verificationUrl) {
+      if (qrCodeCache.has(cacheKey)) {
+        setQrDataUrl(qrCodeCache.get(cacheKey)!);
+        return;
+      }
+
       generateQRCodeDataUrl(verificationUrl, {
-        width: size * 3, // High-DPI for crisp printing & PDF export
+        width: Math.max(size * 3, 260), // High-DPI for crisp printing & PDF export
         margin: 1,
         color: { dark: darkColor, light: '#ffffff' }
       }).then(url => {
-        if (isMounted) {
+        if (url) {
+          qrCodeCache.set(cacheKey, url);
+        }
+        if (isMounted && url) {
           setQrDataUrl(url);
         }
+      }).catch(err => {
+        console.error('QR code generation failed:', err);
       });
     }
     return () => {
       isMounted = false;
     };
-  }, [verificationUrl, size, darkColor]);
-
-  if (!qrDataUrl) {
-    return (
-      <div 
-        style={{ width: `${size}px`, height: `${size}px` }} 
-        className={`bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-[8px] text-slate-400 font-mono ${className}`}
-      >
-        QR...
-      </div>
-    );
-  }
+  }, [verificationUrl, cacheKey, size, darkColor]);
 
   return (
     <div 
@@ -62,20 +70,30 @@ export const VoucherQRCode: React.FC<VoucherQRCodeProps> = ({
       onClick={onClick}
       title="Scan with any smartphone camera to verify this voucher online or view digital details"
     >
-      <div className="p-1 bg-white border border-slate-200 rounded-md shadow-xs flex items-center justify-center">
-        <img 
-          src={qrDataUrl} 
-          alt={`QR Code for Voucher ${voucher.voucherNum}`}
-          style={{ width: `${size}px`, height: `${size}px` }}
-          className="object-contain block"
-        />
+      <div 
+        style={{ width: `${size}px`, height: `${size}px` }}
+        className="p-1 bg-white border border-slate-300 dark:border-slate-700 rounded-md shadow-xs flex items-center justify-center overflow-hidden shrink-0"
+      >
+        {qrDataUrl ? (
+          <img 
+            src={qrDataUrl} 
+            alt={`QR Code for Voucher ${voucher.voucherNum}`}
+            style={{ width: `${size - 8}px`, height: `${size - 8}px` }}
+            className="object-contain block max-w-full max-h-full"
+          />
+        ) : (
+          <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-[7px] text-slate-400 font-mono text-center leading-none">
+            <span className="text-[10px]">📷</span>
+            <span>QR CODE</span>
+          </div>
+        )}
       </div>
       {showLabel && (
-        <div className="mt-0.5 text-center leading-none">
-          <span className="text-[7px] font-black tracking-tighter text-slate-600 uppercase flex items-center justify-center gap-0.5 whitespace-nowrap">
-            <span className="text-emerald-600">✓</span> SCAN TO VERIFY
+        <div className="mt-1 text-center leading-none">
+          <span className="text-[7.5px] font-black tracking-tight text-slate-800 uppercase flex items-center justify-center gap-0.5 whitespace-nowrap">
+            <span className="text-emerald-600 font-black">✓</span> SCAN TO VERIFY
           </span>
-          <span className="text-[6px] font-bold text-slate-400 uppercase tracking-widest block scale-90">
+          <span className="text-[6px] font-bold text-slate-400 uppercase tracking-widest block scale-90 mt-0.5">
             DIGITAL E-VOUCHER
           </span>
         </div>

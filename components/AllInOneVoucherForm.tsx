@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
-import { getAccounts, getConfig } from '../services/db';
+import { getAccounts, getConfig, getVouchers } from '../services/db';
 import DateInput from './DateInput';
 import HajiSelector from './HajiSelector';
+import { SearchableAccountSelect } from './SearchableAccountSelect';
 import { AccountingService } from '../services/AccountingService';
 
 import { HajiService } from '../services/HajiService';
@@ -119,13 +120,51 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [allInOneVouchers, setAllInOneVouchers] = useState<Voucher[]>([]);
+  const [showClonePicker, setShowClonePicker] = useState(false);
+  const [cloneSearch, setCloneSearch] = useState('');
+  const [cloneSuccessMsg, setCloneSuccessMsg] = useState('');
+
+  // Extract initial sections with backwards-compatibility for items array
+  const initialVisaItems = initialData?.details?.visaItems || [];
+  const initialHotelItems = (initialData?.details?.hotelItems && initialData.details.hotelItems.length > 0)
+    ? initialData.details.hotelItems
+    : (Array.isArray(initialData?.details?.items) ? initialData.details.items.filter((it: any) => it.hotelName) : []);
+  const initialTransportItems = (initialData?.details?.transportItems && initialData.details.transportItems.length > 0)
+    ? initialData.details.transportItems
+    : (Array.isArray(initialData?.details?.items) ? initialData.details.items.filter((it: any) => it.sector || it.vehicle) : []);
+  const initialTicketItems = initialData?.details?.ticketItems || [];
+
+  const [formData, setFormData] = useState({
+    date: isClone ? new Date().toISOString().split('T')[0] : (initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0]),
+    currency: initialData?.currency || Currency.PKR,
+    roe: initialData?.roe || 1,
+    voucherNum: isClone ? '' : (initialData?.voucherNum || ''),
+    customerId: initialData?.customerId || '',
+    description: initialData?.description || '',
+    reference: isClone ? '' : (initialData?.reference || ''),
+    paxName: initialData?.details?.paxName || (initialData as any)?.paxName || '',
+    passportNumber: initialData?.details?.passportNumber || (initialData as any)?.passportNumber || '',
+    
+    // Sections
+    visaItems: isClone ? initialVisaItems.map((item: any) => ({ ...item })) : initialVisaItems,
+    hotelItems: isClone ? initialHotelItems.map((item: any) => ({ ...item, reference: '', confirmationNo: '' })) : initialHotelItems,
+    transportItems: isClone ? initialTransportItems.map((item: any) => ({ ...item, subSectors: item.subSectors ? item.subSectors.map((s: any) => ({ ...s })) : undefined })) : initialTransportItems,
+    ticketItems: isClone ? initialTicketItems.map((item: any) => ({ ...item, pnr: '', reference: '' })) : initialTicketItems,
+    
+    incomeAmountPKR: initialData?.details?.incomeAmountPKR || 0,
+    incomeAccountId: initialData?.details?.incomeAccountId || '',
+  });
 
   useEffect(() => {
     const load = async () => {
-      const [accs, conf] = await Promise.all([getAccounts(), getConfig()]);
+      const [accs, conf, vchs] = await Promise.all([getAccounts(), getConfig(), getVouchers()]);
       setAccounts(accs);
       setConfig(conf);
       
+      const aioList = vchs.filter(v => (v.type === VoucherType.ALL_IN_ONE || (v.type as string) === 'AV') && v.status !== VoucherStatus.VOID);
+      setAllInOneVouchers(aioList);
+
       // Generate automatic voucher number if creating or cloning
       if (isClone || !initialData?.voucherNum) {
         const vNum = await AccountingService.generateVoucherNumber(VoucherType.ALL_IN_ONE, initialData?.date);
@@ -137,26 +176,53 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
     load();
   }, [isClone, initialData]);
 
-  const [formData, setFormData] = useState({
-    date: initialData?.date?.split('T')[0] || new Date().toISOString().split('T')[0],
-    currency: initialData?.currency || Currency.PKR,
-    roe: initialData?.roe || 1,
-    voucherNum: initialData?.voucherNum || '', // Placeholder, will be updated by useEffect if needed
-    customerId: initialData?.customerId || '',
-    description: initialData?.description || '',
-    reference: isClone ? '' : (initialData?.reference || ''),
-    paxName: initialData?.details?.paxName || '',
-    passportNumber: initialData?.details?.passportNumber || '',
-    
-    // Sections
-    visaItems: initialData?.details?.visaItems || [],
-    hotelItems: initialData?.details?.hotelItems || [],
-    transportItems: initialData?.details?.transportItems || [],
-    ticketItems: initialData?.details?.ticketItems || [],
-    
-    incomeAmountPKR: initialData?.details?.incomeAmountPKR || 0,
-    incomeAccountId: initialData?.details?.incomeAccountId || '',
-  });
+  // Clone an existing voucher selected from the quick clone picker
+  const handleApplyCloneFromExisting = async (sourceVoucher: Voucher) => {
+    const details = sourceVoucher.details || {};
+    const clonedVisas = (details.visaItems || []).map((item: any) => ({ ...item }));
+    const clonedHotels = (details.hotelItems || details.items?.filter((it: any) => it.hotelName) || []).map((item: any) => ({
+      ...item,
+      reference: '',
+      confirmationNo: ''
+    }));
+    const clonedTransports = (details.transportItems || details.items?.filter((it: any) => it.sector || it.vehicle) || []).map((item: any) => ({
+      ...item,
+      subSectors: item.subSectors ? item.subSectors.map((s: any) => ({ ...s })) : undefined
+    }));
+    const clonedTickets = (details.ticketItems || []).map((item: any) => ({
+      ...item,
+      pnr: '',
+      reference: ''
+    }));
+
+    // Keep newly generated voucher number
+    let targetVNum = formData.voucherNum;
+    if (!targetVNum) {
+      targetVNum = await AccountingService.generateVoucherNumber(VoucherType.ALL_IN_ONE);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      voucherNum: targetVNum,
+      currency: sourceVoucher.currency || Currency.PKR,
+      roe: sourceVoucher.roe || 1,
+      customerId: sourceVoucher.customerId || '',
+      description: sourceVoucher.description ? `(Cloned) ${sourceVoucher.description}` : '',
+      reference: '',
+      paxName: details.paxName || (sourceVoucher as any).paxName || '',
+      passportNumber: details.passportNumber || (sourceVoucher as any).passportNumber || '',
+      visaItems: clonedVisas,
+      hotelItems: clonedHotels,
+      transportItems: clonedTransports,
+      ticketItems: clonedTickets,
+      incomeAmountPKR: details.incomeAmountPKR || 0,
+      incomeAccountId: details.incomeAccountId || ''
+    }));
+
+    setShowClonePicker(false);
+    setCloneSuccessMsg(`Cloned successfully from ${sourceVoucher.voucherNum} (${(sourceVoucher as any).paxName || details.paxName || 'Passenger'})!`);
+    setTimeout(() => setCloneSuccessMsg(''), 6000);
+  };
 
   const customerAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.CUSTOMER), [accounts]);
   const vendorAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.VENDOR), [accounts]);
@@ -454,8 +520,26 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
                 <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">
                   {isClone ? 'Duplicating Unified Travel Voucher with new Voucher Number' : `Unified Travel Management - ${config.companyName}`}
                 </p>
+                {cloneSuccessMsg && (
+                  <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-1 animate-pulse">
+                    ✅ {cloneSuccessMsg}
+                  </p>
+                )}
             </div>
-            <button onClick={onCancel} className="bg-white dark:bg-slate-800 p-3 rounded-2xl text-slate-400 hover:text-rose-500 transition-colors shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">✕</button>
+            <div className="flex items-center space-x-3">
+              {allInOneVouchers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowClonePicker(true)}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-95"
+                  title="Copy hotel, transport, visa, and ticket bookings from an existing All-in-One voucher"
+                >
+                  <span>👯</span>
+                  <span>Clone from Existing</span>
+                </button>
+              )}
+              <button onClick={onCancel} className="bg-white dark:bg-slate-800 p-3 rounded-2xl text-slate-400 hover:text-rose-500 transition-colors shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">✕</button>
+            </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto custom-scrollbar flex-1">
@@ -481,10 +565,14 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
             )}
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">CUSTOMER (DEBIT)</label>
-              <select required className="w-full bg-blue-50/30 dark:bg-slate-800 border-none rounded-xl p-3 text-xs font-black outline-none ring-1 ring-blue-100 dark:ring-slate-800" value={formData.customerId} onChange={e => setFormData({...formData, customerId: e.target.value})}>
-                <option value="">Select Customer Account...</option>
-                {customerAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <SearchableAccountSelect
+                required
+                accounts={customerAccounts}
+                value={formData.customerId}
+                onChange={val => setFormData({...formData, customerId: val})}
+                placeholder="Search or Select Customer..."
+                buttonClassName="w-full bg-blue-50/30 dark:bg-slate-800 border-none rounded-xl p-3 text-xs font-black outline-none ring-1 ring-blue-100 dark:ring-slate-800"
+              />
             </div>
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">GROUP REF / FILE #</label>
@@ -562,10 +650,14 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
                           </div>
                           <div className="space-y-1">
                              <label className="text-[8px] font-black text-slate-400 uppercase">Vendor (CR)</label>
-                             <select className="w-full bg-indigo-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-indigo-100" value={item.vendorId} onChange={e => updateVisaItem(idx, 'vendorId', e.target.value)}>
-                                <option value="">Select Vendor...</option>
-                                {vendorAccounts.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                             </select>
+                             <SearchableAccountSelect
+                                accounts={vendorAccounts}
+                                value={item.vendorId}
+                                onChange={val => updateVisaItem(idx, 'vendorId', val)}
+                                placeholder="Select Vendor..."
+                                emptyOptionLabel="No Vendor"
+                                buttonClassName="w-full bg-indigo-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-indigo-100"
+                             />
                           </div>
                        </div>
                    </div>
@@ -681,10 +773,14 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
                           </div>
                           <div className="space-y-1">
                              <label className="text-[8px] font-black text-slate-400 uppercase">Vendor (CR)</label>
-                             <select className="w-full bg-emerald-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-emerald-100" value={item.vendorId} onChange={e => updateHotelItem(idx, 'vendorId', e.target.value)}>
-                                <option value="">Select Vendor...</option>
-                                {vendorAccounts.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                             </select>
+                             <SearchableAccountSelect
+                                accounts={vendorAccounts}
+                                value={item.vendorId}
+                                onChange={val => updateHotelItem(idx, 'vendorId', val)}
+                                placeholder="Select Vendor..."
+                                emptyOptionLabel="No Vendor"
+                                buttonClassName="w-full bg-emerald-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-emerald-100"
+                             />
                           </div>
                        </div>
                        <div className="flex justify-end pt-2 border-t border-slate-50 dark:border-slate-800">
@@ -820,10 +916,14 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
                           </div>
                           <div className="space-y-1">
                              <label className="text-[8px] font-black text-slate-400 uppercase">Vendor (CR)</label>
-                             <select className="w-full bg-rose-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-rose-100" value={item.vendorId} onChange={e => updateTransportItem(idx, 'vendorId', e.target.value)}>
-                                <option value="">Select Vendor...</option>
-                                {vendorAccounts.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                             </select>
+                             <SearchableAccountSelect
+                                accounts={vendorAccounts}
+                                value={item.vendorId}
+                                onChange={val => updateTransportItem(idx, 'vendorId', val)}
+                                placeholder="Select Vendor..."
+                                emptyOptionLabel="No Vendor"
+                                buttonClassName="w-full bg-rose-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-rose-100"
+                             />
                           </div>
                        </div>
                    </div>
@@ -900,10 +1000,14 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
                           </div>
                           <div className="space-y-1">
                              <label className="text-[8px] font-black text-slate-400 uppercase">Vendor (CR)</label>
-                             <select className="w-full bg-cyan-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-cyan-100" value={item.vendorId} onChange={e => updateTicketItem(idx, 'vendorId', e.target.value)}>
-                                <option value="">Select Vendor...</option>
-                                {vendorAccounts.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                             </select>
+                             <SearchableAccountSelect
+                                accounts={vendorAccounts}
+                                value={item.vendorId}
+                                onChange={val => updateTicketItem(idx, 'vendorId', val)}
+                                placeholder="Select Vendor..."
+                                emptyOptionLabel="No Vendor"
+                                buttonClassName="w-full bg-cyan-50/50 dark:bg-slate-800 rounded-lg p-2 text-[10px] font-bold outline-none ring-1 ring-cyan-100"
+                             />
                           </div>
                        </div>
                    </div>
@@ -920,10 +1024,14 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
              <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
                 <div className="space-y-1">
                   <label className="text-[8px] font-black uppercase text-white/50">Fee Account</label>
-                  <select className="bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold w-full md:w-60 outline-none" value={formData.incomeAccountId} onChange={e => setFormData({...formData, incomeAccountId: e.target.value})}>
-                     <option value="" className="text-slate-900">Default Revenue</option>
-                     {accounts.filter(a => a.type === AccountType.REVENUE).map(a => <option key={a.id} value={a.id} className="text-slate-900">{a.name}</option>)}
-                  </select>
+                  <SearchableAccountSelect
+                    accounts={accounts.filter(a => a.type === AccountType.REVENUE)}
+                    value={formData.incomeAccountId}
+                    onChange={val => setFormData({...formData, incomeAccountId: val})}
+                    placeholder="Default Revenue"
+                    emptyOptionLabel="Default Revenue"
+                    buttonClassName="bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold w-full md:w-60 outline-none text-white hover:bg-white/20"
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[8px] font-black uppercase text-white/50">Amount (PKR)</label>
@@ -972,6 +1080,144 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
            </div>
         </div>
       </div>
+
+      {/* Quick Clone From Existing All-In-One Voucher Modal */}
+      {showClonePicker && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden max-h-[85vh]">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">👯</span>
+                  <h3 className="text-lg font-black font-orbitron text-slate-800 dark:text-white uppercase tracking-tight">
+                    Clone Previous All-In-One Voucher
+                  </h3>
+                </div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                  Select a past voucher to copy all hotel, transport, visa, and ticket bookings
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClonePicker(false)}
+                className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-400 hover:text-rose-500 flex items-center justify-center text-sm font-bold shadow-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30">
+              <input
+                type="text"
+                value={cloneSearch}
+                onChange={(e) => setCloneSearch(e.target.value)}
+                placeholder="Search by Voucher #, Pax Name, Customer, or Date..."
+                className="w-full bg-white dark:bg-slate-800 px-4 py-3 rounded-2xl text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-3 flex-1 custom-scrollbar">
+              {allInOneVouchers
+                .filter((v) => {
+                  if (!cloneSearch.trim()) return true;
+                  const query = cloneSearch.toLowerCase();
+                  const vNum = (v.voucherNum || '').toLowerCase();
+                  const pax = ((v.details?.paxName || v.paxName) || '').toLowerCase();
+                  const cust = (accounts.find(a => a.id === v.customerId)?.name || '').toLowerCase();
+                  const date = (v.date || '').toLowerCase();
+                  return vNum.includes(query) || pax.includes(query) || cust.includes(query) || date.includes(query);
+                })
+                .map((v) => {
+                  const custName = accounts.find(a => a.id === v.customerId)?.name || 'Direct Customer';
+                  const paxName = v.details?.paxName || v.paxName || 'Unnamed Pax';
+                  const hotelCount = (v.details?.hotelItems?.length || (v.details?.items ? v.details.items.filter((it: any) => it.hotelName).length : 0));
+                  const transportCount = (v.details?.transportItems?.length || (v.details?.items ? v.details.items.filter((it: any) => it.sector || it.vehicle).length : 0));
+                  const visaCount = (v.details?.visaItems?.length || 0);
+                  const ticketCount = (v.details?.ticketItems?.length || 0);
+
+                  return (
+                    <div
+                      key={v.id}
+                      className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/60 hover:border-blue-500/40 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-orbitron font-black text-xs text-blue-600 dark:text-blue-400">
+                            {v.voucherNum}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400">
+                            {v.date ? new Date(v.date).toLocaleDateString() : ''}
+                          </span>
+                        </div>
+                        <p className="text-sm font-black text-slate-800 dark:text-white uppercase truncate">
+                          {paxName}
+                        </p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight truncate">
+                          Customer: {custName}
+                        </p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {hotelCount > 0 && (
+                            <span className="text-[9px] font-black bg-blue-50 dark:bg-blue-900/30 text-blue-600 px-2 py-0.5 rounded-md">
+                              🏨 {hotelCount} Hotel{hotelCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {transportCount > 0 && (
+                            <span className="text-[9px] font-black bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 px-2 py-0.5 rounded-md">
+                              🚗 {transportCount} Transport{transportCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {visaCount > 0 && (
+                            <span className="text-[9px] font-black bg-amber-50 dark:bg-amber-900/30 text-amber-600 px-2 py-0.5 rounded-md">
+                              🛂 {visaCount} Visa{visaCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {ticketCount > 0 && (
+                            <span className="text-[9px] font-black bg-purple-50 dark:bg-purple-900/30 text-purple-600 px-2 py-0.5 rounded-md">
+                              ✈️ {ticketCount} Flight{ticketCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex md:flex-col items-center md:items-end justify-between gap-2 shrink-0">
+                        <div className="text-right">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">Total</span>
+                          <span className="text-xs font-black font-orbitron text-slate-900 dark:text-white">
+                            {(v.amountPKR || v.amount || 0).toLocaleString()} PKR
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyCloneFromExisting(v)}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-1.5"
+                        >
+                          <span>👯</span>
+                          <span>Clone Data</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {allInOneVouchers.length === 0 && (
+                <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  No previous All-in-One vouchers available to clone
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowClonePicker(false)}
+                className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
