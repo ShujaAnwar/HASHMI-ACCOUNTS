@@ -1,7 +1,8 @@
   import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
   import { Account, AccountType, Voucher, Currency, AppConfig, VoucherType } from '../types';
   import { formatCurrency, formatDate } from '../utils/format';
-import DateInput from './DateInput';
+  import DateInput from './DateInput';
+  import { generateSearchableLedgerPdf, printElementAsVectorPdf } from '../utils/searchablePdfExport';
   import { AccountingService } from '../services/AccountingService';
   import { getAccounts, getVouchers, getConfig } from '../services/db';
   import { supabase } from '../services/supabase';
@@ -678,63 +679,72 @@ import DateInput from './DateInput';
     }, [ledgerWithRunningBalance, vouchers]);
 
     const handleDownloadPDF = async () => {
-      if (!pdfRef.current || !selectedAccount) return;
+      if (!selectedAccount) return;
       
       setIsExporting(true);
-      const element = pdfRef.current;
-      const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${formatDate(new Date())}.pdf`;
-      
-      const opt = {
-        margin: 0,
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true, 
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: 1122, 
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-        pagebreak: { mode: ['css', 'legacy'] }
-      };
-
       try {
-        // @ts-ignore
-        await html2pdf().set(opt).from(element).save();
+        const { doc, fileName } = generateSearchableLedgerPdf({
+          account: selectedAccount,
+          entries: filteredLedgerEntries,
+          vouchers,
+          config,
+          currency: viewCurrency,
+          currentROE,
+          fromDate,
+          toDate,
+          getNarrative: (entry, v) => getNarrativeForLedger(entry, v)
+        });
+        
+        doc.save(fileName);
       } catch (err) {
-        console.error("PDF Export Error:", err);
-        alert("Failed to generate PDF. Please try again.");
+        console.error("Searchable PDF Export Error, trying fallback:", err);
+        if (pdfRef.current) {
+          try {
+            const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${formatDate(new Date())}.pdf`;
+            const opt = {
+              margin: 0,
+              filename: fileName,
+              image: { type: 'jpeg', quality: 0.98 },
+              html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', width: 1122 },
+              jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+              pagebreak: { mode: ['css', 'legacy'] }
+            };
+            // @ts-ignore
+            await html2pdf().set(opt).from(pdfRef.current).save();
+          } catch (err2) {
+            alert("Failed to generate PDF. Please try again.");
+          }
+        }
       } finally {
         setIsExporting(false);
       }
     };
 
-    const handleWhatsAppShare = async () => {
+    const handlePrintVectorPDF = () => {
       if (!pdfRef.current || !selectedAccount) return;
+      printElementAsVectorPdf(
+        pdfRef.current,
+        `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${formatDate(new Date())}`
+      );
+    };
+
+    const handleWhatsAppShare = async () => {
+      if (!selectedAccount) return;
       
       setIsSharing(true);
-      const element = pdfRef.current;
-      const fileName = `Ledger_${selectedAccount.name.replace(/\s+/g, '_')}_${formatDate(new Date())}.pdf`;
-      
-      const opt = {
-        margin: 0,
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true, 
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: 1122, 
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-        pagebreak: { mode: ['css', 'legacy'] }
-      };
-
       try {
-        // @ts-ignore
-        const blob = await html2pdf().set(opt).from(element).output('blob');
+        const { blob, fileName } = generateSearchableLedgerPdf({
+          account: selectedAccount,
+          entries: filteredLedgerEntries,
+          vouchers,
+          config,
+          currency: viewCurrency,
+          currentROE,
+          fromDate,
+          toDate,
+          getNarrative: (entry, v) => getNarrativeForLedger(entry, v)
+        });
+
         const file = new File([blob], fileName, { type: 'application/pdf' });
 
         const finalBalance = ledgerWithRunningBalance.length > 0 
@@ -761,10 +771,11 @@ import DateInput from './DateInput';
         }
 
         if (!sharedSuccessfully) {
-          // Fallback for desktop, unsupported browsers, or when direct sharing fails
-          // Download the file
-          // @ts-ignore
-          await html2pdf().set(opt).from(element).save();
+          // Download the searchable vector PDF
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = fileName;
+          link.click();
           
           // Then open WhatsApp
           const message = encodeURIComponent(customMessage);
@@ -1292,16 +1303,28 @@ import DateInput from './DateInput';
                 <button 
                   onClick={handleDownloadPDF} 
                   disabled={isExporting}
-                  className="px-4 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
+                  className="px-3.5 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                  title="Export 100% Text Searchable PDF (Ctrl+F supported)"
                 >
-                  {isExporting ? 'Preparing...' : 'Export PDF'}
+                  <span>{isExporting ? '⏳' : '📥'}</span>
+                  <span>{isExporting ? 'Generating...' : 'Searchable PDF (Ctrl+F)'}</span>
+                </button>
+                <button 
+                  onClick={handlePrintVectorPDF} 
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 flex items-center gap-1.5 flex-shrink-0"
+                  title="Print or Save as Vector PDF (exact page preview)"
+                >
+                  <span>🖨️</span>
+                  <span>Print / Save PDF</span>
                 </button>
                 <button 
                   onClick={handleWhatsAppShare} 
                   disabled={isSharing}
-                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[8px] font-black uppercase shadow-sm transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                  title="Share Searchable Vector PDF via WhatsApp"
                 >
-                  {isSharing ? 'Sharing...' : 'Share WhatsApp'}
+                  <span>{isSharing ? '⏳' : '💬'}</span>
+                  <span>{isSharing ? 'Sharing...' : 'Share WhatsApp'}</span>
                 </button>
               </div>
             </div>

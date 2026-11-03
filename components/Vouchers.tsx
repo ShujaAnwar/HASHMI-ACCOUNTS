@@ -1029,6 +1029,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <div className="text-[9px] font-bold leading-relaxed space-y-1 text-slate-700 uppercase">
              <p className="underline font-black text-slate-900 mb-1 tracking-widest">Notes</p>
              <ul className="list-disc pl-4 space-y-0.5">
+               <li>CHECK IN TIME: BETWEEN 4:00 PM TO 06:00 PM. CHECK OUT TIME: 12:00 PM.</li>
                <li>ANY INVOICE OBJECTIONS MUST BE SENT TO US WITHIN 3 DAYS OF RECEIPT.</li>
                <li>ALL PAYMENTS SHOULD BE MADE AGAINST THE COMPANY ACCOUNTS ONLY.</li>
              </ul>
@@ -1172,7 +1173,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           <ul className="text-[9px] font-bold text-slate-700 p-3 space-y-1 uppercase border border-t-0 border-slate-300 bg-slate-50/50 rounded-b-lg">
             <li>▪ Above rates are net and non commission-able.</li>
             <li>▪ Once you Re-Confirm this booking it will be Non Cancellation.</li>
-            <li>▪ Check in after 16:00 hour and check out at 12:00 hour.</li>
+            <li>▪ Check in time between 4:00 PM to 06:00 PM and check out at 12:00 hour.</li>
           </ul>
         </div>
       </div>
@@ -1289,6 +1290,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     <div className="space-y-0.5">
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN</p>
                       <p className="text-[12px] font-black text-[#0f172a]">{formatDate(item.fromDate)}</p>
+                      <p className="text-[7.5px] font-bold text-indigo-700">Between 4:00 PM to 06:00 PM</p>
                     </div>
                     <div className="space-y-0.5 text-right pr-6">
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-OUT</p>
@@ -1337,6 +1339,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <div className="space-y-0.5">
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">CHECK-IN</p>
                     <p className="text-[12px] font-black text-[#0f172a]">{fromDateStr}</p>
+                    <p className="text-[7.5px] font-bold text-indigo-700">Between 4:00 PM to 06:00 PM</p>
                   </div>
                   <div className="space-y-0.5 text-right pr-6">
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-right">CHECK-OUT</p>
@@ -1413,7 +1416,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 ))
               ) : (
                 <>
-                  <li>The usual check-in time is 2:00/4:00 PM hours however this might vary from hotel to hotel and with different destinations.</li>
+                  <li>The standard check-in time is between 4:00 PM to 06:00 PM (16:00 to 18:00 hours) however this might vary from hotel to hotel.</li>
                   <li>Rooms may not be available for early check-in, unless especially required in advance. However, luggage may be deposited at the hotel reception and collected once the room is allotted.</li>
                   <li>Note that reservation may be canceled automatically after 18:00 hours if hotel is not informed about the approximate time of late arrivals.</li>
                   <li>The usual checkout time is at 12:00 hours however this might vary from hotel to hotel and with different destinations. Any late checkout may involve additional charges. Please check with the hotel reception in advance.</li>
@@ -1535,6 +1538,25 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
           </div>
         </div>
 
+        {/* Driver Details Card (if provided) */}
+        {(v.details?.driverName || v.details?.driverContact) && (
+          <div className="mb-3 py-2 px-3.5 bg-indigo-50/80 border border-indigo-200 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">🪪</span>
+              <div>
+                <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest block">ASSIGNED DRIVER</span>
+                <span className="text-[12px] font-black text-[#0f172a] uppercase">{v.details.driverName || 'DRIVER ASSIGNED'}</span>
+              </div>
+            </div>
+            {v.details.driverContact && (
+              <div className="text-right">
+                <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest block">DRIVER MOBILE / CONTACT</span>
+                <span className="text-[12px] font-black text-indigo-700 font-mono tracking-wide">{v.details.driverContact}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Flight & Travel Tracking Details */}
         {(v.details?.flightNum || v.details?.departureFrom || v.details?.arrivalTo || v.details?.departureDate || v.details?.arrivalDate || v.details?.departureTime || v.details?.arrivalTime) && (
           <div className="mb-4 relative border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 py-3.5 px-4 overflow-hidden flex items-stretch">
@@ -1606,18 +1628,18 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                         {item.subSectors.map((sub: any, si: number) => (
                           <div key={si} className="border-b border-slate-100 last:border-0 pb-1">
                             <span className="font-black text-blue-600">{sub.route}</span>
-                            <span className="text-slate-400 font-bold ml-2 text-[9px]">({sub.date ? new Date(sub.date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''})</span>
-                            {sub.note && <span className="block text-[8px] text-slate-400 italic lowercase mt-0.5">{sub.note}</span>}
+                            <span className="text-indigo-700 font-black ml-2 text-[10px]">📅 {sub.date ? new Date(sub.date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''}</span>
+                            {sub.note && <span className="block text-[9.5px] font-bold text-slate-700 mt-0.5">{sub.note}</span>}
                           </div>
                         ))}
                       </div>
                     ) : (
                       <div className="py-1">
-                        <span>{item.sector === 'CUSTOM' ? item.customLabel : item.sector}</span>
+                        <span className="font-black text-slate-900">{item.sector === 'CUSTOM' ? item.customLabel : item.sector}</span>
                         {item.date && (
-                          <span className="text-slate-400 font-bold ml-2 text-[9px] lowercase">({new Date(item.date).toLocaleDateString('en-GB').replace(/\//g, '-')})</span>
+                          <span className="text-indigo-700 font-black ml-2 text-[10px]">📅 MOVEMENT: {new Date(item.date).toLocaleDateString('en-GB').replace(/\//g, '-')}</span>
                         )}
-                        {item.note && <span className="block text-[8px] text-slate-400 italic lowercase mt-0.5">{item.note}</span>}
+                        {item.note && <span className="block text-[9.5px] font-bold text-slate-700 mt-0.5">{item.note}</span>}
                       </div>
                     )}
                   </td>

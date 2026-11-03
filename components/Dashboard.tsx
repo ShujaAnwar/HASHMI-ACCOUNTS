@@ -8,6 +8,11 @@ import DateInput from './DateInput';
 import { getVouchers, getAccounts, invalidateDbCache } from '../services/db';
 import { supabase } from '../services/supabase';
 import { VoucherType, AccountType, Voucher, Account, AppConfig, Currency } from '../types';
+import { 
+  generateSearchableBookingSchedulePdf, 
+  generateSearchableDashboardMetricsPdf, 
+  printElementAsVectorPdf 
+} from '../utils/searchablePdfExport';
 
 export const getVehicleIcon = (vehicleOrHotelName?: string, categoryOrType?: string): string => {
   const cat = (categoryOrType || '').toUpperCase();
@@ -492,114 +497,88 @@ const Dashboard: React.FC<{
   }, [vouchers, accounts, filters]);
 
   const handleExportPDF = async () => {
-    if (!dashboardDataRef.current) return;
     setIsExporting(true);
-    
-    const element = dashboardDataRef.current;
-    element.classList.add('exporting', 'pdf-export-container');
-    const fileName = `Dashboard_Metrics_${formatDate(new Date())}.pdf`;
-
-    const opt = {
-      margin: [10, 10, 10, 10],
-      filename: fileName,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        letterRendering: true,
-        backgroundColor: '#ffffff'
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
-
     try {
-      // Small delay to allow classes like 'exporting' to apply and DOM to settle
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // @ts-ignore
-      await html2pdf().set(opt).from(element).save();
+      const bankAccounts = accounts
+        .filter(a => a.type === AccountType.CASH_BANK)
+        .map(a => ({ name: a.name, balance: a.balance, currency: a.currency || 'PKR' }));
+
+      const topCustomers = accounts
+        .filter(a => a.type === AccountType.CUSTOMER && a.balance > 0)
+        .sort((a, b) => b.balance - a.balance)
+        .slice(0, 8)
+        .map(a => ({ name: a.name, balance: a.balance }));
+
+      const topVendors = accounts
+        .filter(a => a.type === AccountType.VENDOR && a.balance < 0)
+        .sort((a, b) => a.balance - b.balance)
+        .slice(0, 8)
+        .map(a => ({ name: a.name, balance: Math.abs(a.balance) }));
+
+      const { doc, fileName } = generateSearchableDashboardMetricsPdf({
+        config,
+        stats,
+        bankAccounts,
+        topCustomers,
+        topVendors
+      });
+
+      doc.save(fileName);
     } catch (err) {
-      console.error("Dashboard Export Error:", err);
+      console.error("Dashboard PDF Export Error:", err);
+      if (dashboardDataRef.current) {
+        printElementAsVectorPdf(dashboardDataRef.current, `Dashboard_Metrics_${formatDate(new Date())}`);
+      }
     } finally {
-      element.classList.remove('exporting', 'pdf-export-container');
       setIsExporting(false);
     }
   };
 
   const handleExportBookingSchedulePDF = async () => {
-    if (!bookingScheduleRef.current) return;
     setIsExportingSchedule(true);
-    
-    const element = bookingScheduleRef.current;
-    element.classList.add('exporting', 'pdf-export-container');
-    
-    // Force auto height and visible overflow to ensure full table capture
-    const originalStyle = element.style.height;
-    const originalOverflow = element.style.overflow;
-    const originalWidth = element.style.width;
-    const originalMaxW = element.style.maxWidth;
-    const originalMinW = element.style.minWidth;
-    const originalPos = element.style.position;
-    const originalMarg = element.style.margin;
-    const originalPadding = element.style.padding;
-    const originalLeft = element.style.left;
-    const originalTop = element.style.top;
-    
-    element.style.height = 'auto';
-    element.style.overflow = 'visible';
-    element.style.width = '1050px'; // Safer width for A4 Landscape with margins
-    element.style.maxWidth = '1050px';
-    element.style.minWidth = '1050px';
-    element.style.position = 'relative';
-    element.style.left = '0';
-    element.style.top = '0';
-    element.style.margin = '0';
-    element.style.padding = '0';
-    element.style.backgroundColor = 'white';
-
-    const fileName = `Booking_Schedule_${formatDate(new Date())}.pdf`;
-
-    const opt = {
-      margin: [10, 10, 10, 10], // Balanced 10mm margins
-      filename: fileName,
-      image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        backgroundColor: '#ffffff',
-        scrollY: 0,
-        scrollX: 0,
-        x: 0,
-        windowWidth: 1050 
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
-
     try {
-      // Delay to allow layout settling
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // @ts-ignore
-      await html2pdf().set(opt).from(element).save();
+      const transformedBookings = bookingSchedule.map(b => ({
+        checkIn: b.bookingDate ? b.bookingDate.toISOString() : '',
+        checkOut: b.checkoutDate ? b.checkoutDate.toISOString() : undefined,
+        paxGroup: b.paxName || 'N/A',
+        service: b.type,
+        vendorPartner: b.vendorName || 'N/A',
+        clientName: b.customerName || 'N/A',
+        allocation: `${b.hotelName} ${b.roomType !== '-' ? `(${b.roomType})` : ''}`,
+        nights: b.numNights,
+        credit: b.totalAmountPKR,
+        status: b.status
+      }));
+
+      const activeFilterLabel = filters.today ? 'Today' : (filters.tomorrow ? 'Tomorrow' : (filters.afterTomorrow ? 'Day After' : (filters.previous ? 'Previous' : 'All Bookings')));
+
+      const { doc, fileName } = generateSearchableBookingSchedulePdf({
+        bookings: transformedBookings,
+        config,
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        filterLabel: activeFilterLabel
+      });
+
+      doc.save(fileName);
     } catch (err) {
-      console.error("Booking Schedule Export Error:", err);
+      console.error("Booking Schedule Searchable PDF Export Error:", err);
+      if (bookingScheduleRef.current) {
+        printElementAsVectorPdf(bookingScheduleRef.current, `Booking_Schedule_${formatDate(new Date())}`);
+      }
     } finally {
-      element.classList.remove('exporting', 'pdf-export-container');
-      element.style.height = originalStyle;
-      element.style.overflow = originalOverflow;
-      element.style.width = originalWidth;
-      element.style.maxWidth = originalMaxW;
-      element.style.minWidth = originalMinW;
-      element.style.position = originalPos;
-      element.style.margin = originalMarg;
-      element.style.padding = originalPadding;
-      element.style.left = originalLeft;
-      element.style.top = originalTop;
       setIsExportingSchedule(false);
     }
+  };
+
+  const handlePrintDashboard = () => {
+    if (!dashboardDataRef.current) return;
+    printElementAsVectorPdf(dashboardDataRef.current, `Dashboard_Metrics_${formatDate(new Date())}`);
+  };
+
+  const handlePrintBookingSchedule = () => {
+    if (!bookingScheduleRef.current) return;
+    printElementAsVectorPdf(bookingScheduleRef.current, `Booking_Schedule_${formatDate(new Date())}`);
   };
 
   if (loading) return (
@@ -900,18 +879,28 @@ const Dashboard: React.FC<{
               <button 
                 onClick={handleExportPDF}
                 disabled={isExporting}
-                className="no-print flex items-center space-x-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-900/10"
+                className="no-print flex items-center space-x-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-900/10"
+                title="Download 100% Searchable Vector PDF of Dashboard Metrics (Ctrl+F supported)"
               >
                 <span>{isExporting ? '⏳' : '📥'}</span>
-                <span>{isExporting ? 'Exporting...' : 'Export Dashboard'}</span>
+                <span>{isExporting ? 'Generating...' : 'Searchable Dashboard PDF (Ctrl+F)'}</span>
               </button>
               <button 
                 onClick={handleExportBookingSchedulePDF}
                 disabled={isExportingSchedule}
-                className="no-print flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/10"
+                className="no-print flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-600/10"
+                title="Download 100% Searchable Vector PDF of Booking Schedule (Ctrl+F supported)"
               >
                 <span>{isExportingSchedule ? '⏳' : '📅'}</span>
-                <span>{isExportingSchedule ? 'Exporting...' : 'Export Booking Schedule PDF'}</span>
+                <span>{isExportingSchedule ? 'Generating...' : 'Booking Schedule PDF (Ctrl+F)'}</span>
+              </button>
+              <button 
+                onClick={handlePrintBookingSchedule}
+                className="no-print flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white px-4 py-3 rounded-xl font-black uppercase text-[10px] transition-all active:scale-95 shadow-sm"
+                title="Print or Save Booking Schedule as Vector PDF via browser"
+              >
+                <span>🖨️</span>
+                <span>Print Schedule</span>
               </button>
               <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30">
                 <div className={`w-2 h-2 rounded-full bg-emerald-500 animate-blink shadow-[0_0_8px_rgba(16,185,129,0.5)]`}></div>

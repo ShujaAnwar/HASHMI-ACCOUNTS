@@ -20,6 +20,7 @@ const SECTOR_SUGGESTIONS = [
   { label: 'Makkah → Madinah', sector: 'Makkah → Madinah', vehicle: 'Car', rate: 350 },
   { label: 'Madinah → Makkah', sector: 'Madinah → Makkah', vehicle: 'Car', rate: 350 },
   { label: 'Madinah → Jeddah', sector: 'Madinah → Jeddah', vehicle: 'Car', rate: 400 },
+  { label: 'Madinah Airport → Madinah Hotel', sector: 'Madinah Airport → Madinah Hotel', vehicle: 'Car', rate: 100 },
   { label: 'Madinah Hotel → Madinah Airport', sector: 'Madinah Hotel → Madinah Airport', vehicle: 'Car', rate: 100 },
   { label: 'Jeddah Airport → Makkah', sector: 'Jeddah Airport → Makkah Hotel', vehicle: 'Car', rate: 150 },
   { label: 'Ziyarat Makkah', sector: 'Ziyarat Makkah', vehicle: 'H1', rate: 200 },
@@ -85,7 +86,9 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
     departureTime: initialData?.details?.departureTime || '',
     arrivalTime: initialData?.details?.arrivalTime || '',
     transportBooked: initialData?.details?.transportBooked || false,
-    ksaVendorId: initialData?.details?.ksaVendorId || ''
+    ksaVendorId: initialData?.details?.ksaVendorId || '',
+    driverName: initialData?.details?.driverName || '',
+    driverContact: initialData?.details?.driverContact || ''
   });
 
   const incomeAccounts = useMemo(() => accounts.filter(a => a.type === AccountType.REVENUE), [accounts]);
@@ -281,7 +284,9 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
         departureTime: formData.departureTime,
         arrivalTime: formData.arrivalTime,
         transportBooked: formData.transportBooked,
-        ksaVendorId: formData.ksaVendorId
+        ksaVendorId: formData.ksaVendorId,
+        driverName: formData.driverName,
+        driverContact: formData.driverContact
       }
     });
   };
@@ -490,6 +495,35 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
                 </div>
               )}
             </div>
+
+            {/* Driver & Coordination Details */}
+            <div className="pt-4 border-t border-indigo-100/30 dark:border-slate-800/80">
+              <div className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <span>🪪</span> Driver Details (Optional)
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <InputLabel>Driver Name</InputLabel>
+                  <input 
+                    type="text" 
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-400" 
+                    placeholder="e.g. Tariq / Abu Fahad" 
+                    value={formData.driverName} 
+                    onChange={e => setFormData({...formData, driverName: e.target.value})} 
+                  />
+                </div>
+                <div>
+                  <InputLabel>Driver Mobile / Contact Number</InputLabel>
+                  <input 
+                    type="text" 
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-400 font-mono" 
+                    placeholder="e.g. +966 50 123 4567 / 0300 1234567" 
+                    value={formData.driverContact} 
+                    onChange={e => setFormData({...formData, driverContact: e.target.value})} 
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Dynamic Row Table - Smarter spacing */}
@@ -623,23 +657,25 @@ const TransportVoucherForm: React.FC<TransportVoucherFormProps> = ({ initialData
                       </tr>
                     )}
                     
-                    {/* Single Sector Date Selection */}
+                    {/* Single Sector Date Selection - Enhanced Visibility */}
                     {!item.isMultiSector && item.sector && (
-                      <tr className="bg-slate-50/50 dark:bg-slate-800/10">
-                        <td className="px-6 py-0 pb-2" colSpan={7}>
-                          <div className="ml-12 flex items-center space-x-4 p-2">
-                             <div className="flex items-center space-x-2">
-                               <span className="text-[9px] font-black text-slate-400 uppercase">Movement Date:</span>
+                      <tr className="bg-slate-50/70 dark:bg-slate-800/20">
+                        <td className="px-6 py-1 pb-3" colSpan={7}>
+                          <div className="ml-6 md:ml-12 p-3 bg-indigo-50/80 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/80 dark:border-indigo-800/60 shadow-xs flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                             <div className="flex items-center space-x-2 shrink-0">
+                               <span className="text-xs md:text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                                 <span className="text-sm">📅</span> MOVEMENT DATE:
+                               </span>
                                <DateInput 
-                                 className="bg-transparent border-none p-0 text-[10px] font-bold text-indigo-600 focus:ring-0 w-24"
+                                 className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs md:text-sm font-black text-indigo-700 dark:text-indigo-300 shadow-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                  value={item.date}
                                  onChange={val => updateItem(idx, 'date', val)}
                                />
                              </div>
-                             <div className="flex-1">
+                             <div className="flex-1 min-w-0">
                                <input 
-                                 className="w-full bg-transparent border-none p-0 text-[10px] font-medium text-slate-500 focus:ring-0 italic" 
-                                 placeholder="Optional notes for this movement..."
+                                 className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs md:text-sm font-bold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal shadow-xs focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                 placeholder="Movement notes (e.g. Mukhtara Plaza to Olyana al haram / Timing)..."
                                  value={item.note || ''}
                                  onChange={e => updateItem(idx, 'note', e.target.value)}
                                />

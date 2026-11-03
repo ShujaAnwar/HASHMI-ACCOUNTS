@@ -636,7 +636,7 @@ export const DigitalVoucherVerification: React.FC<DigitalVoucherVerificationProp
               {/* Hotel Policies Note */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
                 <p className="font-bold uppercase tracking-wider text-slate-800 text-[10px]">Hotel Check-In Policies:</p>
-                <p>• Standard hotel check-in time is between 14:00 and 16:00. Standard check-out time is 12:00 PM.</p>
+                <p>• Standard hotel check-in time is between 4:00 PM to 06:00 PM (16:00 to 18:00 hours). Standard check-out time is 12:00 PM.</p>
                 <p>• Please present this authenticated digital e-voucher and valid passports at the hotel reception upon arrival.</p>
                 <p>• Room allocation is subject to hotel management discretion as per confirmed category.</p>
               </div>
@@ -737,7 +737,7 @@ export const DigitalVoucherVerification: React.FC<DigitalVoucherVerificationProp
           {vType === VoucherType.TRANSPORT && (
             <div className="space-y-6">
               {/* Transport Overview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div>
                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">PASSENGER / CONTACT</span>
                   <p className="text-base font-black text-slate-900 uppercase mt-0.5">{paxName}</p>
@@ -751,6 +751,15 @@ export const DigitalVoucherVerification: React.FC<DigitalVoucherVerificationProp
                     {voucher.reference || details.bookingRef || voucher.voucherNum}
                   </p>
                 </div>
+                {(details.driverName || details.driverContact) && (
+                  <div>
+                    <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest block">ASSIGNED DRIVER</span>
+                    <p className="text-sm font-black text-slate-900 uppercase mt-0.5">{details.driverName || 'DRIVER ASSIGNED'}</p>
+                    {details.driverContact && (
+                      <p className="text-xs font-mono font-bold text-indigo-700 mt-0.5">📞 {details.driverContact}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Transport Table */}

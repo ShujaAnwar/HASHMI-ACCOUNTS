@@ -51,6 +51,7 @@ const SECTOR_SUGGESTIONS = [
   "Makkah → Madinah",
   "Madinah → Makkah",
   "Madinah → Jeddah",
+  "Madinah Airport → Madinah Hotel",
   "Madinah Hotel → Madinah Airport",
   "Jeddah Airport → Makkah Hotel",
   "Ziyarat Makkah",

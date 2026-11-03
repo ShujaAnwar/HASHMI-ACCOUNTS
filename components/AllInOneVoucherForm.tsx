@@ -95,6 +95,7 @@ const SECTOR_SUGGESTIONS = [
   { label: 'Makkah → Madinah', sector: 'Makkah → Madinah', vehicle: 'Car', rate: 350 },
   { label: 'Madinah → Makkah', sector: 'Madinah → Makkah', vehicle: 'Car', rate: 350 },
   { label: 'Madinah → Jeddah', sector: 'Madinah → Jeddah', vehicle: 'Car', rate: 400 },
+  { label: 'Madinah Airport → Madinah Hotel', sector: 'Madinah Airport → Madinah Hotel', vehicle: 'Car', rate: 100 },
   { label: 'Madinah Hotel → Madinah Airport', sector: 'Madinah Hotel → Madinah Airport', vehicle: 'Car', rate: 100 },
   { label: 'Jeddah Airport → Makkah', sector: 'Jeddah Airport → Makkah Hotel', vehicle: 'Car', rate: 150 },
   { label: 'Ziyarat Makkah', sector: 'Ziyarat Makkah', vehicle: 'H1', rate: 200 },

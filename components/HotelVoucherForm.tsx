@@ -450,7 +450,10 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHECK-IN</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-1">CHECK-IN</label>
+                            <span className="text-[7.5px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 px-1 py-0.2 rounded">4:00 PM - 06:00 PM</span>
+                          </div>
                           <DateInput required className="w-full bg-[#f8fbff] dark:bg-slate-900 border-none rounded-lg p-2 text-xs font-bold outline-none ring-1 ring-slate-100" value={item.fromDate} onChange={val => updateItem(idx, 'fromDate', val)} />
                         </div>
                         <div className="space-y-1">

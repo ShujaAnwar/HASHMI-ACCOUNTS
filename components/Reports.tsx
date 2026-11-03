@@ -4,6 +4,7 @@ import DateInput from './DateInput';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
 import DailyTaskReport from './DailyTaskReport';
+import { printElementAsVectorPdf } from '../utils/searchablePdfExport';
 
 interface ReportsProps {
   config: AppConfig;
@@ -86,6 +87,13 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handlePrintVectorPDF = () => {
+    if (!reportRef.current) return;
+    const titleMap = { 'TD': 'Daily_Task_Report', 'TB': 'Trial_Balance', 'PL': 'Profit_Loss', 'BS': 'Balance_Sheet', 'GL': 'General_Ledger' };
+    const sectionName = titleMap[activeSection] || 'Report';
+    printElementAsVectorPdf(reportRef.current, `${sectionName}_${formatDate(new Date())}`);
   };
 
   const filteredVouchers = useMemo(() => {
@@ -475,14 +483,25 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
       <div className="no-print bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-end gap-6">
         <div className="flex-1 min-w-[140px] md:min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">From</label><DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm" value={fromDate} onChange={val => setFromDate(val)} /></div>
         <div className="flex-1 min-w-[140px] md:min-w-[200px]"><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">To</label><DateInput className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold text-sm" value={toDate} onChange={val => setToDate(val)} /></div>
-        <button 
-          onClick={handleExportPDF} 
-          disabled={isExporting}
-          className="w-full md:w-auto bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-        >
-          <span>{isExporting ? '⏳' : '📥'}</span> 
-          <span className="uppercase text-[11px] tracking-widest">{isExporting ? 'Building...' : 'Export PDF'}</span>
-        </button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button 
+            onClick={handleExportPDF} 
+            disabled={isExporting}
+            className="flex-1 md:flex-initial bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+            title="Download PDF"
+          >
+            <span>{isExporting ? '⏳' : '📥'}</span> 
+            <span className="uppercase text-[11px] tracking-widest">{isExporting ? 'Building...' : 'Download PDF'}</span>
+          </button>
+          <button 
+            onClick={handlePrintVectorPDF} 
+            className="flex-1 md:flex-initial bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-[1.5rem] md:rounded-2xl font-black shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-2"
+            title="Print or Save as Vector PDF (Ctrl+F supported)"
+          >
+            <span>🖨️</span> 
+            <span className="uppercase text-[11px] tracking-widest">Print / Vector PDF</span>
+          </button>
+        </div>
       </div>
       
       <div className="no-print flex space-x-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
