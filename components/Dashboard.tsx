@@ -3,7 +3,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell, Legend, Label
 } from 'recharts';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatCurrency, formatDate, resolveNights } from '../utils/format';
 import DateInput from './DateInput';
 import { getVouchers, getAccounts, invalidateDbCache } from '../services/db';
 import { supabase } from '../services/supabase';
@@ -303,6 +303,7 @@ const Dashboard: React.FC<{
             if (times) transportSector += ` (${times})`;
           }
 
+          const resolvedN = v.type === VoucherType.HOTEL ? resolveNights(v.details) : 0;
           return [{
             ...v,
             vendorName: vendor?.name || 'N/A',
@@ -320,7 +321,7 @@ const Dashboard: React.FC<{
               ? (v.details?.transportVehicle || v.details?.vehicle || v.details?.transportBooked || 'TRANSPORT') 
               : (v.details?.hotelName || v.details?.airline || 'N/A'),
             roomType: v.type === VoucherType.TRANSPORT ? transportSector : (v.details?.roomType || v.details?.sector || '-'),
-            numNights: v.details?.numNights || '-',
+            numNights: resolvedN > 0 ? resolvedN : '-',
             totalAmountPKR: v.totalAmountPKR
           }];
         }
@@ -455,6 +456,7 @@ const Dashboard: React.FC<{
             }
           }
 
+          const resolvedLineNights = v.type === VoucherType.HOTEL ? resolveNights(item, v.details) : 0;
           return {
             ...v,
             id: `${v.id}-${idx}`, // Unique ID for each row segment
@@ -473,7 +475,7 @@ const Dashboard: React.FC<{
               ? (item.vehicle || v.details?.transportVehicle || 'TRANSPORT')
               : (item.hotelName || (v.type === VoucherType.VISA ? 'VISA PROCESSING' : item.vehicle) || v.details?.hotelName || v.details?.airline || 'N/A'),
             roomType: roomTypeStr,
-            numNights: item.numNights || v.details?.numNights || '-',
+            numNights: resolvedLineNights > 0 ? resolvedLineNights : '-',
             totalAmountPKR: lineAmount
           };
         });

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatCurrency, formatDate, resolveNights } from '../utils/format';
 import DateInput from './DateInput';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
 
@@ -194,7 +194,7 @@ export const DailyTaskReport: React.FC<DailyTaskReportProps> = ({
               city: item.city || v.details?.city || '',
               paxName: item.paxName || v.details?.paxName || cust?.name || 'N/A',
               rooms: item.numRooms || v.details?.numRooms || 1,
-              nights: item.numNights || v.details?.numNights || 1,
+              nights: resolveNights(item, v.details) || 1,
               customerName: cust?.name || 'Customer'
             });
           }

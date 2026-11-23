@@ -8,6 +8,7 @@ import { SearchableAccountSelect } from './SearchableAccountSelect';
 import { AccountingService } from '../services/AccountingService';
 
 import { HajiService } from '../services/HajiService';
+import { calculateNights, resolveNights } from '../utils/format';
 
 interface AllInOneVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -95,6 +96,7 @@ const SECTOR_SUGGESTIONS = [
   { label: 'Makkah → Madinah', sector: 'Makkah → Madinah', vehicle: 'Car', rate: 350 },
   { label: 'Madinah → Makkah', sector: 'Madinah → Makkah', vehicle: 'Car', rate: 350 },
   { label: 'Madinah → Jeddah', sector: 'Madinah → Jeddah', vehicle: 'Car', rate: 400 },
+  { label: 'Madina Airport to Madina Hotel', sector: 'Madina Airport to Madina Hotel', vehicle: 'Car', rate: 100 },
   { label: 'Madinah Airport → Madinah Hotel', sector: 'Madinah Airport → Madinah Hotel', vehicle: 'Car', rate: 100 },
   { label: 'Madinah Hotel → Madinah Airport', sector: 'Madinah Hotel → Madinah Airport', vehicle: 'Car', rate: 100 },
   { label: 'Jeddah Airport → Makkah', sector: 'Jeddah Airport → Makkah Hotel', vehicle: 'Car', rate: 150 },
@@ -149,7 +151,9 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
     
     // Sections
     visaItems: isClone ? initialVisaItems.map((item: any) => ({ ...item })) : initialVisaItems,
-    hotelItems: isClone ? initialHotelItems.map((item: any) => ({ ...item, reference: '', confirmationNo: '' })) : initialHotelItems,
+    hotelItems: (isClone
+      ? initialHotelItems.map((item: any) => ({ ...item, numNights: resolveNights(item), reference: '', confirmationNo: '' }))
+      : initialHotelItems.map((item: any) => ({ ...item, numNights: resolveNights(item) }))),
     transportItems: isClone ? initialTransportItems.map((item: any) => ({ ...item, subSectors: item.subSectors ? item.subSectors.map((s: any) => ({ ...s })) : undefined })) : initialTransportItems,
     ticketItems: isClone ? initialTicketItems.map((item: any) => ({ ...item, pnr: '', reference: '' })) : initialTicketItems,
     
@@ -183,6 +187,7 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
     const clonedVisas = (details.visaItems || []).map((item: any) => ({ ...item }));
     const clonedHotels = (details.hotelItems || details.items?.filter((it: any) => it.hotelName) || []).map((item: any) => ({
       ...item,
+      numNights: resolveNights(item),
       reference: '',
       confirmationNo: ''
     }));
@@ -351,12 +356,7 @@ const AllInOneVoucherForm: React.FC<AllInOneVoucherFormProps> = ({ initialData, 
       const updated = { ...items[index], [field]: value };
       
       if (field === 'fromDate' || field === 'toDate') {
-        if (updated.fromDate && updated.toDate) {
-          const start = new Date(updated.fromDate);
-          const end = new Date(updated.toDate);
-          const diff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-          updated.numNights = diff > 0 ? diff : 0;
-        }
+        updated.numNights = calculateNights(updated.fromDate, updated.toDate);
       }
       
       items[index] = updated;

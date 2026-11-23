@@ -15,6 +15,7 @@ import HajiSelector from "./HajiSelector";
 import { SearchableAccountSelect } from "./SearchableAccountSelect";
 import { AccountingService } from "../services/AccountingService";
 import { HajiService } from "../services/HajiService";
+import { calculateNights, resolveNights } from "../utils/format";
 
 interface PackageVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -51,6 +52,7 @@ const SECTOR_SUGGESTIONS = [
   "Makkah → Madinah",
   "Madinah → Makkah",
   "Madinah → Jeddah",
+  "Madina Airport to Madina Hotel",
   "Madinah Airport → Madinah Hotel",
   "Madinah Hotel → Madinah Airport",
   "Jeddah Airport → Makkah Hotel",
@@ -218,19 +220,21 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
   const defaultHotelStays = useMemo<HotelStay[]>(() => {
     const rawStays = initialData?.details?.hotelStays;
     if (rawStays && Array.isArray(rawStays)) {
-      return rawStays;
+      return rawStays.map((s: any) => ({ ...s, nights: resolveNights(s) }));
     }
 
     const legacyStays: HotelStay[] = [];
     const mackHotel = initialData?.details?.makkahHotelName || "";
     if (mackHotel) {
+      const ci = initialData?.details?.makkahCheckIn || "";
+      const co = initialData?.details?.makkahCheckOut || "";
       legacyStays.push({
         id: "makkah-legacy",
         city: "Makkah",
         hotelName: mackHotel,
-        checkIn: initialData?.details?.makkahCheckIn || "",
-        checkOut: initialData?.details?.makkahCheckOut || "",
-        nights: Number(initialData?.details?.makkahNights) || 0,
+        checkIn: ci,
+        checkOut: co,
+        nights: calculateNights(ci, co) || Number(initialData?.details?.makkahNights) || 0,
         roomType: initialData?.details?.makkahRoomType || "Triple",
         numRooms: Number(initialData?.details?.makkahNumRooms) || 1,
         mealPlan: initialData?.details?.makkahMealPlan || "Breakfast",
@@ -242,13 +246,15 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
 
     const madHotel = initialData?.details?.madinahHotelName || "";
     if (madHotel) {
+      const ci = initialData?.details?.madinahCheckIn || "";
+      const co = initialData?.details?.madinahCheckOut || "";
       legacyStays.push({
         id: "madinah-legacy",
         city: "Madinah",
         hotelName: madHotel,
-        checkIn: initialData?.details?.madinahCheckIn || "",
-        checkOut: initialData?.details?.madinahCheckOut || "",
-        nights: Number(initialData?.details?.madinahNights) || 0,
+        checkIn: ci,
+        checkOut: co,
+        nights: calculateNights(ci, co) || Number(initialData?.details?.madinahNights) || 0,
         roomType: initialData?.details?.madinahRoomType || "Triple",
         numRooms: Number(initialData?.details?.madinahNumRooms) || 1,
         mealPlan: initialData?.details?.madinahMealPlan || "Breakfast",
@@ -486,14 +492,7 @@ export const PackageVoucherForm: React.FC<PackageVoucherFormProps> = ({
         if (stay.id === id) {
           let updatedStay = { ...stay, [field]: value };
           if (field === "checkIn" || field === "checkOut") {
-            if (updatedStay.checkIn && updatedStay.checkOut) {
-              const start = new Date(updatedStay.checkIn);
-              const end = new Date(updatedStay.checkOut);
-              const originalDiff = Math.ceil(
-                (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-              );
-              updatedStay.nights = originalDiff > 0 ? originalDiff : 0;
-            }
+            updatedStay.nights = calculateNights(updatedStay.checkIn, updatedStay.checkOut);
           }
           if (field === "vendorId" && !value) {
             updatedStay.cost = 0;

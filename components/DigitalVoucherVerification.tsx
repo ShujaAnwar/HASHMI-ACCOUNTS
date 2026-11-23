@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Voucher, VoucherType, Currency, AppConfig, Account } from '../types';
 import { decodeVoucherData, VerifiedVoucherPayload } from '../utils/voucherQrHelper';
-import { formatDate } from '../utils/format';
+import { formatDate, resolveNights } from '../utils/format';
 import VoucherQRCode from './VoucherQRCode';
 import { getVoucherByIdOrNum, getAccounts, getConfig } from '../services/db';
 import { supabase } from '../services/supabase';
@@ -615,7 +615,7 @@ export const DigitalVoucherVerification: React.FC<DigitalVoucherVerificationProp
                             {formatDate(h.toDate || details.toDate)}
                           </td>
                           <td className="py-3 px-3 border-r border-slate-200 text-center font-black text-blue-600">
-                            {h.numNights || details.numNights || 1}
+                            {resolveNights(h, details)}
                           </td>
                           <td className="py-3 px-3 border-r border-slate-200 text-center">
                             <span className="font-bold text-slate-900">{h.numRooms || details.numRooms || 1}</span> {h.roomType || details.roomType || 'Standard'}
@@ -1036,7 +1036,7 @@ export const DigitalVoucherVerification: React.FC<DigitalVoucherVerificationProp
                             <td className="py-2.5 px-3 border-r border-slate-200 font-black text-slate-900 uppercase">{h.hotelName}</td>
                             <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono">{formatDate(h.fromDate)}</td>
                             <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono">{formatDate(h.toDate)}</td>
-                            <td className="py-2.5 px-3 border-r border-slate-200 text-center font-bold">{h.numNights || 1}</td>
+                            <td className="py-2.5 px-3 border-r border-slate-200 text-center font-bold">{resolveNights(h)}</td>
                             <td className="py-2.5 px-3 text-center">{h.numRooms || 1} {h.roomType}</td>
                           </tr>
                         ))}

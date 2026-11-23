@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Account, AppConfig, Currency, LedgerEntry, Voucher, VoucherType } from '../types';
+import { resolveNights } from './format';
 
 /**
  * Format currency with commas and 2 decimals or 0 decimals
@@ -157,18 +158,68 @@ export const generateSearchableLedgerPdf = ({
     const itemRoe = voucher?.roe || currentROE || 1;
 
     const vType = voucher?.type as string | undefined;
+    const desc = entry.description || '';
+    const descLower = desc.toLowerCase();
+
+    const pickItem = (arr: any[]) => {
+      if (!arr || !arr.length) return voucher?.details;
+      if (arr.length === 1) return arr[0];
+      const idxMatch = desc.match(/\(#(\d+)\)\s*$/) || desc.match(/Stay #(\d+)/i) || desc.match(/\b#(\d+)\b\s*$/);
+      if (idxMatch) {
+        const idx = parseInt(idxMatch[1], 10) - 1;
+        if (arr[idx]) return arr[idx];
+      }
+      const byHotel = arr.find((it: any) => it.hotelName && descLower.includes(String(it.hotelName).toLowerCase()));
+      return byHotel || arr[0];
+    };
+
     if (vType === VoucherType.HOTEL || vType === 'HV' || vType === 'HOTEL') {
       const details = voucher?.details;
-      const item = details?.items?.[0] || details;
+      const item = pickItem(details?.items || []) || details;
       const rateVal = item?.unitRate !== undefined ? Number(item.unitRate) : (details?.unitRate !== undefined ? Number(details.unitRate) : undefined);
       if (rateVal && rateVal > 0) {
         rateSar = isSar ? formatNumber(rateVal, 0) : formatNumber(rateVal / itemRoe, 0);
       }
       rooms = String(item?.numRooms || details?.numRooms || '-');
-      nights = String(item?.numNights || details?.numNights || '-');
+      const resolvedN = resolveNights(item, details);
+      nights = resolvedN > 0 ? String(resolvedN) : '-';
+      roeStr = String(voucher?.roe || itemRoe);
+    } else if (vType === VoucherType.ALL_IN_ONE || vType === 'AV' || vType === 'ALL_IN_ONE') {
+      const details = voucher?.details;
+      const isAioNonHotel = descLower.includes('transport:') || descLower.includes('visa:') || descLower.includes('ticket:') || descLower.includes('service fee');
+      if (descLower.includes('hotel:') || (!isAioNonHotel && details?.hotelItems?.length > 0)) {
+        const item = pickItem(details?.hotelItems || []);
+        if (item?.unitRate !== undefined && Number(item.unitRate) > 0) {
+          rateSar = formatNumber(Number(item.unitRate), 0);
+        }
+        rooms = String(item?.numRooms || '-');
+        const resolvedN = resolveNights(item);
+        nights = resolvedN > 0 ? String(resolvedN) : '-';
+      } else if (descLower.includes('transport:')) {
+        const item = pickItem(details?.transportItems || []);
+        if (item?.rate) rateSar = formatNumber(Number(item.rate), 0);
+        rooms = String(item?.numVehicles || '1');
+        nights = '-';
+      } else if (descLower.includes('visa:')) {
+        const item = pickItem(details?.visaItems || []);
+        if (item?.rate) rateSar = isSar ? formatNumber(Number(item.rate), 0) : formatNumber(Number(item.rate) / itemRoe, 0);
+        rooms = String(item?.quantity || '-');
+        nights = '-';
+      }
+      roeStr = String(voucher?.roe || itemRoe);
+    } else if ((vType === VoucherType.PACKAGE || vType === 'PKV') && (descLower.includes('hotel stay') || descLower.includes('makkah hotel') || descLower.includes('madinah hotel'))) {
+      const item = pickItem(voucher?.details?.hotelStays || []);
+      const resolvedN = resolveNights(item);
+      rooms = String(item?.numRooms || '-');
+      nights = resolvedN > 0 ? String(resolvedN) : '-';
+      const costVal = Number(item?.cost || 0);
+      const roomsVal = Number(item?.numRooms || 1);
+      if (costVal > 0 && resolvedN > 0 && roomsVal > 0) {
+        rateSar = formatNumber(costVal / (roomsVal * resolvedN), 0);
+      }
       roeStr = String(voucher?.roe || itemRoe);
     } else if (vType === VoucherType.TRANSPORT || vType === 'TV' || vType === 'TRANSPORT') {
-      const item = voucher?.details?.items?.[0] || voucher?.details;
+      const item = pickItem(voucher?.details?.items || []) || voucher?.details;
       const rateVal = item?.rate !== undefined ? Number(item.rate) : undefined;
       if (rateVal && rateVal > 0) {
         rateSar = formatNumber(rateVal, 0);
@@ -176,7 +227,7 @@ export const generateSearchableLedgerPdf = ({
       rooms = String(item?.numVehicles || '1');
       roeStr = String(voucher?.roe || itemRoe);
     } else if (vType === VoucherType.VISA || vType === 'VV' || vType === 'VISA') {
-      const item = voucher?.details?.items?.[0] || voucher?.details;
+      const item = pickItem(voucher?.details?.items || []) || voucher?.details;
       const rateVal = item?.rate !== undefined ? Number(item.rate) : undefined;
       if (rateVal && rateVal > 0) {
         rateSar = isSar ? formatNumber(rateVal, 0) : formatNumber(rateVal / itemRoe, 0);

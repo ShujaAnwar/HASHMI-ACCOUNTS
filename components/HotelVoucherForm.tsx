@@ -7,6 +7,7 @@ import { SearchableAccountSelect } from './SearchableAccountSelect';
 import { AccountingService } from '../services/AccountingService';
 
 import { HajiService } from '../services/HajiService';
+import { calculateNights, resolveNights } from '../utils/format';
 
 interface HotelVoucherFormProps {
   initialData?: Partial<Voucher>;
@@ -131,7 +132,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
       country: it.country || 'Saudi Arabia',
       roomType: it.roomType || 'DBL C.V',
       numRooms: it.numRooms || 1,
-      numNights: it.numNights || 0,
+      numNights: resolveNights(it, initialData?.details),
       unitRate: it.unitRate || 0,
       fromDate: it.fromDate || '',
       toDate: it.toDate || '',
@@ -145,7 +146,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
       country: initialData?.details?.country || 'Saudi Arabia',
       roomType: initialData?.details?.roomType || 'DBL C.V',
       numRooms: initialData?.details?.numRooms || 1,
-      numNights: initialData?.details?.numNights || 0,
+      numNights: resolveNights(initialData?.details),
       unitRate: initialData?.details?.unitRate || 0,
       fromDate: initialData?.details?.fromDate || '',
       toDate: initialData?.details?.toDate || '',
@@ -169,14 +170,7 @@ const HotelVoucherForm: React.FC<HotelVoucherFormProps> = ({ initialData, onSave
     }
   }, [config, initialData]);
 
-  const calculateNights = (from: string, to: string) => {
-    if (!from || !to) return 0;
-    const start = new Date(from);
-    const end = new Date(to);
-    const diffTime = end.getTime() - start.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 ? diffDays : 0;
-  };
+  // calculateNights imported from ../utils/format
 
   const handleCloneItem = (index: number) => {
     setFormData(prev => {

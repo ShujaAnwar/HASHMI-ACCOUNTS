@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Voucher, VoucherType, Account, Currency } from '../types';
 import { validateVoucher, ValidationResult } from '../utils/voucherValidator';
+import { resolveNights } from '../utils/format';
 
 interface VoucherConfirmationModalProps {
   voucherData: Partial<Voucher>;
@@ -275,7 +276,7 @@ export const VoucherConfirmationModal: React.FC<VoucherConfirmationModalProps> =
                           </div>
                           <div>
                             <p className="text-[9px] font-bold text-slate-400 uppercase">Nights</p>
-                            <p className="font-bold text-slate-800 dark:text-slate-200">{item.numNights || 1} Night(s)</p>
+                            <p className="font-bold text-slate-800 dark:text-slate-200">{resolveNights(item, voucherData.details)} Night(s)</p>
                           </div>
                           <div>
                             <p className="text-[9px] font-bold text-slate-400 uppercase">Rooms / Pax</p>
@@ -300,7 +301,7 @@ export const VoucherConfirmationModal: React.FC<VoucherConfirmationModalProps> =
                           <div>
                             <p className="text-[9px] font-bold text-slate-400 uppercase">Line Total</p>
                             <p className="font-orbitron font-bold text-slate-900 dark:text-white">
-                              {currency} {(Number(item.sellingRate || item.unitRate || 0) * Number(item.numNights || 1) * Number(item.numRooms || 1)).toLocaleString()}
+                              {currency} {(Number(item.sellingRate || item.unitRate || 0) * resolveNights(item, voucherData.details) * Number(item.numRooms || 1)).toLocaleString()}
                             </p>
                           </div>
                         </div>
@@ -324,7 +325,7 @@ export const VoucherConfirmationModal: React.FC<VoucherConfirmationModalProps> =
                   </div>
                   <div>
                     <p className="text-[9px] font-bold text-slate-400 uppercase">Nights & Rooms</p>
-                    <p className="font-bold text-slate-900 dark:text-white">{voucherData.details?.numNights || 1} Nts | {voucherData.details?.numRooms || 1} Rooms</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{resolveNights(voucherData.details)} Nts | {voucherData.details?.numRooms || 1} Rooms</p>
                   </div>
                 </div>
               )}

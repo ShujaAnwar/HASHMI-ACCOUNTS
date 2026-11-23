@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
-import { formatDate } from '../utils/format';
+import { formatDate, resolveNights } from '../utils/format';
 
 const formatDateLong = (dateStr: string): string => {
   if (!dateStr || dateStr === '-') return '-';
@@ -220,7 +220,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         const ci = v.details.fromDate || '-';
         const co = v.details.toDate || '-';
         const rb = v.details.numRooms || '0';
-        const ngt = v.details.numNights || '0';
+        const ngt = resolveNights(v.details);
         const loc = v.details.city || 'N/A';
         const countrySuffix = (loc.toLowerCase().includes('makkah') || loc.toLowerCase().includes('madinah') || loc.toLowerCase().includes('jeddah')) ? '-KSA' : '';
         return `${pax} | ${hotel} |Checkin: ${ci} | Checkout: ${co} | R/B: ${rb} | Nights:${ngt} | ${loc.toUpperCase()} ${countrySuffix}`;
@@ -554,7 +554,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <p className="font-bold text-[11px] mt-0.5">(PKR) = {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
               )}
             </div>
-            {showVoucherQR && (
+            {showVoucherQR && v.type !== VoucherType.HOTEL && (
               <VoucherQRCode 
                 voucher={v} 
                 config={config} 
@@ -799,7 +799,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     </td>
                     {isFinancial && (
                       <td className="py-2 px-2 font-black">
-                        {(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {(Number(item.unitRate) * Number(item.numRooms) * resolveNights(item, v.details) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
                     )}
                   </tr>
@@ -900,7 +900,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                </div>
                <p className="text-[#0b7ea1] font-black uppercase text-[12px] leading-tight">{v.details?.hotelName}</p>
              </div>
-             {showVoucherQR && (
+             {showVoucherQR && v.type !== VoucherType.HOTEL && (
                <VoucherQRCode 
                  voucher={v} 
                  config={config} 
@@ -999,10 +999,10 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <td className="p-2 border border-slate-300">{formatMeals(item.meals)}</td>
                   <td className="p-2 border border-slate-300 whitespace-nowrap">{item.fromDate ? formatDate(item.fromDate) : '-'}</td>
                   <td className="p-2 border border-slate-300 whitespace-nowrap">{item.toDate ? formatDate(item.toDate) : '-'}</td>
-                  <td className="p-2 border border-slate-300 text-center">{item.numNights}</td>
+                  <td className="p-2 border border-slate-300 text-center">{resolveNights(item, v.details)}</td>
                   <td className="p-2 border border-slate-300 text-center">{item.numRooms}</td>
                   <td className="p-2 border border-slate-300 font-black text-right">
-                    PKR {(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    PKR {(Number(item.unitRate) * Number(item.numRooms) * resolveNights(item, v.details) * (v.currency === Currency.SAR ? v.roe : 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
               ))
@@ -1017,7 +1017,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <td className="p-2 border border-slate-300">{formatMeals(v.details?.meals)}</td>
                 <td className="p-2 border border-slate-300 whitespace-nowrap">{v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}</td>
                 <td className="p-2 border border-slate-300 whitespace-nowrap">{v.details?.toDate ? formatDate(v.details.toDate) : '-'}</td>
-                <td className="p-2 border border-slate-300 text-center">{v.details?.numNights}</td>
+                <td className="p-2 border border-slate-300 text-center">{resolveNights(v.details)}</td>
                 <td className="p-2 border border-slate-300 text-center">{v.details?.numRooms}</td>
                 <td className="p-2 border border-slate-300 font-black text-right">PKR {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
               </tr>
@@ -1065,7 +1065,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               {config?.companyEmail && <span>EMAIL: {config.companyEmail}</span>}
             </div>
           </div>
-          {showVoucherQR && (
+          {showVoucherQR && v.type !== VoucherType.HOTEL && (
             <div className="shrink-0">
               <VoucherQRCode 
                 voucher={v} 
@@ -1130,9 +1130,9 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <td className="p-2 border-r border-slate-300 whitespace-nowrap">{item.fromDate ? formatDate(item.fromDate) : '-'}</td>
                   <td className="p-2 border-r border-slate-300 whitespace-nowrap">{item.toDate ? formatDate(item.toDate) : '-'}</td>
                   <td className="p-2 border-r border-slate-300">{item.numRooms}</td>
-                  <td className="p-2 border-r border-slate-300">{item.numNights}</td>
+                  <td className="p-2 border-r border-slate-300">{resolveNights(item, v.details)}</td>
                   <td className="p-2 font-black text-right">
-                    {(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)).toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                    {(Number(item.unitRate) * Number(item.numRooms) * resolveNights(item, v.details)).toLocaleString(undefined, { minimumFractionDigits: 0 })}
                   </td>
                 </tr>
               ))
@@ -1155,7 +1155,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                 <td className="p-2 border-r border-slate-300 whitespace-nowrap">{v.details?.fromDate ? formatDate(v.details.fromDate) : '-'}</td>
                 <td className="p-2 border-r border-slate-300 whitespace-nowrap">{v.details?.toDate ? formatDate(v.details.toDate) : '-'}</td>
                 <td className="p-2 border-r border-slate-300">{v.details?.numRooms}</td>
-                <td className="p-2 border-r border-slate-300">{v.details?.numNights}</td>
+                <td className="p-2 border-r border-slate-300">{resolveNights(v.details)}</td>
                 <td className="p-2 font-black text-right">{totalSAR.toLocaleString(undefined, { minimumFractionDigits: 0 })}</td>
               </tr>
             )}
@@ -1226,17 +1226,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     <span className="text-blue-600 font-extrabold">{customerAccount.companyName || customerAccount.name}</span>
                   </p>
                 )}
-             </div>
-             {showVoucherQR && (
-               <VoucherQRCode 
-                 voucher={v} 
-                 config={config} 
-                 size={qrCodeSize} 
-                 showLabel={true} 
-                 onClick={() => setInspectingPublicVoucher(v)} 
-                 className="shrink-0 cursor-pointer" 
-               />
-             )}
+              </div>
           </div>
         </div>
 
@@ -1304,7 +1294,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     </div>
                     <div className="space-y-0.5">
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">NIGHT(S)</p>
-                      <p className="text-[12px] font-black text-slate-700">{item.numNights || 1}</p>
+                      <p className="text-[12px] font-black text-slate-700">{resolveNights(item, v.details)}</p>
                     </div>
                   </div>
                 </div>
@@ -1384,7 +1374,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{item.roomType}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(item.meals)}</td>
                     <td className="py-1.5 px-3 border-r border-slate-200">{item.numRooms}</td>
-                    <td className="py-1.5 px-3 border-r border-slate-200">{item.numNights}</td>
+                    <td className="py-1.5 px-3 border-r border-slate-200">{resolveNights(item, v.details)}</td>
                     <td className="py-1.5 px-3">{item.adults || 0}</td>
                   </tr>
                 ))
@@ -1397,7 +1387,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{v.details?.roomType || 'TRIPLE'}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200 uppercase">{formatMeals(v.details?.meals)}</td>
                   <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numRooms || 1}</td>
-                  <td className="py-1.5 px-3 border-r border-slate-200">{v.details?.numNights || 1}</td>
+                  <td className="py-1.5 px-3 border-r border-slate-200">{resolveNights(v.details) || 1}</td>
                   <td className="py-1.5 px-3">{v.details?.adults || 0}</td>
                 </tr>
               )}
@@ -1433,12 +1423,6 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             <p className="text-[10px] font-medium text-slate-700 leading-tight italic">
               <span className="font-black text-[#0f172a] not-italic">Booking Notes:</span> Check your Reservation details carefully and inform us immediately. If you need any further clarification, please do not hesitate to contact us.
             </p>
-            {showVoucherQR && (
-              <div className="shrink-0 flex items-center gap-1.5 pl-3 border-l border-slate-200 text-[8px] text-slate-600 font-bold whitespace-nowrap">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                <span>DIGITAL E-VOUCHER • SCAN QR TO VERIFY</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -2254,7 +2238,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                          </div>
                          <div className="space-y-0.5 text-right">
                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">NIGHT(S)</p>
-                           <p className="text-[11px] font-black text-slate-700">{item.numNights}</p>
+                           <p className="text-[11px] font-black text-slate-700">{resolveNights(item)}</p>
                          </div>
                        </div>
                      </div>
@@ -2281,8 +2265,8 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                        <td className="py-1 px-2 border-r border-slate-200 uppercase">{item.roomType}</td>
                        <td className="py-1 px-2 border-r border-slate-200 uppercase">{formatMeals(item.meals)}</td>
                        <td className="py-1 px-2 border-r border-slate-200 text-center">{item.numRooms}</td>
-                       <td className="py-1 px-2 border-r border-slate-200 text-center">{item.numNights}</td>
-                       <td className="py-1 px-2 text-right">{(Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)).toLocaleString()}</td>
+                       <td className="py-1 px-2 border-r border-slate-200 text-center">{resolveNights(item)}</td>
+                       <td className="py-1 px-2 text-right">{(Number(item.unitRate) * Number(item.numRooms) * resolveNights(item)).toLocaleString()}</td>
                      </tr>
                    ))}
                  </tbody>
@@ -2542,7 +2526,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                          <div className="grid grid-cols-2 gap-1.5 text-[9px] font-bold pt-1 text-slate-700">
                             <div>Check-In: <span className="font-black text-[#0f172a]">{stay.checkIn ? formatDate(stay.checkIn) : 'N/A'}</span></div>
                             <div>Check-Out: <span className="font-black text-[#0f172a]">{stay.checkOut ? formatDate(stay.checkOut) : 'N/A'}</span></div>
-                            <div>Nights: <span className="font-black text-[#0f172a]">{stay.nights || '0'}</span></div>
+                            <div>Nights: <span className="font-black text-[#0f172a]">{resolveNights(stay)}</span></div>
                             <div>Room: <span className="font-black text-[#0f172a] uppercase">{stay.roomType || 'N/A'} {stay.numRooms ? `(${stay.numRooms} R)` : ''}</span></div>
                             <div className="col-span-2">Meal Option: <span className="font-black text-[#0f172a] uppercase">{stay.mealPlan || 'None'}</span></div>
                          </div>
@@ -2559,7 +2543,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                          <div className="grid grid-cols-2 gap-2 text-[10px] font-bold pt-1 text-slate-700">
                             <div>Check-In: <span className="font-black text-[#0f172a]">{details.makkahCheckIn ? formatDate(details.makkahCheckIn) : 'N/A'}</span></div>
                             <div>Check-Out: <span className="font-black text-[#0f172a]">{details.makkahCheckOut ? formatDate(details.makkahCheckOut) : 'N/A'}</span></div>
-                            <div>Nights: <span className="font-black text-[#0f172a]">{details.makkahNights || 'N/A'}</span></div>
+                            <div>Nights: <span className="font-black text-[#0f172a]">{resolveNights({ checkIn: details.makkahCheckIn, checkOut: details.makkahCheckOut, nights: details.makkahNights }) || 'N/A'}</span></div>
                             <div>Room: <span className="font-black text-[#0f172a] uppercase">{details.makkahRoomType} {details.makkahNumRooms ? `(${details.makkahNumRooms} Rooms)` : ''}</span></div>
                             <div className="col-span-2">Meal Option: <span className="font-black text-[#0f172a] uppercase">{details.makkahMealPlan}</span></div>
                          </div>
@@ -2574,7 +2558,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                          <div className="grid grid-cols-2 gap-2 text-[10px] font-bold pt-1 text-slate-700">
                             <div>Check-In: <span className="font-black text-[#0f172a]">{details.madinahCheckIn ? formatDate(details.madinahCheckIn) : 'N/A'}</span></div>
                             <div>Check-Out: <span className="font-black text-[#0f172a]">{details.madinahCheckOut ? formatDate(details.madinahCheckOut) : 'N/A'}</span></div>
-                            <div>Nights: <span className="font-black text-[#0f172a]">{details.madinahNights || 'N/A'}</span></div>
+                            <div>Nights: <span className="font-black text-[#0f172a]">{resolveNights({ checkIn: details.madinahCheckIn, checkOut: details.madinahCheckOut, nights: details.madinahNights }) || 'N/A'}</span></div>
                             <div>Room: <span className="font-black text-[#0f172a] uppercase">{details.madinahRoomType} {details.madinahNumRooms ? `(${details.madinahNumRooms} Rooms)` : ''}</span></div>
                             <div className="col-span-2">Meal Option: <span className="font-black text-[#0f172a] uppercase">{details.madinahMealPlan}</span></div>
                          </div>

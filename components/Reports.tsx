@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatCurrency, formatDate, resolveNights } from '../utils/format';
 import DateInput from './DateInput';
 import { getAccounts, getVouchers, getConfig } from '../services/db';
 import { AccountType, VoucherType, Currency, Account, Voucher, AppConfig } from '../types';
@@ -720,7 +720,7 @@ const Reports: React.FC<ReportsProps> = ({ config, refreshKey, onViewVoucher, on
                               const hotel = (firstItem.hotelName || voucher.details.hotelName || 'N/A').toUpperCase();
                               const ci = firstItem.fromDate || voucher.details.fromDate || '-';
                               const co = firstItem.toDate || voucher.details.toDate || '-';
-                              const nights = firstItem.numNights || voucher.details.numNights || '0';
+                              const nights = resolveNights(firstItem, voucher.details);
                               const mealsRaw = firstItem.meals || voucher.details.meals;
                               const meals = Array.isArray(mealsRaw) 
                                 ? mealsRaw.join(', ') 

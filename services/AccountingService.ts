@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { Account, AccountType, Voucher, VoucherType, Currency, VoucherStatus } from '../types';
 import { invalidateDbCache } from './db';
+import { resolveNights } from '../utils/format';
 
 export class AccountingService {
   
@@ -420,7 +421,8 @@ export class AccountingService {
 
       if (items.length > 0) {
         items.forEach((item: any, idx: number) => {
-          const itemAmountPKR = (Number(item.unitRate) * Number(item.numRooms) * Number(item.numNights)) * rate;
+          const itemNights = resolveNights(item, voucher.details);
+          const itemAmountPKR = (Number(item.unitRate) * Number(item.numRooms) * itemNights) * rate;
           const paxName = voucher.details?.paxName || item.paxName || 'N/A';
           const checkIn = this.formatDate(item.fromDate);
           const checkOut = this.formatDate(item.toDate);
@@ -428,7 +430,7 @@ export class AccountingService {
           const roomType = item.roomType || voucher.details?.roomType || '';
           const roomTypePart = roomType ? ` | Room Type: ${roomType}` : '';
           
-          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${item.numNights} | Rooms: ${item.numRooms}${roomTypePart} | Meals: ${meals} (#${idx + 1})`;
+          const itemDesc = `${paxName} | ${item.hotelName} | Check-in: ${checkIn} | Check-out: ${checkOut} | Nights: ${itemNights} | Rooms: ${item.numRooms}${roomTypePart} | Meals: ${meals} (#${idx + 1})`;
           
           if (customerId) {
             entries.push({ 
@@ -460,7 +462,7 @@ export class AccountingService {
         const checkIn = this.formatDate(voucher.details?.fromDate);
         const checkOut = this.formatDate(voucher.details?.toDate);
         const meals = this.formatMeals(voucher.details?.meals);
-        const nights = voucher.details?.numNights || 1;
+        const nights = resolveNights(voucher.details) || 1;
         const rooms = voucher.details?.numRooms || 1;
         const roomType = voucher.details?.roomType || '';
         const roomTypePart = roomType ? ` | Room Type: ${roomType}` : '';
@@ -565,10 +567,11 @@ export class AccountingService {
       // 2. Process Hotel Items
       if (details.hotelItems && Array.isArray(details.hotelItems)) {
         details.hotelItems.forEach((item: any, idx: number) => {
-          const itemAmountPKR = (Number(item.unitRate || 0) * Number(item.numRooms || 1) * Number(item.numNights || 1)) * rateMultiplier;
+          const itemNights = resolveNights(item) || 1;
+          const itemAmountPKR = (Number(item.unitRate || 0) * Number(item.numRooms || 1) * itemNights) * rateMultiplier;
           const itemPax = item.paxName || globalPaxName;
           const roomType = item.roomType ? ` | Room: ${item.roomType}` : '';
-          const hotelDesc = `Hotel: ${itemPax} | ${item.hotelName} (${item.city})${roomType} | In: ${this.formatDate(item.fromDate)} | Out: ${this.formatDate(item.toDate)} | ${item.numNights}N | ${item.numRooms}R (#${idx+1})`;
+          const hotelDesc = `Hotel: ${itemPax} | ${item.hotelName} (${item.city})${roomType} | In: ${this.formatDate(item.fromDate)} | Out: ${this.formatDate(item.toDate)} | ${itemNights}N | ${item.numRooms}R (#${idx+1})`;
           const itemVendorId = item.vendorId || voucher.vendor_id;
 
           if (customerId && itemAmountPKR > 0) {
