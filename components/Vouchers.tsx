@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { VoucherType, Currency, AccountType, Voucher, VoucherStatus, Account, AppConfig } from '../types';
 import { formatDate, resolveNights } from '../utils/format';
+import { generateA4PdfFromElement, downloadPdfBlob } from '../utils/voucherPdf';
 
 const formatDateLong = (dateStr: string): string => {
   if (!dateStr || dateStr === '-') return '-';
@@ -78,9 +79,46 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const [searchTerm, setSearchTerm] = useState('');
 
   const voucherRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(1);
+  const [previewContentHeight, setPreviewContentHeight] = useState<number | null>(null);
   
   const qrCodeSize = config?.voucherQRCodeSize || 64;
+  const headerQrSize = Math.min(Math.max(qrCodeSize, 52), 60);
   const showVoucherQR = config?.showVoucherQRCode !== false;
+
+  useEffect(() => {
+    if (!viewingVoucher) {
+      setPreviewScale(1);
+      setPreviewContentHeight(null);
+      return;
+    }
+
+    const updatePreviewMetrics = () => {
+      const hostWidth = previewContainerRef.current?.clientWidth || window.innerWidth - 24;
+      const targetA4WidthPx = 794;
+      const nextScale = hostWidth > 0 && hostWidth < targetA4WidthPx ? hostWidth / targetA4WidthPx : 1;
+      setPreviewScale(nextScale);
+      if (voucherRef.current) {
+        setPreviewContentHeight(voucherRef.current.scrollHeight || 1115);
+      }
+    };
+
+    const raf = requestAnimationFrame(updatePreviewMetrics);
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && previewContainerRef.current) {
+      observer = new ResizeObserver(updatePreviewMetrics);
+      observer.observe(previewContainerRef.current);
+      if (voucherRef.current) observer.observe(voucherRef.current);
+    }
+    window.addEventListener('resize', updatePreviewMetrics);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      observer?.disconnect();
+      window.removeEventListener('resize', updatePreviewMetrics);
+    };
+  }, [viewingVoucher, inspectorView, showBookingAmounts]);
   
   const toggleSelection = (id: string) => {
     setSelectedVoucherIds(prev => 
@@ -434,22 +472,18 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     
     setIsDownloading(true);
     const element = voucherRef.current;
-    
     const fileName = getVoucherFileName(viewingVoucher);
 
-    const opt = {
-      margin: 0,
-      filename: fileName,
-      image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
     try {
-      // Ensure all images and QR codes have settled
       await new Promise(r => setTimeout(r, 120));
-      // @ts-ignore
-      await html2pdf().set(opt).from(element).save();
+      const { doc } = await generateA4PdfFromElement(element, fileName, {
+        desktopWidthPx: 794,
+        marginMm: 0,
+        preserveMinHeight: true,
+        scale: 2,
+        imageQuality: 0.96
+      });
+      doc.save(fileName);
     } catch (err) {
       console.error("PDF Export Error:", err);
     } finally {
@@ -462,30 +496,21 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     
     setIsSharing(true);
     const element = voucherRef.current;
-    
     const fileName = getVoucherFileName(viewingVoucher);
-    const voucherNum = viewingVoucher.voucherNum;
-    const typeLabel = viewingVoucher.type === VoucherType.HOTEL ? 'HotelVoucher' : 
-                     viewingVoucher.type === VoucherType.TRANSPORT ? 'TransportVoucher' : 
-                     viewingVoucher.type === VoucherType.VISA ? 'VisaVoucher' : 
-                     viewingVoucher.type === VoucherType.ALL_IN_ONE ? 'AllInOneVoucher' : 'Voucher';
-
-    const opt = {
-      margin: 0,
-      filename: fileName,
-      image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
 
     try {
-      // Ensure all images and QR codes have settled
       await new Promise(r => setTimeout(r, 120));
-      // @ts-ignore
-      const blob = await html2pdf().set(opt).from(element).output('blob');
+      const { blob } = await generateA4PdfFromElement(element, fileName, {
+        desktopWidthPx: 794,
+        marginMm: 0,
+        preserveMinHeight: true,
+        scale: 2,
+        imageQuality: 0.96
+      });
       const file = new File([blob], fileName, { type: 'application/pdf' });
 
       let sharedSuccessfully = false;
+      let userCancelled = false;
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -494,18 +519,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
             text: `Please find the attached document: ${fileName}`,
           });
           sharedSuccessfully = true;
-        } catch (shareErr) {
-          console.warn("Navigator share failed, falling back:", shareErr);
+        } catch (shareErr: any) {
+          if (shareErr?.name === 'AbortError') {
+            userCancelled = true;
+          } else {
+            console.warn("Navigator share failed, falling back:", shareErr);
+          }
         }
       }
 
-      if (!sharedSuccessfully) {
-        // Fallback for desktop, unsupported browsers, or when direct sharing fails
-        // Download the file
-        // @ts-ignore
-        await html2pdf().set(opt).from(element).save();
-        
-        // Then open WhatsApp
+      if (!sharedSuccessfully && !userCancelled) {
+        downloadPdfBlob(blob, fileName);
         const message = encodeURIComponent(`I've sent you the document: ${fileName}. Please check your downloads and attach the file.`);
         const whatsappUrl = /Android|iPhone|iPad/i.test(navigator.userAgent) 
           ? `whatsapp://send?text=${message}`
@@ -526,13 +550,13 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const branding = getBranding(v);
     const isFinancial = true;
     return (
-      <div ref={voucherRef} className="bg-white p-8 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            {branding.logo && <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="mb-2 object-contain" />}
+      <div ref={voucherRef} className="bg-white p-8 text-black font-inter min-h-[295mm] w-[210mm] flex flex-col box-border">
+        <div className="flex justify-between items-start gap-2 mb-4">
+          <div className="shrink-0 max-w-[140px]">
+            {branding.logo && <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 76)}px` }} alt="logo" className="mb-2 object-contain max-w-full" />}
           </div>
-          <div className="text-center flex-1 transition-all pt-2">
-            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">
+          <div className="text-center flex-1 min-w-0 px-2 transition-all pt-2">
+            <h1 className="text-[20px] font-black text-[#0f172a] uppercase tracking-tighter leading-tight mb-0.5">
               {v.type === VoucherType.HOTEL ? 'Hotel Booking Voucher' : 
                v.type === VoucherType.TRANSPORT ? 'Transport Voucher' :
                v.type === VoucherType.VISA ? 'Visa Voucher' :
@@ -540,25 +564,25 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                v.type === VoucherType.RECEIPT ? 'Receipt Voucher' : 'Payment Voucher'}
             </h1>
             {config?.appSubtitle && config.appSubtitle !== 'Travel Solutions by Shuja Anwar' && (
-              <p className="text-[14px] font-bold uppercase tracking-wider text-[#e11d48]">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-[#e11d48]">
                 {config.appSubtitle}
               </p>
             )}
           </div>
-          <div className="text-right flex items-center justify-end gap-3 shrink-0">
-            <div className="border-2 border-slate-900 px-5 py-2 text-center min-w-[170px] rounded-sm shadow-sm">
-              <p className="font-bold text-[11px] uppercase tracking-wide">
+          <div className="text-right flex items-center justify-end gap-2.5 shrink-0">
+            <div className="border-2 border-slate-900 px-3.5 py-1.5 text-center min-w-[145px] rounded-sm shadow-sm">
+              <p className="font-bold text-[10.5px] uppercase tracking-wide">
                 {v.type === VoucherType.RECEIPT ? 'RECEIPT' : v.type === VoucherType.PAYMENT ? 'PAYMENT' : 'VOUCHER'} : {invoiceNum}
               </p>
               {isFinancial && (
-                <p className="font-bold text-[11px] mt-0.5">(PKR) = {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                <p className="font-bold text-[10.5px] mt-0.5">(PKR) = {v.totalAmountPKR.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
               )}
             </div>
-            {showVoucherQR && v.type !== VoucherType.HOTEL && (
+            {showVoucherQR && (
               <VoucherQRCode 
                 voucher={v} 
                 config={config} 
-                size={qrCodeSize} 
+                size={headerQrSize} 
                 showLabel={true} 
                 onClick={() => setInspectingPublicVoucher(v)} 
                 className="shrink-0 cursor-pointer" 
@@ -874,17 +898,17 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const invoiceNum = v.voucherNum.split('-').pop();
     const branding = getBranding(v);
     return (
-      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter min-h-[295mm] w-[210mm] flex flex-col box-border shadow-none">
         
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex flex-col items-center">
+        <div className="flex justify-between items-start gap-2 mb-4">
+          <div className="flex flex-col items-center shrink-0 max-w-[140px]">
             {branding.logo ? (
-              <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+              <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 76)}px` }} alt="logo" className="object-contain max-w-full" />
             ) : (
               <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
             )}
           </div>
-          <div className="text-center pt-2 flex-1 mx-4">
+          <div className="text-center pt-2 flex-1 min-w-0 mx-2">
             <h1 className="text-xl font-bold uppercase tracking-tight" style={{ color: branding.isCustom ? '#2563eb' : '#e11d48' }}>
               {branding.name}
             </h1>
@@ -892,19 +916,19 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               <p className="text-[10px] text-slate-400 font-bold">{config.appSubtitle}</p>
             )}
           </div>
-          <div className="text-right flex items-center justify-end gap-3 shrink-0">
-             <div>
-               <div className="flex items-center justify-end space-x-3 border-b-2 border-slate-300 pb-0.5 mb-1">
-                  <span className="text-slate-500 font-bold text-[14px]">Invoice #</span>
-                  <span className="text-slate-900 font-black text-[18px] tracking-tighter">{invoiceNum}</span>
+          <div className="text-right flex items-center justify-end gap-2.5 shrink-0">
+             <div className="max-w-[175px]">
+               <div className="flex items-center justify-end space-x-2 border-b-2 border-slate-300 pb-0.5 mb-1">
+                  <span className="text-slate-500 font-bold text-[13px]">Invoice #</span>
+                  <span className="text-slate-900 font-black text-[17px] tracking-tighter">{invoiceNum}</span>
                </div>
-               <p className="text-[#0b7ea1] font-black uppercase text-[12px] leading-tight">{v.details?.hotelName}</p>
+               <p className="text-[#0b7ea1] font-black uppercase text-[11px] leading-tight">{v.details?.hotelName}</p>
              </div>
-             {showVoucherQR && v.type !== VoucherType.HOTEL && (
+             {showVoucherQR && (
                <VoucherQRCode 
                  voucher={v} 
                  config={config} 
-                 size={qrCodeSize} 
+                 size={headerQrSize} 
                  showLabel={true} 
                  onClick={() => setInspectingPublicVoucher(v)} 
                  className="shrink-0 cursor-pointer" 
@@ -1048,13 +1072,13 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const invoiceNum = v.voucherNum.split('-').pop();
     const branding = getBranding(v);
     return (
-      <div ref={voucherRef} className="bg-white p-8 text-black font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border">
-        <div className="flex justify-between items-start mb-6 border-b border-slate-100 pb-3">
-          <div className="w-16 shrink-0"></div>
-          <div className="flex flex-col items-center flex-1">
+      <div ref={voucherRef} className="bg-white p-8 text-black font-inter min-h-[295mm] w-[210mm] flex flex-col box-border">
+        <div className="flex justify-between items-start gap-2 mb-6 border-b border-slate-100 pb-3">
+          <div className="w-[74px] shrink-0"></div>
+          <div className="flex flex-col items-center flex-1 min-w-0 px-2">
             <div className="flex justify-center mb-2">
               {branding.logo ? (
-                <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+                <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 76)}px` }} alt="logo" className="object-contain max-w-full" />
               ) : (
                 <div className="font-black text-2xl tracking-tighter text-[#0f172a]">{branding.name}</div>
               )}
@@ -1065,12 +1089,12 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
               {config?.companyEmail && <span>EMAIL: {config.companyEmail}</span>}
             </div>
           </div>
-          {showVoucherQR && v.type !== VoucherType.HOTEL && (
+          {showVoucherQR && (
             <div className="shrink-0">
               <VoucherQRCode 
                 voucher={v} 
                 config={config} 
-                size={qrCodeSize} 
+                size={headerQrSize} 
                 showLabel={true} 
                 onClick={() => setInspectingPublicVoucher(v)} 
                 className="shrink-0 cursor-pointer" 
@@ -1197,36 +1221,57 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const customerAccount = accounts.find(a => a.id === v.customerId);
     
     return (
-      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter min-h-[295mm] w-[210mm] flex flex-col box-border shadow-none">
         
         {/* Header - Dynamic Branding */}
-        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="shrink-0" style={{ minWidth: "128px" }}>
+        <div className="flex justify-between items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+          <div className="shrink-0 max-w-[140px]">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 74)}px` }} alt="logo" className="object-contain max-w-full" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1 transition-all flex items-center justify-center overflow-visible">
-            <h1 className="text-[32px] font-black text-[#0f172a] uppercase tracking-tighter leading-none whitespace-nowrap">Hotel Booking Voucher</h1>
+          <div className="text-center flex-1 min-w-0 px-2 transition-all flex flex-col items-center justify-center">
+            <h1 className="text-[21px] font-black text-[#0f172a] uppercase tracking-tighter leading-tight">Hotel Booking Voucher</h1>
+            {branding.isCustom ? (
+              <p className="text-[12px] font-bold uppercase tracking-wider text-blue-600 mt-0.5">
+                {branding.name}
+              </p>
+            ) : (
+              config?.appSubtitle && config.appSubtitle !== 'Travel Solutions by Shuja Anwar' && (
+                <p className="text-[12px] font-bold uppercase tracking-wider text-[#e11d48] mt-0.5">
+                  {config.appSubtitle}
+                </p>
+              )
+            )}
           </div>
-          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
-              <div className="space-y-0.5">
-                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                  Emergency Num: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+          <div className="shrink-0 flex items-center justify-end gap-2.5 text-right">
+              <div className="space-y-0.5 max-w-[185px]">
+                <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-1.5 text-right leading-tight">
+                  Emergency Num: <span className="text-[#0f172a] font-bold whitespace-nowrap">{branding.contact}</span>
                 </p>
                 {!branding.isCustom && config?.companyPhone && (
-                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-1.5 text-right leading-tight">
+                    PHONE: <span className="text-[#0f172a] font-bold whitespace-nowrap">{config.companyPhone}</span>
                   </p>
                 )}
                 {customerAccount && (
-                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-1.5 mt-1 text-right">
-                    <span className="text-blue-600 font-extrabold">{customerAccount.companyName || customerAccount.name}</span>
+                  <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-1.5 mt-0.5 text-right leading-tight">
+                    <span className="text-blue-600 font-extrabold break-words">{customerAccount.companyName || customerAccount.name}</span>
                   </p>
                 )}
               </div>
+              {showVoucherQR && (
+                <VoucherQRCode
+                  voucher={v}
+                  config={config}
+                  size={headerQrSize}
+                  showLabel={true}
+                  onClick={() => setInspectingPublicVoucher(v)}
+                  className="shrink-0 cursor-pointer"
+                />
+              )}
           </div>
         </div>
 
@@ -1432,39 +1477,39 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const renderTransportVoucher = (v: Voucher) => {
     const branding = getBranding(v);
     return (
-      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter min-h-[295mm] w-[210mm] flex flex-col box-border shadow-none">
         
         {/* Header - Dynamic Branding */}
-        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="shrink-0" style={{ minWidth: "128px" }}>
+        <div className="flex justify-between items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+          <div className="shrink-0 max-w-[140px]">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 74)}px` }} alt="logo" className="object-contain max-w-full" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1 transition-all">
-            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Transport Voucher</h1>
+          <div className="text-center flex-1 min-w-0 px-2 transition-all">
+            <h1 className="text-[21px] font-black text-[#0f172a] uppercase tracking-tighter leading-tight mb-0.5">Transport Voucher</h1>
             {branding.isCustom ? (
-              <p className="text-[14px] font-bold uppercase tracking-wider text-blue-600">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-blue-600">
                 {branding.name}
               </p>
             ) : (
               config?.appSubtitle && config.appSubtitle !== 'Travel Solutions by Shuja Anwar' && (
-                <p className="text-[14px] font-bold uppercase tracking-wider text-[#e11d48]">
+                <p className="text-[13px] font-bold uppercase tracking-wider text-[#e11d48]">
                   {config.appSubtitle}
                 </p>
               )
             )}
           </div>
-          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
+          <div className="shrink-0 flex items-center justify-end gap-2.5 text-right">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold whitespace-nowrap">{branding.contact}</span>
                 </p>
                 {!branding.isCustom && config?.companyPhone && (
                   <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                    PHONE: <span className="text-[#0f172a] font-bold whitespace-nowrap">{config.companyPhone}</span>
                   </p>
                 )}
              </div>
@@ -1472,7 +1517,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                <VoucherQRCode 
                  voucher={v} 
                  config={config} 
-                 size={qrCodeSize} 
+                 size={headerQrSize} 
                  showLabel={true} 
                  onClick={() => setInspectingPublicVoucher(v)} 
                  className="shrink-0 cursor-pointer" 
@@ -1689,39 +1734,39 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
   const renderVisaVoucher = (v: Voucher) => {
     const branding = getBranding(v);
     return (
-      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter min-h-[295mm] w-[210mm] flex flex-col box-border shadow-none">
         
         {/* Header - Dynamic Branding */}
-        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="shrink-0" style={{ minWidth: "128px" }}>
+        <div className="flex justify-between items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+          <div className="shrink-0 max-w-[140px]">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 74)}px` }} alt="logo" className="object-contain max-w-full" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1 transition-all">
-            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Visa Voucher</h1>
+          <div className="text-center flex-1 min-w-0 px-2 transition-all">
+            <h1 className="text-[21px] font-black text-[#0f172a] uppercase tracking-tighter leading-tight mb-0.5">Visa Voucher</h1>
             {branding.isCustom ? (
-              <p className="text-[14px] font-bold uppercase tracking-wider text-blue-600">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-blue-600">
                 {branding.name}
               </p>
             ) : (
               config?.appSubtitle && config.appSubtitle !== 'Travel Solutions by Shuja Anwar' && (
-                <p className="text-[14px] font-bold uppercase tracking-wider text-[#e11d48]">
+                <p className="text-[13px] font-bold uppercase tracking-wider text-[#e11d48]">
                   {config.appSubtitle}
                 </p>
               )
             )}
           </div>
-          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
+          <div className="shrink-0 flex items-center justify-end gap-2.5 text-right">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold whitespace-nowrap">{branding.contact}</span>
                 </p>
                 {!branding.isCustom && config?.companyPhone && (
                   <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                    PHONE: <span className="text-[#0f172a] font-bold whitespace-nowrap">{config.companyPhone}</span>
                   </p>
                 )}
              </div>
@@ -1729,7 +1774,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                <VoucherQRCode 
                  voucher={v} 
                  config={config} 
-                 size={qrCodeSize} 
+                 size={headerQrSize} 
                  showLabel={true} 
                  onClick={() => setInspectingPublicVoucher(v)} 
                  className="shrink-0 cursor-pointer" 
@@ -1909,38 +1954,38 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     ];
 
     return (
-      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+      <div ref={voucherRef} className="bg-white p-6 text-slate-900 font-inter min-h-[295mm] w-[210mm] flex flex-col box-border shadow-none">
         {/* Header - Dynamic Branding */}
-        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="shrink-0" style={{ minWidth: "128px" }}>
+        <div className="flex justify-between items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+          <div className="shrink-0 max-w-[140px]">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 74)}px` }} alt="logo" className="object-contain max-w-full" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1 transition-all">
-            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Air Ticket Voucher</h1>
+          <div className="text-center flex-1 min-w-0 px-2 transition-all">
+            <h1 className="text-[21px] font-black text-[#0f172a] uppercase tracking-tighter leading-tight mb-0.5">Air Ticket Voucher</h1>
             {branding.isCustom ? (
-              <p className="text-[14px] font-bold uppercase tracking-wider text-blue-600">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-blue-600">
                 {branding.name}
               </p>
             ) : (
               config?.appSubtitle && config.appSubtitle !== 'Travel Solutions by Shuja Anwar' && (
-                <p className="text-[14px] font-bold uppercase tracking-wider text-[#e11d48]">
+                <p className="text-[13px] font-bold uppercase tracking-wider text-[#e11d48]">
                   {config.appSubtitle}
                 </p>
               )
             )}
           </div>
-          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
+          <div className="shrink-0 flex items-center justify-end gap-2.5 text-right">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold whitespace-nowrap">{branding.contact}</span>
                 </p>
                 {!branding.isCustom && config?.companyPhone && (
                   <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2">
-                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                    PHONE: <span className="text-[#0f172a] font-bold whitespace-nowrap">{config.companyPhone}</span>
                   </p>
                 )}
              </div>
@@ -1948,7 +1993,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                <VoucherQRCode 
                  voucher={v} 
                  config={config} 
-                 size={qrCodeSize} 
+                 size={headerQrSize} 
                  showLabel={true} 
                  onClick={() => setInspectingPublicVoucher(v)} 
                  className="shrink-0 cursor-pointer" 
@@ -2124,39 +2169,39 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     };
 
     return (
-      <div ref={voucherRef} className="bg-white p-6 text-[#0f172a] font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+      <div ref={voucherRef} className="bg-white p-6 text-[#0f172a] font-inter min-h-[295mm] w-[210mm] flex flex-col box-border shadow-none">
         
         {/* Header - Dynamic Branding */}
-        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="shrink-0" style={{ minWidth: "128px" }}>
+        <div className="flex justify-between items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+          <div className="shrink-0 max-w-[140px]">
              {branding.logo ? (
-               <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+               <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 74)}px` }} alt="logo" className="object-contain max-w-full" />
              ) : (
                <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1 transition-all">
-            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Unified Service Voucher</h1>
+          <div className="text-center flex-1 min-w-0 px-2 transition-all">
+            <h1 className="text-[21px] font-black text-[#0f172a] uppercase tracking-tighter leading-tight mb-0.5">Unified Service Voucher</h1>
             {branding.isCustom ? (
-              <p className="text-[14px] font-bold uppercase tracking-wider text-blue-600">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-blue-600">
                 {branding.name}
               </p>
             ) : (
               config?.appSubtitle && config.appSubtitle !== 'Travel Solutions by Shuja Anwar' && (
-                <p className="text-[14px] font-bold uppercase tracking-wider text-[#e11d48]">
+                <p className="text-[13px] font-bold uppercase tracking-wider text-[#e11d48]">
                   {config.appSubtitle}
                 </p>
               )
             )}
           </div>
-          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
+          <div className="shrink-0 flex items-center justify-end gap-2.5 text-right">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold whitespace-nowrap">{branding.contact}</span>
                 </p>
                 {!branding.isCustom && config?.companyPhone && (
                   <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                    PHONE: <span className="text-[#0f172a] font-bold whitespace-nowrap">{config.companyPhone}</span>
                   </p>
                 )}
              </div>
@@ -2164,7 +2209,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                <VoucherQRCode 
                  voucher={v} 
                  config={config} 
-                 size={qrCodeSize} 
+                 size={headerQrSize} 
                  showLabel={true} 
                  onClick={() => setInspectingPublicVoucher(v)} 
                  className="shrink-0 cursor-pointer" 
@@ -2192,7 +2237,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 space-y-4 overflow-hidden">
+        <div className="flex-1 space-y-4">
           
           {/* SECTION 1: HOTEL ACCOMMODATIONS (First as requested) */}
           {(details.hotelItems?.length > 0) && (
@@ -2433,39 +2478,39 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
     const hajjis = details.hajjis || [];
 
     return (
-      <div ref={voucherRef} className="bg-white p-6 text-[#0f172a] font-inter h-[295mm] w-[210mm] overflow-hidden flex flex-col box-border shadow-none">
+      <div ref={voucherRef} className="bg-white p-6 text-[#0f172a] font-inter min-h-[295mm] w-[210mm] flex flex-col box-border shadow-none">
         
         {/* Header - Dynamic Branding */}
-        <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-          <div className="shrink-0" style={{ minWidth: "128px" }}>
+        <div className="flex justify-between items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+          <div className="shrink-0 max-w-[140px]">
              {branding.logo ? (
-                <img src={branding.logo} style={{ height: `${config?.logoSize || 80}px` }} alt="logo" className="object-contain" />
+                <img src={branding.logo} style={{ height: `${Math.min(config?.logoSize || 80, 74)}px` }} alt="logo" className="object-contain max-w-full" />
              ) : (
                 <div className="font-black text-xl tracking-tighter text-[#0f172a]">{branding.name}</div>
              )}
           </div>
-          <div className="text-center flex-1 transition-all">
-            <h1 className="text-[22px] font-black text-[#0f172a] uppercase tracking-tighter leading-none mb-0.5">Package Booking Voucher</h1>
+          <div className="text-center flex-1 min-w-0 px-2 transition-all">
+            <h1 className="text-[21px] font-black text-[#0f172a] uppercase tracking-tighter leading-tight mb-0.5">Package Booking Voucher</h1>
             {branding.isCustom ? (
-              <p className="text-[14px] font-bold uppercase tracking-wider text-blue-600">
+              <p className="text-[13px] font-bold uppercase tracking-wider text-blue-600">
                 {branding.name}
               </p>
             ) : (
               config?.appSubtitle && config.appSubtitle !== 'Travel Solutions by Shuja Anwar' && (
-                <p className="text-[14px] font-bold uppercase tracking-wider text-[#e11d48]">
+                <p className="text-[13px] font-bold uppercase tracking-wider text-[#e11d48]">
                   {config.appSubtitle}
                 </p>
               )
             )}
           </div>
-          <div className="shrink-0 flex items-center justify-end gap-3 text-right pr-2">
+          <div className="shrink-0 flex items-center justify-end gap-2.5 text-right">
              <div className="space-y-0.5">
                 <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold">{branding.contact}</span>
+                  {branding.isCustom ? 'CONTACT' : 'CELL'}: <span className="text-[#0f172a] font-bold whitespace-nowrap">{branding.contact}</span>
                 </p>
                 {!branding.isCustom && config?.companyPhone && (
                   <p className="text-[9px] font-black text-slate-400 uppercase flex justify-end gap-2 text-right">
-                    PHONE: <span className="text-[#0f172a] font-bold">{config.companyPhone}</span>
+                    PHONE: <span className="text-[#0f172a] font-bold whitespace-nowrap">{config.companyPhone}</span>
                   </p>
                 )}
              </div>
@@ -2473,7 +2518,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                <VoucherQRCode 
                  voucher={v} 
                  config={config} 
-                 size={qrCodeSize} 
+                 size={headerQrSize} 
                  showLabel={true} 
                  onClick={() => setInspectingPublicVoucher(v)} 
                  className="shrink-0 cursor-pointer" 
@@ -2501,7 +2546,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 space-y-4 overflow-hidden">
+        <div className="flex-1 space-y-4">
           
           {/* SECTION 1: HOTEL ACCOMMODATIONS */}
           {((details.hotelStays && details.hotelStays.length > 0) || details.makkahHotelName || details.madinahHotelName) && (
@@ -3097,7 +3142,7 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                     </div>
                   )}
                </div>
-               <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
                   {inspectorView === 'SERVICE' && (viewingVoucher.type === VoucherType.VISA || viewingVoucher.type === VoucherType.TRANSPORT) && (
                     <label className="flex items-center space-x-2 cursor-pointer bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 shadow-sm mr-2 select-none">
                       <input 
@@ -3158,10 +3203,29 @@ const Vouchers: React.FC<VouchersProps> = ({ config, refreshKey: globalRefreshKe
                   </button>
                </div>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar print:overflow-visible flex justify-center py-6 md:py-10 bg-slate-50/30 dark:bg-slate-950/20">
-              <div className="w-full max-w-4xl px-2 sm:px-6">
-                <div className="overflow-x-auto bg-white shadow-2xl md:rounded-2xl border border-slate-100 p-0 sm:p-2">
-                  {renderInspectorContent()}
+            <div className="flex-1 overflow-y-auto no-scrollbar print:overflow-visible flex justify-center py-4 md:py-10 bg-slate-50/30 dark:bg-slate-950/20">
+              <div className="w-full max-w-4xl px-2 sm:px-6 print:px-0 print:max-w-none">
+                <div
+                  ref={previewContainerRef}
+                  className={`bg-white shadow-2xl md:rounded-2xl border border-slate-100 overflow-hidden print:shadow-none print:border-none print:p-0 print:rounded-none print:overflow-visible ${
+                    previewScale < 1 ? 'block p-0' : 'flex justify-center p-0 sm:p-2'
+                  }`}
+                  style={previewScale < 1 && previewContentHeight ? { height: `${Math.ceil(previewContentHeight * previewScale)}px` } : undefined}
+                >
+                  <div
+                    className="print:transform-none print:w-auto"
+                    style={
+                      previewScale < 1
+                        ? {
+                            width: '794px',
+                            transform: `scale(${previewScale})`,
+                            transformOrigin: 'top left'
+                          }
+                        : undefined
+                    }
+                  >
+                    {renderInspectorContent()}
+                  </div>
                 </div>
               </div>
             </div>

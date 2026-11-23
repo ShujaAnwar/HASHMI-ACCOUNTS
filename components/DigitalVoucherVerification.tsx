@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Voucher, VoucherType, Currency, AppConfig, Account } from '../types';
 import { decodeVoucherData, VerifiedVoucherPayload } from '../utils/voucherQrHelper';
 import { formatDate, resolveNights } from '../utils/format';
+import { generateA4PdfFromElement } from '../utils/voucherPdf';
 import VoucherQRCode from './VoucherQRCode';
 import { getVoucherByIdOrNum, getAccounts, getConfig } from '../services/db';
 import { supabase } from '../services/supabase';
@@ -220,15 +221,15 @@ export const DigitalVoucherVerification: React.FC<DigitalVoucherVerificationProp
     try {
       // @ts-ignore
       if (window.html2pdf && printRef.current) {
-        const opt = {
-          margin: [6, 6, 6, 6],
-          filename: `Digital_Voucher_${voucher?.voucherNum || 'Verified'}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2.2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-        // @ts-ignore
-        await window.html2pdf().set(opt).from(printRef.current).save();
+        const fileName = `Digital_Voucher_${voucher?.voucherNum || 'Verified'}.pdf`;
+        const { doc } = await generateA4PdfFromElement(printRef.current, fileName, {
+          desktopWidthPx: 794,
+          marginMm: 6,
+          preserveMinHeight: false,
+          scale: 2,
+          imageQuality: 0.96
+        });
+        doc.save(fileName);
       } else {
         window.print();
       }
